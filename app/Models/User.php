@@ -40,7 +40,7 @@ class User extends Authenticatable implements JWTSubject
         'otp_expires_at',
         'google_id',
     ];
-
+ 
     /**
      * The attributes that should be cast.
      */
