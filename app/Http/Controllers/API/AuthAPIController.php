@@ -17,4 +17,14 @@ class AuthAPIController extends Controller
     {
         return $this->authService->login($request);
     }
+
+    public function sendResetLink(Request $request)
+    {
+        return $this->authService->sendResetLink($request);
+    }
+
+    public function resetPassword(Request $request){
+        return $this -> authService -> reset($request);
+    }
+
 }

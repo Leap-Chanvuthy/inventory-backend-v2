@@ -21,3 +21,5 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 
 Route::post('/login', [AuthAPIController::class, 'login']);
+Route::post('/send-reset-link', [AuthAPIController::class, 'sendResetLink']);
+Route::post('/reset-password', [AuthAPIController::class, 'resetPassword']);
