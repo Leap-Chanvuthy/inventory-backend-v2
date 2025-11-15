@@ -9,6 +9,7 @@ use Illuminate\Validation\ValidationException;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use App\Helpers\ResponseHelper;
 use App\Mail\PasswordResetMail;
+use App\Mail\PaswordResetSuccessMail;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -102,6 +103,7 @@ public function reset(Request $request)
         );
 
         if ($status === Password::PASSWORD_RESET) {
+            Mail::to($request->email) -> send(new PaswordResetSuccessMail(User::where('email', $request->email)->first()));
             return ResponseHelper::success(
                 ['message' => __($status)], 
                 'Password reset successful',

@@ -112,7 +112,7 @@
             If you did not request a password reset, please disregard this email. Do not share this token with anyone.<br /><br />
             <strong>Thank you for using {{ config('app.name') }} App.</strong><br /><br />
             Best regards,<br />
-            <strong>Loukdo Team</strong>
+            <strong>Inventory App</strong>
         </p>
 
         <hr style="border: none; border-top: 0.5px solid #ddd" />
