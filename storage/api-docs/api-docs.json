@@ -30,7 +30,7 @@
                                     },
                                     "password": {
                                         "type": "string",
-                                        "example": "password123"
+                                        "example": "123456789"
                                     }
                                 },
                                 "type": "object"
@@ -338,6 +338,493 @@
                     }
                 }
             }
+        },
+        "/api/company/info": {
+            "get": {
+                "tags": [
+                    "Company"
+                ],
+                "summary": "Get company information",
+                "description": "Retrieve company information including general details and banking information.",
+                "operationId": "9c4011d51d58ae1828caa64c0fdde490",
+                "responses": {
+                    "200": {
+                        "description": "Company information retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Company information retrieved successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "company_name": {
+                                                    "type": "string",
+                                                    "example": "Toeuk Somrang Company"
+                                                },
+                                                "email": {
+                                                    "type": "string",
+                                                    "example": "info@company.com"
+                                                },
+                                                "phone_number": {
+                                                    "type": "string",
+                                                    "example": "012345678"
+                                                },
+                                                "contact_person": {
+                                                    "type": "string",
+                                                    "example": "John Doe"
+                                                },
+                                                "industry_type": {
+                                                    "type": "string",
+                                                    "example": "Technology"
+                                                },
+                                                "website_url": {
+                                                    "type": "string",
+                                                    "example": "https://company.com"
+                                                },
+                                                "date_established": {
+                                                    "type": "string",
+                                                    "example": "2020-01-01"
+                                                },
+                                                "vat_number": {
+                                                    "type": "string",
+                                                    "example": "VAT123456"
+                                                },
+                                                "description": {
+                                                    "type": "string",
+                                                    "example": "Company description here"
+                                                },
+                                                "company_logo": {
+                                                    "type": "string",
+                                                    "example": "https://cdn.example.com/logo.png"
+                                                },
+                                                "banking_infos": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "bank_name": {
+                                                                "type": "string",
+                                                                "example": "ABA"
+                                                            },
+                                                            "payment_link": {
+                                                                "type": "string",
+                                                                "example": "https://aba.com.kh/payment"
+                                                            },
+                                                            "bank_account_holder_name": {
+                                                                "type": "string",
+                                                                "example": "Toeuk Somrang Company"
+                                                            },
+                                                            "bank_account_number": {
+                                                                "type": "string",
+                                                                "example": "123456789"
+                                                            },
+                                                            "khqr_code": {
+                                                                "type": "string",
+                                                                "example": "https://cdn.example.com/qrcode.png"
+                                                            },
+                                                            "is_default": {
+                                                                "type": "boolean",
+                                                                "example": true
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to retrieve company information",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Failed to retrieve company information"
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "exception": {
+                                                    "type": "string",
+                                                    "example": "Database connection error"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/company/general-info": {
+            "post": {
+                "tags": [
+                    "Company"
+                ],
+                "summary": "Update general company information",
+                "operationId": "a3b3a642844be002907132951bad7b0e",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "company_name",
+                                    "email",
+                                    "phone_number",
+                                    "contact_person",
+                                    "industry_type"
+                                ],
+                                "properties": {
+                                    "company_name": {
+                                        "type": "string",
+                                        "example": "Toeuk Somrang Company"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "info@company.com"
+                                    },
+                                    "phone_number": {
+                                        "type": "string",
+                                        "example": "012345678"
+                                    },
+                                    "contact_person": {
+                                        "type": "string",
+                                        "example": "John Doe"
+                                    },
+                                    "industry_type": {
+                                        "type": "string",
+                                        "example": "Technology"
+                                    },
+                                    "website_url": {
+                                        "type": "string",
+                                        "example": "https://company.com"
+                                    },
+                                    "date_established": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2020-01-01"
+                                    },
+                                    "vat_number": {
+                                        "type": "string",
+                                        "example": "VAT123456"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Company description here"
+                                    },
+                                    "company_logo": {
+                                        "description": "Upload company logo",
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "General info updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "General information updated successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/company/address-info": {
+            "post": {
+                "tags": [
+                    "Company"
+                ],
+                "summary": "Update company address information",
+                "operationId": "22051bafaa0d70f854dd53fd4ee4cff3",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "full_address"
+                                ],
+                                "properties": {
+                                    "full_address": {
+                                        "type": "string",
+                                        "example": "123 Street Name, Commune, City"
+                                    },
+                                    "house_number": {
+                                        "type": "string",
+                                        "example": "12"
+                                    },
+                                    "street": {
+                                        "type": "string",
+                                        "example": "Street Name"
+                                    },
+                                    "commune": {
+                                        "type": "string",
+                                        "example": "Commune Name"
+                                    },
+                                    "district": {
+                                        "type": "string",
+                                        "example": "District Name"
+                                    },
+                                    "city": {
+                                        "type": "string",
+                                        "example": "Phnom Penh"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Address info updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Address information updated successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/company/telegram-info": {
+            "post": {
+                "tags": [
+                    "Company"
+                ],
+                "summary": "Update Telegram notification chat ID",
+                "operationId": "b563d127aff8ca53acff550a87319f5b",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "type",
+                                    "chat_id"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "inventory",
+                                            "sale",
+                                            "purchase"
+                                        ],
+                                        "example": "inventory"
+                                    },
+                                    "chat_id": {
+                                        "type": "string",
+                                        "example": "1234567890"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Telegram chat ID updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Inventory chat ID updated"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/company/setup-payment": {
+            "post": {
+                "tags": [
+                    "Company"
+                ],
+                "summary": "Setup company payment method",
+                "operationId": "89a85203f490de317cf9ee351ff8ee14",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "bank_name",
+                                    "payment_link",
+                                    "bank_account_holder_name",
+                                    "bank_account_number",
+                                    "set_as_default"
+                                ],
+                                "properties": {
+                                    "bank_name": {
+                                        "type": "string",
+                                        "enum": [
+                                            "ABA",
+                                            "ACLEDA",
+                                            "WING",
+                                            "BAKONG"
+                                        ],
+                                        "example": "ABA"
+                                    },
+                                    "payment_link": {
+                                        "type": "string",
+                                        "example": "https://aba.com.kh/payment-link"
+                                    },
+                                    "bank_account_holder_name": {
+                                        "type": "string",
+                                        "example": "Toeuk Somrang Company"
+                                    },
+                                    "bank_account_number": {
+                                        "type": "string",
+                                        "example": "1234567890"
+                                    },
+                                    "khqr_code": {
+                                        "description": "Upload QR code image",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "set_as_default": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Company payment setup successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Company payment setup successfully."
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -353,6 +840,10 @@
         {
             "name": "Authentication",
             "description": "API Endpoints for user authentication and password reset"
+        },
+        {
+            "name": "Company",
+            "description": "Company"
         }
     ]
 }

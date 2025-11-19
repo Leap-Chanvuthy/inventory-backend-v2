@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\API\AuthAPIController;
+use App\Http\Controllers\API\CompanyInfoAPIController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -23,3 +24,12 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::post('/login', [AuthAPIController::class, 'login']);
 Route::post('/send-reset-link', [AuthAPIController::class, 'sendResetLink']);
 Route::post('/reset-password', [AuthAPIController::class, 'resetPassword']);
+
+
+Route::prefix('company')->group(function () {
+    Route::get('/info', [CompanyInfoAPIController::class, 'getCompanyInfo']);
+    Route::post('/general-info', [CompanyInfoAPIController::class, 'updateGeneral']);
+    Route::post('/address-info', [CompanyInfoAPIController::class, 'updateAddress']);
+    Route::post('/telegram-info', [CompanyInfoAPIController::class, 'updateTelegram']);
+    Route::post('/setup-payment', [CompanyInfoAPIController::class, 'setupPayment']);
+});
