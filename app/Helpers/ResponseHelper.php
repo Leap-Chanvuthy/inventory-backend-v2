@@ -11,7 +11,7 @@ class ResponseHelper
     {
         return response()->json([
             'status' => true,
-            'message' => $message,
+            'message' => $message, 
             'data' => $data,
         ], $code);
     }

@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Enums\PaymentMethodEnum;
 use App\Enums\TelegramNotificationType;
+use App\Helpers\FileUploadHelper;
 use App\Models\CompanyInformation;
 use App\Helpers\ResponseHelper;
 use App\Models\CompanyBankingInfo;
@@ -52,33 +53,35 @@ class CompanyInfoService
             $company = CompanyInformation::firstOrCreate([], []);
 
             if ($request->hasFile('company_logo')) {
-                if ($company->company_logo) {
-                    $oldPath = parse_url($company->company_logo, PHP_URL_PATH);
-                    $oldPath = ltrim($oldPath, '/');
-                    if (Storage::disk('r2')->exists($oldPath)) {
-                        Storage::disk('r2')->delete($oldPath);
-                    }
-                }
-
-                $file = $request->file('company_logo');
-                $path = Storage::disk('r2')->putFile('company_logo', $file, 'public');
-
-                $publicDomain = env('R2_PUBLIC_DEV_DOMAIN');
-                $validated['company_logo'] = $publicDomain . '/' . $path;
+                $validated['company_logo'] = FileUploadHelper::uploadSingle(
+                    $request->file('company_logo'),
+                    'company_logo', // path folder
+                    $company->company_logo
+                );
             }
 
             $company->update($validated);
 
             DB::commit();
 
-            return ResponseHelper::success($validated, "General information updated successfully", 200);
-        } catch (ValidationException $e) {
+            return ResponseHelper::success(
+                $validated,
+                "General information updated successfully",
+                200
+            );
+        }
+
+        catch (ValidationException $e) {
             return ResponseHelper::validation($e->errors(), "Validation Error");
-        } catch (Exception $e) {
+        }
+
+        catch (Exception $e) {
             DB::rollBack();
-            return ResponseHelper::error("Failed to update general info", 500, [
-                'exception' => $e->getMessage()
-            ]);
+            return ResponseHelper::error(
+                "Failed to update general info",
+                500,
+                ['exception' => $e->getMessage()]
+            );
         }
     }
 
@@ -155,6 +158,9 @@ class CompanyInfoService
         }
     }
 
+    /**
+     * SETUP COMPANY PAYMENT
+     */
 
     public function setupPayment($request)
     {
@@ -180,6 +186,7 @@ class CompanyInfoService
 
             $company = CompanyInformation::firstOrCreate([], []);
 
+            // If set_as_default = true, remove default from the others
             if (!empty($validated['set_as_default']) && $validated['set_as_default']) {
                 CompanyBankingInfo::where('company_information_id', $company->id)
                     ->update(['set_as_default' => false]);
@@ -189,21 +196,15 @@ class CompanyInfoService
                 ->where('bank_name', $validated['bank_name'])
                 ->first();
 
-            $qrCodePath = $payment ? $payment->khqr_code : null;
-            if ($request->hasFile('khqr_code')) {
-                if ($payment && $payment->khqr_code) {
-                    $oldPath = parse_url($payment->khqr_code, PHP_URL_PATH);
-                    $oldPath = ltrim($oldPath, '/');
-                    if (Storage::disk('r2')->exists($oldPath)) {
-                        Storage::disk('r2')->delete($oldPath);
-                    }
-                }
+            $oldQrUrl = $payment ? $payment->khqr_code : null;
 
-                $file = $request->file('khqr_code');
-                $path = $file->store('khqr_images', 'r2');
-                $publicDomain = env('R2_PUBLIC_DEV_DOMAIN');
-                $qrCodePath = $publicDomain . '/' . $path;
-            }
+            $validated['khqr_code'] = $request->hasFile('khqr_code')
+                ? FileUploadHelper::uploadSingle(
+                    $request->file('khqr_code'),
+                    'khqr_images',
+                    $oldQrUrl
+                )
+                : $oldQrUrl;
 
             $paymentData = [
                 'company_information_id' => $company->id,
@@ -211,11 +212,12 @@ class CompanyInfoService
                 'payment_link' => $validated['payment_link'],
                 'bank_account_holder_name' => $validated['bank_account_holder_name'],
                 'bank_account_number' => $validated['bank_account_number'],
-                'khqr_code' => $qrCodePath,
+                'khqr_code' => $validated['khqr_code'],
                 'set_as_default' => $validated['set_as_default'] ?? false,
                 'payment_method_label' => $this->getPaymentMethodLabel($validated['bank_name']),
             ];
 
+            // Create or update record
             if ($payment) {
                 $payment->update($paymentData);
             } else {
@@ -224,14 +226,24 @@ class CompanyInfoService
 
             DB::commit();
 
-            return ResponseHelper::success($paymentData, "Company payment setup successfully.", 200);
-        } catch (ValidationException $e) {
+            return ResponseHelper::success(
+                $paymentData,
+                "Company payment setup successfully.",
+                200
+            );
+        }
+
+        catch (ValidationException $e) {
             return ResponseHelper::validation($e->errors(), 'Validation Error');
-        } catch (Exception $e) {
+        }
+
+        catch (Exception $e) {
             DB::rollBack();
-            return ResponseHelper::error("Failed to setup company payment", 500, [
-                'exception' => $e->getMessage()
-            ]);
+            return ResponseHelper::error(
+                "Failed to setup company payment",
+                500,
+                ['exception' => $e->getMessage()]
+            );
         }
     }
 
