@@ -825,6 +825,295 @@
                     }
                 ]
             }
+        },
+        "/api/users/{id}": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Get a user by ID",
+                "description": "Retrieve a single user by specifying the user ID.",
+                "operationId": "2ef4979a961a6c3b2ccfb663ecb00cf6",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "User ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "User retrieved successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "name": {
+                                                    "type": "string",
+                                                    "example": "John Doe"
+                                                },
+                                                "phone_number": {
+                                                    "type": "string",
+                                                    "example": "099999999"
+                                                },
+                                                "profile_picture": {
+                                                    "type": "string",
+                                                    "example": "uploads/profile.jpg"
+                                                },
+                                                "role": {
+                                                    "type": "string",
+                                                    "example": "ADMIN"
+                                                },
+                                                "email": {
+                                                    "type": "string",
+                                                    "example": "john@gmail.com"
+                                                },
+                                                "ip_address": {
+                                                    "type": "string",
+                                                    "example": "192.168.1.10"
+                                                },
+                                                "device": {
+                                                    "type": "string",
+                                                    "example": "Chrome on MacOS"
+                                                },
+                                                "last_activity": {
+                                                    "type": "string",
+                                                    "example": "2025-01-12 12:00:00"
+                                                },
+                                                "created_at": {
+                                                    "type": "string",
+                                                    "example": "2024-01-01 08:00:00"
+                                                },
+                                                "updated_at": {
+                                                    "type": "string",
+                                                    "example": "2024-02-01 08:00:00"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "User not found"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": null
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Failed getting user"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "Exception message here"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/users": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Get all users with pagination, filters, and sorting",
+                "description": "Retrieve a paginated list of all users. Supports filtering, sorting, and search.",
+                "operationId": "c7f6af6ebecc1e8494a29d8e2d7f8eb2",
+                "parameters": [
+                    {
+                        "name": "filter[id]",
+                        "in": "query",
+                        "description": "Filter by user ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[role]",
+                        "in": "query",
+                        "description": "Filter by user role",
+                        "schema": {
+                            "type": "string",
+                            "example": "ADMIN"
+                        }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "description": "Search by name, email, or phone number",
+                        "schema": {
+                            "type": "string",
+                            "example": "John"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort fields (e.g., -created_at, name, email)",
+                        "schema": {
+                            "type": "string",
+                            "example": "-created_at"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Users retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Users retrieved successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "name": {
+                                                                "type": "string",
+                                                                "example": "John Doe"
+                                                            },
+                                                            "email": {
+                                                                "type": "string",
+                                                                "example": "john@gmail.com"
+                                                            },
+                                                            "phone_number": {
+                                                                "type": "string",
+                                                                "example": "099999999"
+                                                            },
+                                                            "role": {
+                                                                "type": "string",
+                                                                "example": "ADMIN"
+                                                            },
+                                                            "created_at": {
+                                                                "type": "string",
+                                                                "example": "2025-01-01 12:00:00"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed getting users",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Failed getting users"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "Exception message here"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -840,6 +1129,10 @@
         {
             "name": "Authentication",
             "description": "API Endpoints for user authentication and password reset"
+        },
+        {
+            "name": "Users",
+            "description": "API Endpoints for retrieving user information"
         },
         {
             "name": "Company",
