@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\API\AuthAPIController;
 use App\Http\Controllers\API\CompanyInfoAPIController;
+use App\Http\Controllers\API\UserAPIController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -33,3 +34,8 @@ Route::prefix('company')->group(function () {
     Route::post('/telegram-info', [CompanyInfoAPIController::class, 'updateTelegram']);
     Route::post('/setup-payment', [CompanyInfoAPIController::class, 'setupPayment']);
 });
+
+Route::prefix('users')->group(function () {
+    Route::get('/{id}', [UserAPIController::class, 'getUserById']);
+    Route::get('/', [UserAPIController::class, 'getUsers']);
+}); 

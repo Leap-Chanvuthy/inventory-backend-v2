@@ -12,6 +12,7 @@
         "laravel/sanctum": "^3.3",
         "laravel/tinker": "^2.8",
         "league/flysystem-aws-s3-v3": "^3.30",
+        "spatie/laravel-query-builder": "^6.3",
         "tymon/jwt-auth": "^2.2"
     },
     "require-dev": {
