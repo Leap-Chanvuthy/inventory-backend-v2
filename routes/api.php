@@ -35,13 +35,18 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
         Route::post('/telegram-info', [CompanyInfoAPIController::class, 'updateTelegram']);
         Route::post('/setup-payment', [CompanyInfoAPIController::class, 'setupPayment']);
     });    
-});
 
-Route::middleware(['auth:api', 'role:STOCK_CONTROLLER'])->group(function () {
     Route::prefix('users')->group(function () {
         Route::get('/{id}', [UserAPIController::class, 'getUserById']);
         Route::get('/', [UserAPIController::class, 'getUsers']);
     }); 
 });
+
+// Route::middleware(['auth:api', 'role:STOCK_CONTROLLER'])->group(function () {
+//     Route::prefix('users')->group(function () {
+//         Route::get('/{id}', [UserAPIController::class, 'getUserById']);
+//         Route::get('/', [UserAPIController::class, 'getUsers']);
+//     }); 
+// });
 
 
