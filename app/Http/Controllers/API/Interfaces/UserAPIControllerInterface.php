@@ -14,7 +14,7 @@ interface UserAPIControllerInterface
      * @OA\Get(
      *     path="/api/users/{id}",
      *     tags={"Users"},
-     *     security={{"bearerAuth":{}}},
+     *     security={{"Bearer":{}}},
      *     summary="Get a user by ID",
      *     description="Retrieve a single user by specifying the user ID.",
      *
@@ -76,7 +76,7 @@ interface UserAPIControllerInterface
      * @OA\Get(
      *     path="/api/users",
      *     tags={"Users"},
-     *     security={{"bearerAuth":{}}},
+     *     security={{"Bearer":{}}},
      *     summary="Get all users with pagination, filters, and sorting",
      *     description="Retrieve a paginated list of all users. Supports filtering, sorting, and search.",
      *
