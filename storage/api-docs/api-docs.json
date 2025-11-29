@@ -970,6 +970,172 @@
                         "Bearer": []
                     }
                 ]
+            },
+            "post": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Update an existing user (with image)",
+                "description": "Update user information. For file uploads, use POST method with `_method: PATCH` as a parameter.",
+                "operationId": "fcfcc633a7b9e2a3d9640f135366be26",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "User ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "_method",
+                                    "name",
+                                    "phone_number",
+                                    "email",
+                                    "role"
+                                ],
+                                "properties": {
+                                    "_method": {
+                                        "description": "Set this to PATCH to emulate PATCH request using POST",
+                                        "type": "string",
+                                        "example": "PATCH"
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Updated Name"
+                                    },
+                                    "phone_number": {
+                                        "type": "string",
+                                        "example": "099123456"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "example": "updated@example.com"
+                                    },
+                                    "role": {
+                                        "type": "string",
+                                        "example": "ADMIN"
+                                    },
+                                    "profile_picture": {
+                                        "description": "Profile picture (jpg, png)",
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "User updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "User updated successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "User not found"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": null
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Validation Error"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed updating user",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Failed updating user"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "Exception message here"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
             }
         },
         "/api/users": {
@@ -1096,6 +1262,174 @@
                                         "message": {
                                             "type": "string",
                                             "example": "Failed getting users"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "Exception message here"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Create a new user",
+                "description": "Create a new system user. Supports uploading profile picture and sends identity verification email.",
+                "operationId": "12717d66b2d71a3c35bf75968411222a",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "phone_number",
+                                    "email",
+                                    "password",
+                                    "password_confirmation",
+                                    "role"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "John Doe"
+                                    },
+                                    "phone_number": {
+                                        "type": "string",
+                                        "example": "098765432"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "example": "john@example.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "Pass@12345"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "example": "Pass@12345"
+                                    },
+                                    "role": {
+                                        "type": "string",
+                                        "example": "ADMIN"
+                                    },
+                                    "profile_picture": {
+                                        "description": "Profile picture (jpg, png)",
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "User created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "User created successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "name": {
+                                                    "type": "string",
+                                                    "example": "John Doe"
+                                                },
+                                                "phone_number": {
+                                                    "type": "string",
+                                                    "example": "098765432"
+                                                },
+                                                "profile_picture": {
+                                                    "type": "string",
+                                                    "example": "uploads/profile_picture/abc.jpg"
+                                                },
+                                                "role": {
+                                                    "type": "string",
+                                                    "example": "ADMIN"
+                                                },
+                                                "email": {
+                                                    "type": "string",
+                                                    "example": "john@example.com"
+                                                },
+                                                "created_at": {
+                                                    "type": "string",
+                                                    "example": "2025-01-01 09:00:00"
+                                                },
+                                                "updated_at": {
+                                                    "type": "string",
+                                                    "example": "2025-01-01 09:00:00"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Validation Error"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed creating user",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Failed creating user"
                                         },
                                         "errors": {
                                             "type": "string",

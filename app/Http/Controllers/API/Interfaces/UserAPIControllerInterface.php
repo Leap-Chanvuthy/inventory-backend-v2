@@ -147,4 +147,169 @@ interface UserAPIControllerInterface
      * )
      */
     public function getUsers();
+
+        /**
+     * @OA\Post(
+     *     path="/api/users",
+     *     tags={"Users"},
+     *     security={{"Bearer":{}}},
+     *     summary="Create a new user",
+     *     description="Create a new system user. Supports uploading profile picture and sends identity verification email.",
+     *
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 required={"name", "phone_number", "email", "password", "password_confirmation", "role"},
+     *                 @OA\Property(property="name", type="string", example="John Doe"),
+     *                 @OA\Property(property="phone_number", type="string", example="098765432"),
+     *                 @OA\Property(property="email", type="string", example="john@example.com"),
+     *
+     *                 @OA\Property(property="password", type="string", example="Pass@12345"),
+     *                 @OA\Property(property="password_confirmation", type="string", example="Pass@12345"),
+     *
+     *                 @OA\Property(property="role", type="string", example="ADMIN"),
+     *
+     *                 @OA\Property(
+     *                     description="Profile picture (jpg, png)",
+     *                     property="profile_picture",
+     *                     type="string",
+     *                     format="binary"
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=201,
+     *         description="User created successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="User created successfully"),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="id", type="integer", example=1),
+     *                 @OA\Property(property="name", type="string", example="John Doe"),
+     *                 @OA\Property(property="phone_number", type="string", example="098765432"),
+     *                 @OA\Property(property="profile_picture", type="string", example="uploads/profile_picture/abc.jpg"),
+     *                 @OA\Property(property="role", type="string", example="ADMIN"),
+     *                 @OA\Property(property="email", type="string", example="john@example.com"),
+     *                 @OA\Property(property="created_at", type="string", example="2025-01-01 09:00:00"),
+     *                 @OA\Property(property="updated_at", type="string", example="2025-01-01 09:00:00")
+     *             )
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Validation Error"),
+     *             @OA\Property(property="errors", type="object")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=500,
+     *         description="Failed creating user",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Failed creating user"),
+     *             @OA\Property(property="errors", type="string", example="Exception message here")
+     *         )
+     *     )
+     * )
+     */
+    public function createUser();
+
+/**
+ * @OA\Post(
+ *     path="/api/users/{id}",
+ *     tags={"Users"},
+ *     security={{"Bearer":{}}},
+ *     summary="Update an existing user (with image)",
+ *     description="Update user information. For file uploads, use POST method with `_method: PATCH` as a parameter.",
+ *
+ *     @OA\Parameter(
+ *         name="id",
+ *         in="path",
+ *         required=true,
+ *         description="User ID",
+ *         @OA\Schema(type="integer", example=1)
+ *     ),
+ *
+ *     @OA\RequestBody(
+ *         required=true,
+ *         @OA\MediaType(
+ *             mediaType="multipart/form-data",
+ *             @OA\Schema(
+ *                 required={"_method","name", "phone_number", "email", "role"},
+ *
+ *                 @OA\Property(
+ *                     property="_method",
+ *                     type="string",
+ *                     example="PATCH",
+ *                     description="Set this to PATCH to emulate PATCH request using POST"
+ *                 ),
+ *
+ *                 @OA\Property(property="name", type="string", example="Updated Name"),
+ *                 @OA\Property(property="phone_number", type="string", example="099123456"),
+ *                 @OA\Property(property="email", type="string", example="updated@example.com"),
+ *                 @OA\Property(property="role", type="string", example="ADMIN"),
+ *
+ *                 @OA\Property(
+ *                     description="Profile picture (jpg, png)",
+ *                     property="profile_picture",
+ *                     type="string",
+ *                     format="binary"
+ *                 )
+ *             )
+ *         )
+ *     ),
+ *
+ *     @OA\Response(
+ *         response=200,
+ *         description="User updated successfully",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="status", type="boolean", example=true),
+ *             @OA\Property(property="message", type="string", example="User updated successfully"),
+ *             @OA\Property(property="data", type="object")
+ *         )
+ *     ),
+ *
+ *     @OA\Response(
+ *         response=404,
+ *         description="User not found",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="status", type="boolean", example=false),
+ *             @OA\Property(property="message", type="string", example="User not found"),
+ *             @OA\Property(property="errors", type="string", example=null)
+ *         )
+ *     ),
+ *
+ *     @OA\Response(
+ *         response=422,
+ *         description="Validation error",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="status", type="boolean", example=false),
+ *             @OA\Property(property="message", type="string", example="Validation Error"),
+ *             @OA\Property(property="errors", type="object")
+ *         )
+ *     ),
+ *
+ *     @OA\Response(
+ *         response=500,
+ *         description="Failed updating user",
+ *         @OA\JsonContent(
+ *             @OA\Property(property="status", type="boolean", example=false),
+ *             @OA\Property(property="message", type="string", example="Failed updating user"),
+ *             @OA\Property(property="errors", type="string", example="Exception message here")
+ *         )
+ *     )
+ * )
+ */
+public function updateUser();
+
+
 }
