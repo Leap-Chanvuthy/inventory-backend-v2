@@ -3,42 +3,44 @@
 namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Hash;
+use App\Enums\UserRoleEnum; // if you use enum for role
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
  */
 class UserFactory extends Factory
 {
-    /**
-     * The current password being used by the factory.
-     */
-    protected static ?string $password;
+    protected $model = \App\Models\User::class;
 
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
-        return [
-            'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
-            'remember_token' => Str::random(10),
+        $names = [
+            'Alice Johnson', 'Bob Smith', 'Charlie Brown', 'David Wilson', 'Eve Thompson',
+            'Frank Miller', 'Grace Lee', 'Hannah Taylor', 'Ian Anderson', 'Jane Martinez',
+            'Kevin White', 'Laura Harris', 'Michael Clark', 'Nina Lewis', 'Oscar Young',
+            'Paula Hall', 'Quinn Allen', 'Rachel King', 'Steve Wright', 'Tina Scott',
+            'Umar Adams', 'Victoria Baker', 'William Nelson', 'Xander Roberts', 'Yara Perez',
+            'Zack Turner', 'Olivia Hill', 'Liam Green', 'Sophia Adams', 'Mason Carter'
         ];
-    }
 
-    /**
-     * Indicate that the model's email address should be unverified.
-     */
-    public function unverified(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
-        ]);
+        $name = $this->faker->unique()->randomElement($names);
+        $email = strtolower(str_replace(' ', '.', $name)) . '@example.com';
+        $phoneNumber = '09' . $this->faker->numberBetween(10000000, 99999999);
+        $randomId = rand(1, 30);
+
+        $roles = ['ADMIN', 'STOCK_CONTROLLER' , 'VENDER' ]; 
+
+
+        return [
+            'name' => $name,
+            'email' => $email,
+            'phone_number' => $phoneNumber,
+            'role' => $this->faker->randomElement($roles),
+            'password' => Hash::make('password123'), // default password
+            'profile_picture' => "https://avatar.iran.liara.run/public/{$randomId}",
+            'email_verified_at' => now(),
+        ];
     }
 }
