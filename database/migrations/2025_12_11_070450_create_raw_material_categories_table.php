@@ -11,11 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('warehouse_images', function (Blueprint $table) {
+        Schema::create('raw_material_categories', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('warehouse_id');
-            $table->string('image' , 2048);
-            $table->foreign('warehouse_id')->references('id')->on('warehouses')->onDelete('cascade');
+            $table->string('category_name');
+            $table->string('category_code');
+            $table->string('label_color')->nullable()->default('#FFFFFF');
+            $table->text('description')->nullable();
             $table->timestamps();
         });
     }
@@ -25,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('warehouse_images');
+        Schema::dropIfExists('raw_material_categories');
     }
 };

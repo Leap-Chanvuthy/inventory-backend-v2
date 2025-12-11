@@ -26,6 +26,20 @@ interface WarehouseAPIControllerInterface
      *         description="Number of warehouses per page",
      *         @OA\Schema(type="integer", example=10)
      *     ),
+     *     @OA\Parameter(
+     *         name="filter[search]",
+     *         in="query",
+     *         description="Search warehouse by warehouse name and warehouse manager",
+     *         required=false,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Parameter(
+     *         name="sort",
+     *         in="query",
+     *         description="Sort warehouses by a specific field (e.g., created_at, updated_at, warehouse_manager)",
+     *         required=false,
+     *         @OA\Schema(type="string", example="-created_at")
+     *     ),
      *
      *     @OA\Response(
      *         response=200,

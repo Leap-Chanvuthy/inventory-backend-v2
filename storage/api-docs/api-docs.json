@@ -1467,6 +1467,25 @@
                             "type": "integer",
                             "example": 10
                         }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "description": "Search warehouse by warehouse name and warehouse manager",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort warehouses by a specific field (e.g., created_at, updated_at, warehouse_manager)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "-created_at"
+                        }
                     }
                 ],
                 "responses": {
