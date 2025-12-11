@@ -14,7 +14,6 @@ return new class extends Migration
         Schema::create('raw_material_categories', function (Blueprint $table) {
             $table->id();
             $table->string('category_name');
-            $table->string('category_code');
             $table->string('label_color')->nullable()->default('#FFFFFF');
             $table->text('description')->nullable();
             $table->timestamps();

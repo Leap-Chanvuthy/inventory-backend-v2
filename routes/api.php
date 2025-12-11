@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\API\AuthAPIController;
 use App\Http\Controllers\API\CompanyInfoAPIController;
+use App\Http\Controllers\API\RawMaterialCategoryAPIController;
 use App\Http\Controllers\API\UserAPIController;
 use App\Http\Controllers\API\WarehouseAPIController;
 use Illuminate\Http\Request;
@@ -52,6 +53,14 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
         Route::patch('/{id}', [WarehouseAPIController::class, 'update']);
         Route::delete('/{warehouseId}/images/{imageId}', [WarehouseAPIController::class, 'deleteWarehouseImage']);
      });
+
+
+    Route::prefix('raw-material-categories')->group(function () {
+        Route::get('/', [RawMaterialCategoryAPIController::class, 'index']);
+        Route::get('/{id}', [RawMaterialCategoryAPIController::class, 'show']);
+        Route::post('/', [RawMaterialCategoryAPIController::class, 'store']);
+        Route::patch('/{id}', [RawMaterialCategoryAPIController::class, 'update']);
+    });
 
 });
 
