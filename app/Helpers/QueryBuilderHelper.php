@@ -4,19 +4,20 @@ namespace App\Helpers;
 
 use Spatie\QueryBuilder\QueryBuilder;
 use Spatie\QueryBuilder\AllowedFilter;
-use Illuminate\Database\Eloquent\Builder;
 
 class QueryBuilderHelper
 {
     /**
-     * Build a dynamic reusable query builder
+     * Build a dynamic reusable query builder with relationship support
      *
-     * @param string $model          — Model::class
-     * @param array  $joins          — Example: [['suppliers', 'model.supplier_id', '=', 'suppliers.id']]
-     * @param array  $selects        — Array of selected fields
-     * @param array  $allowedFilters — Array of AllowedFilter::...
-     * @param array  $allowedSorts   — Array of column names
-     * @param string $defaultSort    — default sort
+     * @param string $model
+     * @param array  $joins
+     * @param array  $selects
+     * @param array  $allowedFilters
+     * @param array  $allowedSorts
+     * @param string $defaultSort
+     * @param array  $withRelations   — Example: ['images', 'category', 'supplier.address']
+     * @param array  $withCounts      — Example: ['products', 'images']
      */
     public static function build(
         string $model,
@@ -24,15 +25,27 @@ class QueryBuilderHelper
         array $selects = ['*'],
         array $allowedFilters = [],
         array $allowedSorts = [],
-        string $defaultSort = '-created_at'
+        string $defaultSort = '-created_at',
+        array $withRelations = [],
+        array $withCounts = []
     ): QueryBuilder {
 
         $builder = QueryBuilder::for($model);
 
-        // Apply dynamic joins
+        // Dynamic joins
         foreach ($joins as $join) {
             [$table, $left, $operator, $right] = $join;
             $builder->leftJoin($table, $left, $operator, $right);
+        }
+
+        // Load relationships
+        if (!empty($withRelations)) {
+            $builder->with($withRelations);
+        }
+
+        // Load relationship counts
+        if (!empty($withCounts)) {
+            $builder->withCount($withCounts);
         }
 
         return $builder

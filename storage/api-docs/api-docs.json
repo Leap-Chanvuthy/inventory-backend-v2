@@ -1448,6 +1448,333 @@
                     }
                 ]
             }
+        },
+        "/api/warehouses": {
+            "get": {
+                "tags": [
+                    "Warehouses"
+                ],
+                "summary": "Get all warehouses",
+                "description": "Retrieve a paginated list of warehouses.",
+                "operationId": "e848b015be4c83cb420511fd784fc8cf",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Number of warehouses per page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Warehouses retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Warehouses retrieved successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error querying warehouses"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Warehouses"
+                ],
+                "summary": "Create a new warehouse",
+                "description": "Store a new warehouse with optional images.",
+                "operationId": "d85403b769588cfdca2cd9137e9619df",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "warehouse_name",
+                                    "warehouse_address"
+                                ],
+                                "properties": {
+                                    "warehouse_name": {
+                                        "type": "string",
+                                        "example": "Main Warehouse"
+                                    },
+                                    "warehouse_manager": {
+                                        "type": "string",
+                                        "example": "John Doe"
+                                    },
+                                    "warehouse_manager_contact": {
+                                        "type": "string",
+                                        "example": "0123456789"
+                                    },
+                                    "warehouse_manager_email": {
+                                        "type": "string",
+                                        "example": "manager@example.com"
+                                    },
+                                    "warehouse_address": {
+                                        "type": "string",
+                                        "example": "Phnom Penh"
+                                    },
+                                    "latitude": {
+                                        "type": "string",
+                                        "example": "11.562108"
+                                    },
+                                    "longitude": {
+                                        "type": "string",
+                                        "example": "104.888535"
+                                    },
+                                    "warehouse_description": {
+                                        "type": "string",
+                                        "example": "Large warehouse for packaging"
+                                    },
+                                    "images[]": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "binary"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Warehouse created successfully"
+                    },
+                    "422": {
+                        "description": "Validation failed"
+                    },
+                    "500": {
+                        "description": "Failed creating warehouse"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/warehouses/{id}": {
+            "get": {
+                "tags": [
+                    "Warehouses"
+                ],
+                "summary": "Get warehouse by ID",
+                "description": "Retrieve details of a specific warehouse.",
+                "operationId": "bec581593c73ff786400ed88a17a687c",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Warehouse ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 5
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Warehouse retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Warehouse retrieved successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Warehouse not found"
+                    },
+                    "500": {
+                        "description": "Failed getting warehouse"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Warehouses"
+                ],
+                "summary": "Update a warehouse",
+                "description": "Update warehouse information and optionally append more images.",
+                "operationId": "14d33a281d90776fb7e9d78a02b402a0",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Warehouse ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "warehouse_name": {
+                                        "type": "string",
+                                        "example": "Updated Warehouse"
+                                    },
+                                    "warehouse_manager": {
+                                        "type": "string",
+                                        "example": "Jane Doe"
+                                    },
+                                    "warehouse_manager_contact": {
+                                        "type": "string",
+                                        "example": "099999999"
+                                    },
+                                    "warehouse_manager_email": {
+                                        "type": "string",
+                                        "example": "manager@example.com"
+                                    },
+                                    "warehouse_address": {
+                                        "type": "string",
+                                        "example": "Siem Reap"
+                                    },
+                                    "latitude": {
+                                        "type": "string",
+                                        "example": "13.361201"
+                                    },
+                                    "longitude": {
+                                        "type": "string",
+                                        "example": "103.859"
+                                    },
+                                    "warehouse_description": {
+                                        "type": "string",
+                                        "example": "Updated description"
+                                    },
+                                    "images[]": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "binary"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Warehouse updated successfully"
+                    },
+                    "404": {
+                        "description": "Warehouse not found"
+                    },
+                    "500": {
+                        "description": "Failed updating warehouse"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/warehouses/{warehouseId}/images/{imageId}": {
+            "delete": {
+                "tags": [
+                    "Warehouses"
+                ],
+                "summary": "Delete a specific warehouse image",
+                "description": "Remove a warehouse image from storage and database.",
+                "operationId": "21e5c8adb853333c9f7e64fa45581053",
+                "parameters": [
+                    {
+                        "name": "warehouseId",
+                        "in": "path",
+                        "description": "Warehouse ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 8
+                        }
+                    },
+                    {
+                        "name": "imageId",
+                        "in": "path",
+                        "description": "Image ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 25
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Warehouse image deleted successfully"
+                    },
+                    "404": {
+                        "description": "Warehouse or image not found"
+                    },
+                    "500": {
+                        "description": "Failed deleting warehouse image"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -1467,6 +1794,10 @@
         {
             "name": "Users",
             "description": "API Endpoints for retrieving user information"
+        },
+        {
+            "name": "Warehouses",
+            "description": "API Endpoints for managing warehouses"
         },
         {
             "name": "Company",

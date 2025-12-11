@@ -3,6 +3,7 @@
 use App\Http\Controllers\API\AuthAPIController;
 use App\Http\Controllers\API\CompanyInfoAPIController;
 use App\Http\Controllers\API\UserAPIController;
+use App\Http\Controllers\API\WarehouseAPIController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -42,6 +43,16 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
         Route::post('/', [UserAPIController::class, 'createUser']);
         Route::patch('/{id}', [UserAPIController::class, 'updateUser']);
     }); 
+
+
+    Route::prefix('warehouses')->group(function () {
+        Route::get('/', [WarehouseAPIController::class, 'index']);
+        Route::get('/{id}', [WarehouseAPIController::class, 'show']);
+        Route::post('/', [WarehouseAPIController::class, 'store']);
+        Route::patch('/{id}', [WarehouseAPIController::class, 'update']);
+        Route::delete('/{warehouseId}/images/{imageId}', [WarehouseAPIController::class, 'deleteWarehouseImage']);
+     });
+
 });
 
 // Route::middleware(['auth:api', 'role:STOCK_CONTROLLER'])->group(function () {
