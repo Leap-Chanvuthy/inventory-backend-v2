@@ -826,6 +826,319 @@
                 ]
             }
         },
+        "/api/product-categories": {
+            "get": {
+                "tags": [
+                    "Product Categories"
+                ],
+                "summary": "Get all product categories",
+                "description": "Retrieve a paginated list of product categories.",
+                "operationId": "c7c81610ea25e2740d7d7f2a633bcc27",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Number of categories per page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "description": "Search product categories by category name",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": ""
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort product categories by a field (created_at, updated_at, category_name)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "-created_at"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Product categories retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Product categories retrieved successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed fetching product categories"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Product Categories"
+                ],
+                "summary": "Create a new product category",
+                "description": "Create a new product category with name, label color, and optional description.",
+                "operationId": "365587291e8be8a7ab90a82663a978d3",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "category_name"
+                                ],
+                                "properties": {
+                                    "category_name": {
+                                        "type": "string",
+                                        "example": "Furniture"
+                                    },
+                                    "label_color": {
+                                        "type": "string",
+                                        "example": "#00AAFF"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Furniture products category"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Product category created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Product category created successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "Failed creating product category"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/product-categories/{id}": {
+            "get": {
+                "tags": [
+                    "Product Categories"
+                ],
+                "summary": "Get a product category by ID",
+                "description": "Retrieve details of a specific product category.",
+                "operationId": "0aad5bd92391e6331e555a8f9c2c6be9",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Product Category ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Product category retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Product category retrieved successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "category_name": {
+                                                    "type": "string",
+                                                    "example": "Electronics"
+                                                },
+                                                "label_color": {
+                                                    "type": "string",
+                                                    "example": "#FF5733"
+                                                },
+                                                "description": {
+                                                    "type": "string",
+                                                    "example": "Electronic products category"
+                                                },
+                                                "created_at": {
+                                                    "type": "string",
+                                                    "example": "2025-01-01 09:00:00"
+                                                },
+                                                "updated_at": {
+                                                    "type": "string",
+                                                    "example": "2025-01-05 10:00:00"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Product category not found"
+                    },
+                    "500": {
+                        "description": "Failed fetching product category"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Product Categories"
+                ],
+                "summary": "Update an existing product category",
+                "description": "Update product category details. Only provided fields will be updated.",
+                "operationId": "78a2dcbc054034825db8e7cf0805c0b2",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Product Category ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "category_name": {
+                                        "type": "string",
+                                        "example": "Updated Category Name"
+                                    },
+                                    "label_color": {
+                                        "type": "string",
+                                        "example": "#123456"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Updated description"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Product category updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Product category updated successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Product category not found"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "Failed updating product category"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/raw-material-categories": {
             "get": {
                 "tags": [
@@ -2121,6 +2434,10 @@
         {
             "name": "Authentication",
             "description": "API Endpoints for user authentication and password reset"
+        },
+        {
+            "name": "Product Categories",
+            "description": "API Endpoints for managing product categories"
         },
         {
             "name": "Raw Material Categories",
