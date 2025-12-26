@@ -37,6 +37,7 @@ class UserService
                 'users.last_activity',
                 'users.created_at',
                 'users.updated_at',
+                'users.email_verified_at',
             ],
 
             allowedFilters: [
