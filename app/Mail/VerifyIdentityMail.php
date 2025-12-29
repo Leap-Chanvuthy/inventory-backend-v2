@@ -15,14 +15,16 @@ class VerifyIdentityMail extends Mailable
     public $temporaryPassword;
     public $appFrontendUrl;
     public $appName;
+    public $verifyUrl;
 
-    public function __construct($name, $email, $temporaryPassword, $appFrontendUrl)
+    public function __construct($name, $email, $temporaryPassword, $appFrontendUrl, $verifyUrl)
     {
         $this->name = $name;
         $this->email = $email;
         $this->temporaryPassword = $temporaryPassword;
         $this->appFrontendUrl = $appFrontendUrl;
         $this->appName = config('app.name');
+        $this->verifyUrl = $verifyUrl;
     }
 
     public function envelope()

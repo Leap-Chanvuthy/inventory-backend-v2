@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rules\Enum;
 use App\Mail\VerifyIdentityMail;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class UserService
@@ -102,14 +103,21 @@ class UserService
                 'profile_picture' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
                 'email' => 'required|string|email|max:255|unique:users,email',
                 'password' => 'required|string|min:8|confirmed',
+                'email_verification_token' => 'nullable|string',
                 'role' => ['required', new Enum(UserRoleEnum::class)],
             ]);
 
             // ⭐ Save raw password before hashing
             $rawPassword = $validated['password'];
 
+            // Veriifcation Token
+            $verificationToken = Str::uuid()->toString();
+            $verifyUrl = env('APP_FRONTEND_URL') . '/auth/verify-email?token=' . $verificationToken;
+
+
             // Hash for DB
             $validated['password'] = bcrypt($validated['password']);
+            $validated['email_verification_token'] = $verificationToken;
 
             // Upload profile picture if any
             if ($request->hasFile('profile_picture')) {
@@ -120,15 +128,16 @@ class UserService
             }
 
             $user = User::create($validated);
-            
+
             $frontendUrl = env('APP_FRONTEND_URL') . '/login';
 
             Mail::to($user->email)->send(
                 new VerifyIdentityMail(
                     $user->name,
                     $user->email,
-                    $rawPassword,  
-                    $frontendUrl
+                    $rawPassword,
+                    $frontendUrl,
+                    $verifyUrl
                 )
             );
 
@@ -143,12 +152,12 @@ class UserService
 
     function updateUser(Request $request, $id)
     {
-        try{
+        try {
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'phone_number' => 'required|string|max:20|unique:users,phone_number,'.$id,
+                'phone_number' => 'required|string|max:20|unique:users,phone_number,' . $id,
                 'profile_picture' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-                'email' => 'required|string|email|max:255|unique:users,email,'.$id,
+                'email' => 'required|string|email|max:255|unique:users,email,' . $id,
                 'role' => ['required', new Enum(UserRoleEnum::class)],
             ]);
 
@@ -168,12 +177,53 @@ class UserService
             $user->update($validated);
 
             return ResponseHelper::success($user, "User updated successfully", 200);
-        }catch(ValidationException $e){
+        } catch (ValidationException $e) {
             return ResponseHelper::validation($e->errors(), "Validation Error");
-        }catch (Exception $e){
+        } catch (Exception $e) {
             return ResponseHelper::error("Failed updating user", 500, $e->getMessage());
-        }   
+        }
     }
 
 
+    public function verifyEmail(Request $request)
+    {
+        try {
+            $request->validate([
+                'token' => 'required|string',
+            ]);
+
+            $user = User::where('email_verification_token', $request->token)->first();
+
+            if (!$user) {
+                return ResponseHelper::error(
+                    'Cannot verify email',
+                    400,
+                    'Invalid verification link or Token has been expired.'
+                );
+            }
+
+            if ($user->email_verified_at) {
+                return ResponseHelper::success(
+                    null,
+                    'Email already verified',
+                    200
+                );
+            }
+
+            $user->update([
+                'email_verified_at' => now(),
+                // keep token, DO NOT set to null
+            ]);
+
+            return ResponseHelper::success(
+                null,
+                'Email verified successfully',
+                200
+            );
+        } catch (ValidationException $e) {
+            return ResponseHelper::validation($e->errors(), "Validation Error");
+        } catch (Exception $e) {
+            return ResponseHelper::error("Failed verifying email", 500, $e->getMessage());
+        }
+    }
 }

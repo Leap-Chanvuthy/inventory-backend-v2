@@ -86,6 +86,7 @@
         <p>
             To complete your registration, click the button below to verify your account:
         </p>
+        <a href="{{ $verifyUrl }}">{{$verifyUrl}}</a>
 
         <p>If the button does not work, Please contact our support team. Please login via this link.</p>
         <p style="font-size: 13px; color: #555;">

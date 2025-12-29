@@ -30,4 +30,8 @@ class UserAPIController extends Controller
         public function updateUser(Request $request, $id){
             return $this -> userService -> updateUser($request, $id);
         }
+        
+        public function verifyEmail(Request $request){
+            return $this -> userService -> verifyEmail($request);
+        }
 }

@@ -46,6 +46,13 @@ class AuthService
                 return ResponseHelper::error('Invalid credentials', 401);
             }
 
+            if ($user->email_verified_at === null) {
+                return ResponseHelper::error('Email is not verified.', 403, 
+                [
+                    'email' => ['Email not verified. Please verify your email before logging in.']
+                ]);
+            }
+
             return ResponseHelper::success([
                 'user' => $user,
                 'authorisation' => [
@@ -78,56 +85,51 @@ class AuthService
             ]
         );
 
-        Mail::to($user->email)->send(new PasswordResetMail($token, $user->email));
+        Mail::mailer('resend')->to($user->email)->send(new PasswordResetMail($token, $user->email));
 
         return ResponseHelper::success(null, 'Reset link sent successfully', 200);
     }
 
-public function reset(Request $request)
-{
-    try {
-        $request->validate([
-            'token' => 'required',
-            'email' => 'required|email',
-            'password' => 'required|min:8|confirmed',
-        ]);
+    public function reset(Request $request)
+    {
+        try {
+            $request->validate([
+                'token' => 'required',
+                'email' => 'required|email',
+                'password' => 'required|min:8|confirmed',
+            ]);
 
-        $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            function (User $user, string $password) {
-                $user->forceFill([
-                    'password' => Hash::make($password),
-                    'remember_token' => Str::random(60),
-                ])->save();
+            $status = Password::reset(
+                $request->only('email', 'password', 'password_confirmation', 'token'),
+                function (User $user, string $password) {
+                    $user->forceFill([
+                        'password' => Hash::make($password),
+                        'remember_token' => Str::random(60),
+                    ])->save();
+                }
+            );
+
+            if ($status === Password::PASSWORD_RESET) {
+                Mail::to($request->email)->send(new PaswordResetSuccessMail(User::where('email', $request->email)->first()));
+                return ResponseHelper::success(
+                    ['message' => __($status)],
+                    'Password reset successful',
+                    200
+                );
             }
-        );
 
-        if ($status === Password::PASSWORD_RESET) {
-            Mail::to($request->email) -> send(new PaswordResetSuccessMail(User::where('email', $request->email)->first()));
-            return ResponseHelper::success(
-                ['message' => __($status)], 
-                'Password reset successful',
-                200
+            // Handle all failure cases
+            return ResponseHelper::error(
+                'Password reset failed',
+                400,
+                ['error' => __($status)]
+            );
+        } catch (Exception $e) {
+            return ResponseHelper::error(
+                'Something went wrong',
+                500,
+                ['exception' => $e->getMessage()]
             );
         }
-
-        // Handle all failure cases
-        return ResponseHelper::error(
-            'Password reset failed',
-            400,
-            ['error' => __($status)]
-        );
-
-    } catch (Exception $e) {
-        return ResponseHelper::error(
-            'Something went wrong',
-            500,
-            ['exception' => $e->getMessage()]
-        );
     }
-}
-
-
-
-
 }

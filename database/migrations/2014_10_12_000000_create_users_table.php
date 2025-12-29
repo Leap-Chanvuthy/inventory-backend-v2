@@ -19,6 +19,7 @@ return new class extends Migration
             $table -> string('profile_picture') -> nullable();
             $table -> string('role');
             $table->string('email')->unique();
+            $table->string('email_verification_token')->nullable()->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->integer('otp')->nullable();

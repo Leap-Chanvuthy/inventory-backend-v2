@@ -34,17 +34,19 @@ class CreateAdminUser extends Command
         $user = User::create([
             'name' => 'Administrator',
             'email' => $email,
-            'password' => Hash::make($password), // ✅ Hash password securely
-            'role' => UserRoleEnum::ADMIN,       // store enum value
+            'password' => Hash::make($password),
+            'role' => UserRoleEnum::ADMIN,
+            'email_verified_at' => now(),
         ]);
 
         $this->info('✅ Admin user created successfully!');
-        $this->table(['ID', 'Name', 'Email', 'Role'], [
+        $this->table(['ID', 'Name', 'Email', 'Role', 'Email Verified At'], [
             [
                 $user->id,
                 $user->name,
                 $user->email,
-                $user->role->value, // ✅ convert enum to string
+                $user->role->value,
+                $user->email_verified_at,
             ]
         ]);
 

@@ -25,10 +25,12 @@ class User extends Authenticatable implements JWTSubject
         'password',
         'otp',
         'otp_expires_at',
+        'email_verification_token',
         'google_id',
         'ip_address',
         'device',
         'last_activity',
+        'email_verified_at',
     ];
 
     /**
@@ -40,6 +42,7 @@ class User extends Authenticatable implements JWTSubject
         'otp',
         'otp_expires_at',
         'google_id',
+        'email_verification_token',
     ];
  
     /**
