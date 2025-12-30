@@ -112,7 +112,8 @@ class UserService
 
             // Veriifcation Token
             $verificationToken = Str::uuid()->toString();
-            $verifyUrl = env('APP_FRONTEND_URL') . '/auth/verify-email?token=' . $verificationToken;
+            $frontendBase = rtrim(config('app.frontend_url'), '/');
+            $verifyUrl = $frontendBase . '/auth/verify-email?token=' . $verificationToken;
 
 
             // Hash for DB
