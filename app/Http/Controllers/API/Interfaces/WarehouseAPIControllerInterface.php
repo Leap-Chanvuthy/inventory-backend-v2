@@ -173,8 +173,9 @@ interface WarehouseAPIControllerInterface
      *         required=false,
      *         @OA\MediaType(
      *             mediaType="multipart/form-data",
-     *               @OA\Schema(
-     *                 required={"_method","warehouse_name", "warehouse_manager_contact", "warehouse_manager_email", "warehouse_manager", "warehouse_address"},
+     *             @OA\Schema(
+     *                 type="object",
+     *                 required={"_method","warehouse_name","warehouse_manager_contact","warehouse_manager_email","warehouse_manager","warehouse_address"},
      *
      *                 @OA\Property(
      *                     property="_method",
@@ -182,8 +183,6 @@ interface WarehouseAPIControllerInterface
      *                     example="PATCH",
      *                     description="Set this to PATCH to emulate PATCH request using POST"
      *                 ),
-     *             @OA\Schema(
-     *                 type="object",
      *
      *                 @OA\Property(property="warehouse_name", type="string", example="Updated Warehouse"),
      *                 @OA\Property(property="warehouse_manager", type="string", example="Jane Doe"),
