@@ -102,7 +102,7 @@
         </p>
 
         <a
-            href="{{ env('APP_FRONTEND_URL', 'http://localhost:5173') }}/reset-password?token={{ $token }}&email={{ $email }}"
+            href="{{ env('APP_FRONTEND_URL', 'http://localhost:5173') }}/auth/reset-password?token={{ $token }}&email={{ $email }}"
             target="_blank">
             Reset Password
         </a>
