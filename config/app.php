@@ -18,6 +18,7 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
     'frontend_url' => env('APP_FRONTEND_URL', 'http://localhost:5173'),
+    'r2_public_dev_domain' => env('R2_PUBLIC_DEV_DOMAIN', ''),
 
 
     /*

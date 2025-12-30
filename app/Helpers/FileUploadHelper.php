@@ -23,7 +23,7 @@ class FileUploadHelper
 
         // Upload new file
         $path = Storage::disk('r2')->putFile($folder, $file, 'public');
-        return env('R2_PUBLIC_DEV_DOMAIN') . '/' . $path;
+        return config('app.r2_public_dev_domain') . '/' . $path;
     }
 
 
@@ -48,7 +48,7 @@ class FileUploadHelper
         $result = [];
         foreach ($newFiles as $file) {
             $path = Storage::disk('r2')->putFile($folder, $file, 'public');
-            $result[] = env('R2_PUBLIC_DEV_DOMAIN') . '/' . $path;
+            $result[] = config('app.r2_public_dev_domain') . '/' . $path;
         }
 
         return $result;
@@ -67,7 +67,7 @@ class FileUploadHelper
         // Upload new images
         foreach ($newFiles as $file) {
             $path = Storage::disk('r2')->putFile($folder, $file, 'public');
-            $result[] = env('R2_PUBLIC_DEV_DOMAIN') . '/' . $path;
+            $result[] = config('app.r2_public_dev_domain') . '/' . $path;
         }
 
         return $result;
