@@ -154,7 +154,7 @@ interface WarehouseAPIControllerInterface
 
 
     /**
-     * @OA\Patch(
+     * @OA\Post(
      *     path="/api/warehouses/{id}",
      *     tags={"Warehouses"},
      *     security={{"Bearer":{}}},

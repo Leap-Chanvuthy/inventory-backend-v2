@@ -2387,13 +2387,13 @@
                     }
                 ]
             },
-            "patch": {
+            "post": {
                 "tags": [
                     "Warehouses"
                 ],
                 "summary": "Update a warehouse",
                 "description": "Update warehouse information and optionally append more images.",
-                "operationId": "14d33a281d90776fb7e9d78a02b402a0",
+                "operationId": "e7791e81886b220a364f2b6f9c1a67ed",
                 "parameters": [
                     {
                         "name": "id",
