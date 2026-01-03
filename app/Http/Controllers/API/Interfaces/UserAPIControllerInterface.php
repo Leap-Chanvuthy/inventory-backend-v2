@@ -81,6 +81,13 @@ interface UserAPIControllerInterface
      *     description="Retrieve a paginated list of all users. Supports filtering, sorting, and search.",
      *
      *     @OA\Parameter(
+     *         name="per_page",
+     *         in="query",
+     *         description="Number of users per page (default is 10, max is 100)",
+     *         @OA\Schema(type="integer" , example=10)
+     *     ),
+     *
+     *     @OA\Parameter(
      *         name="filter[id]",
      *         in="query",
      *         description="Filter by user ID",
@@ -90,22 +97,22 @@ interface UserAPIControllerInterface
      *     @OA\Parameter(
      *         name="filter[role]",
      *         in="query",
-     *         description="Filter by user role",
-     *         @OA\Schema(type="string", example="ADMIN")
+     *         description="Filter by user role (e.g., ADMIN, STOCK_CONTROLLER , VENDER)",
+     *         @OA\Schema(type="string")
      *     ),
      *
      *     @OA\Parameter(
      *         name="filter[search]",
      *         in="query",
      *         description="Search by name, email, or phone number",
-     *         @OA\Schema(type="string", example="John")
+     *         @OA\Schema(type="string")
      *     ),
      *
      *     @OA\Parameter(
      *         name="sort",
      *         in="query",
      *         description="Sort fields (e.g., -created_at, name, email)",
-     *         @OA\Schema(type="string", example="-created_at")
+     *         @OA\Schema(type="string")
      *     ),
      *
      *     @OA\Response(

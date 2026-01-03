@@ -1773,6 +1773,15 @@
                 "operationId": "c7f6af6ebecc1e8494a29d8e2d7f8eb2",
                 "parameters": [
                     {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Number of users per page (default is 10, max is 100)",
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    },
+                    {
                         "name": "filter[id]",
                         "in": "query",
                         "description": "Filter by user ID",
@@ -1783,10 +1792,9 @@
                     {
                         "name": "filter[role]",
                         "in": "query",
-                        "description": "Filter by user role",
+                        "description": "Filter by user role (e.g., ADMIN, STOCK_CONTROLLER , VENDER)",
                         "schema": {
-                            "type": "string",
-                            "example": "ADMIN"
+                            "type": "string"
                         }
                     },
                     {
@@ -1794,8 +1802,7 @@
                         "in": "query",
                         "description": "Search by name, email, or phone number",
                         "schema": {
-                            "type": "string",
-                            "example": "John"
+                            "type": "string"
                         }
                     },
                     {
@@ -1803,8 +1810,7 @@
                         "in": "query",
                         "description": "Sort fields (e.g., -created_at, name, email)",
                         "schema": {
-                            "type": "string",
-                            "example": "-created_at"
+                            "type": "string"
                         }
                     }
                 ],
