@@ -19,8 +19,8 @@ class UserAPIController extends Controller
             return $this -> userService -> getUserById( $id);
         }
 
-        public function getUsers (){
-            return $this -> userService -> getAllUsers();
+        public function getUsers (Request $request){
+            return $this -> userService -> getAllUsers($request);
         }
 
         public function createUser(Request $request){

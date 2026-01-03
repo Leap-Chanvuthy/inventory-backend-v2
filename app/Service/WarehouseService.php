@@ -18,8 +18,66 @@ class WarehouseService
 {
 
 
-    public function WarehouseBuilder()
+    // public function WarehouseBuilder()
+    // {
+
+    //     return QueryBuilderHelper::build(
+    //         model: Warehouse::class,
+    //         joins: [],
+    //         selects: [
+    //             'warehouses.id',
+    //             'warehouses.warehouse_name',
+    //             'warehouses.warehouse_manager',
+    //             'warehouses.warehouse_manager_contact',
+    //             'warehouses.warehouse_manager_email',
+    //             'warehouses.warehouse_address',
+    //             'warehouses.latitude',
+    //             'warehouses.longitude',
+    //             'warehouses.warehouse_description',
+    //             'warehouses.created_at',
+    //             'warehouses.updated_at',
+    //         ],
+
+    //         allowedFilters: [
+    //             AllowedFilter::exact('id'),
+    //             AllowedFilter::exact('role'),
+
+    //             AllowedFilter::callback('search', function (Builder $query, $value) {
+    //                 $query->where(function ($q) use ($value) {
+    //                     $q->where('warehouses.warehouse_name', 'LIKE', "%{$value}%")
+    //                         ->orWhere('warehouses.warehouse_manager', 'LIKE', "%{$value}%");
+    //                 });
+    //             }),
+    //         ],
+    //         allowedSorts: [
+    //             'id',
+    //             'warehouse_manager',
+    //             'created_at',
+    //             'updated_at',
+    //         ],
+    //         withRelations: ['images'],
+    //         withCounts: ['images']
+
+    //     );
+    // }
+
+
+    // public function getAllWarehouses(Request $request)
+    // {
+    //     try {
+    //         $request_per_page = $request->get('per_page', 10);
+    //         $warehouse = $this->WarehouseBuilder()->paginate($request_per_page);
+    //         return ResponseHelper::success($warehouse, 'Warehouses retrieved successfully', 200);
+    //     } catch (Exception $e) {
+    //         return ResponseHelper::error('Error querying warehoauses', 500, $e->getMessage());
+    //     }
+    // }
+
+        public function WarehouseBuilder(Request $request)
     {
+        // keep per_page logic here
+        $perPage = (int) $request->query('per_page', 10);
+        $perPage = max(1, min($perPage, 100)); // clamp 1..100
 
         return QueryBuilderHelper::build(
             model: Warehouse::class,
@@ -37,15 +95,13 @@ class WarehouseService
                 'warehouses.created_at',
                 'warehouses.updated_at',
             ],
-
             allowedFilters: [
                 AllowedFilter::exact('id'),
                 AllowedFilter::exact('role'),
-
                 AllowedFilter::callback('search', function (Builder $query, $value) {
                     $query->where(function ($q) use ($value) {
                         $q->where('warehouses.warehouse_name', 'LIKE', "%{$value}%")
-                            ->orWhere('warehouses.warehouse_manager', 'LIKE', "%{$value}%");
+                          ->orWhere('warehouses.warehouse_manager', 'LIKE', "%{$value}%");
                     });
                 }),
             ],
@@ -57,16 +113,15 @@ class WarehouseService
             ],
             withRelations: ['images'],
             withCounts: ['images']
-
-        );
+        )
+        ->paginate($perPage)
+        ->appends($request->query());
     }
-
 
     public function getAllWarehouses(Request $request)
     {
         try {
-            $request_per_page = $request->get('per_page', 10);
-            $warehouse = $this->WarehouseBuilder()->paginate($request_per_page);
+            $warehouse = $this->WarehouseBuilder($request);
             return ResponseHelper::success($warehouse, 'Warehouses retrieved successfully', 200);
         } catch (Exception $e) {
             return ResponseHelper::error('Error querying warehoauses', 500, $e->getMessage());

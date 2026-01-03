@@ -20,8 +20,11 @@ use Illuminate\Validation\ValidationException;
 
 class UserService
 {
-    private function userBuilder()
+    private function userBuilder(Request $request)
     {
+        $perPage = (int) $request->query('per_page', 10);
+        $perPage = max(1, min($perPage, 100));
+
         return QueryBuilderHelper::build(
             model: User::class,
 
@@ -65,7 +68,10 @@ class UserService
             ],
 
             defaultSort: '-created_at'
-        );
+        )
+        ->paginate($perPage)
+        ->appends($request->query());
+        ;
     }
 
 
@@ -83,10 +89,10 @@ class UserService
     }
 
 
-    public function getAllUsers()
+    public function getAllUsers(Request $request)
     {
         try {
-            $user = $this->userBuilder()->paginate(10);
+            $user = $this->userBuilder($request);
             return ResponseHelper::success($user, "Users retrieved successfully", 200);
         } catch (Exception $e) {
             return ResponseHelper::error("Failed getting users", 500, $e->getMessage());
