@@ -21,4 +21,9 @@ class SupplierAPIController extends Controller
         return $this->supplierService->getAllSuppliers($request);
     }
 
+    public function show($id)
+    {
+        return $this->supplierService->getSupplierById($id);
+    }
+
 }

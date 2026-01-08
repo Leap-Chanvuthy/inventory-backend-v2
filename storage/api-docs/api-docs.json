@@ -1451,6 +1451,382 @@
                 ]
             }
         },
+        "/api/suppliers/suppliers": {
+            "get": {
+                "tags": [
+                    "Suppliers"
+                ],
+                "summary": "Get all suppliers with pagination, filters, sorting",
+                "description": "Retrieve a paginated list of suppliers. Supports search via filter[search], sorting, and pagination.",
+                "operationId": "10feb7f82918eb5242c58206c74ff191",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number",
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Number of records per page (default 10, max 100)",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[id]",
+                        "in": "query",
+                        "description": "Filter by supplier id",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "description": "Search by official_name, email, supplier_code, tax_identification_number, phone",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort by fields (e.g. -created_at, supplier_code, supplier_category)",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Suppliers retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Suppliers retrieved successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 100
+                                                },
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "official_name": {
+                                                                "type": "string",
+                                                                "example": "ABC Trading Co., Ltd"
+                                                            },
+                                                            "supplier_code": {
+                                                                "type": "string",
+                                                                "example": "SUP-8K2JQ9XA"
+                                                            },
+                                                            "contact_person": {
+                                                                "type": "string",
+                                                                "example": "John Doe"
+                                                            },
+                                                            "phone": {
+                                                                "type": "string",
+                                                                "example": "012345678"
+                                                            },
+                                                            "email": {
+                                                                "type": "string",
+                                                                "example": "supplier@example.com"
+                                                            },
+                                                            "legal_business_name": {
+                                                                "type": "string",
+                                                                "example": "ABC Trading Co., Ltd"
+                                                            },
+                                                            "tax_identification_number": {
+                                                                "type": "string",
+                                                                "example": "1234567890"
+                                                            },
+                                                            "business_registration_number": {
+                                                                "type": "string",
+                                                                "example": "BR-00001234"
+                                                            },
+                                                            "supplier_category": {
+                                                                "type": "string",
+                                                                "example": "Raw Material"
+                                                            },
+                                                            "business_description": {
+                                                                "type": "string",
+                                                                "example": "Supplier of raw materials"
+                                                            },
+                                                            "address_line1": {
+                                                                "type": "string",
+                                                                "example": "Street 123"
+                                                            },
+                                                            "address_line2": {
+                                                                "type": "string",
+                                                                "example": "Building A"
+                                                            },
+                                                            "village": {
+                                                                "type": "string",
+                                                                "example": "Village 1"
+                                                            },
+                                                            "commune": {
+                                                                "type": "string",
+                                                                "example": "Commune 1"
+                                                            },
+                                                            "district": {
+                                                                "type": "string",
+                                                                "example": "District 1"
+                                                            },
+                                                            "city": {
+                                                                "type": "string",
+                                                                "example": "Phnom Penh"
+                                                            },
+                                                            "province": {
+                                                                "type": "string",
+                                                                "example": "Phnom Penh"
+                                                            },
+                                                            "postal_code": {
+                                                                "type": "string",
+                                                                "example": "12000"
+                                                            },
+                                                            "latitude": {
+                                                                "type": "string",
+                                                                "example": "11.5564"
+                                                            },
+                                                            "longitude": {
+                                                                "type": "string",
+                                                                "example": "104.9282"
+                                                            },
+                                                            "banks_count": {
+                                                                "type": "integer",
+                                                                "example": 2
+                                                            },
+                                                            "banks": {
+                                                                "type": "array",
+                                                                "items": {
+                                                                    "properties": {
+                                                                        "id": {
+                                                                            "type": "integer",
+                                                                            "example": 1
+                                                                        },
+                                                                        "supplier_id": {
+                                                                            "type": "integer",
+                                                                            "example": 1
+                                                                        },
+                                                                        "bank_name": {
+                                                                            "type": "string",
+                                                                            "example": "ABA"
+                                                                        },
+                                                                        "account_number": {
+                                                                            "type": "string",
+                                                                            "example": "123456789"
+                                                                        },
+                                                                        "account_holder_name": {
+                                                                            "type": "string",
+                                                                            "example": "ABC Trading Co., Ltd"
+                                                                        },
+                                                                        "payment_link": {
+                                                                            "type": "string",
+                                                                            "example": null,
+                                                                            "nullable": true
+                                                                        },
+                                                                        "qr_code_image": {
+                                                                            "type": "string",
+                                                                            "example": null,
+                                                                            "nullable": true
+                                                                        },
+                                                                        "bank_label": {
+                                                                            "type": "string",
+                                                                            "example": "https://.../aba-logo.png"
+                                                                        },
+                                                                        "created_at": {
+                                                                            "type": "string",
+                                                                            "example": "2026-01-01 12:00:00"
+                                                                        },
+                                                                        "updated_at": {
+                                                                            "type": "string",
+                                                                            "example": "2026-01-01 12:00:00"
+                                                                        }
+                                                                    },
+                                                                    "type": "object"
+                                                                }
+                                                            },
+                                                            "created_at": {
+                                                                "type": "string",
+                                                                "example": "2026-01-01 12:00:00"
+                                                            },
+                                                            "updated_at": {
+                                                                "type": "string",
+                                                                "example": "2026-01-01 12:00:00"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error fetching suppliers",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Error fetching suppliers"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "Exception message here"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/suppliers/suppliers/{id}": {
+            "get": {
+                "tags": [
+                    "Suppliers"
+                ],
+                "summary": "Get supplier by ID",
+                "description": "Retrieve a single supplier including banks.",
+                "operationId": "4edbc69adf42de2c2ea9ccd584070d0f",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Supplier ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Supplier retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Supplier retrieved successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Supplier not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Supplier not found"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": null,
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed getting supplier",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Failed getting supplier"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "Exception message here"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/users/{id}": {
             "get": {
                 "tags": [
@@ -2564,6 +2940,10 @@
         {
             "name": "Raw Material Categories",
             "description": "API Endpoints for managing raw material categories"
+        },
+        {
+            "name": "Suppliers",
+            "description": "API Endpoints for managing suppliers"
         },
         {
             "name": "Users",

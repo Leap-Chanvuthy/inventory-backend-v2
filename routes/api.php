@@ -48,6 +48,11 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
         Route::patch('/{id}', [UserAPIController::class, 'updateUser']);
     }); 
 
+    Route::prefix('suppliers')->group(function () {
+        Route::get('/suppliers', [SupplierAPIController::class, 'index']);
+        Route::get('/suppliers/{id}', [SupplierAPIController::class, 'show']);
+     });
+
 
     Route::prefix('warehouses')->group(function () {
         Route::get('/', [WarehouseAPIController::class, 'index']);
@@ -76,8 +81,6 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
 });
 
 
-// Public Rotue For Testing Supplier API
-Route::get('/suppliers', [SupplierAPIController::class, 'index']);
 
 
 // Route::middleware(['auth:api', 'role:STOCK_CONTROLLER'])->group(function () {
