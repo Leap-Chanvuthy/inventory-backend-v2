@@ -4,6 +4,7 @@ use App\Http\Controllers\API\AuthAPIController;
 use App\Http\Controllers\API\CompanyInfoAPIController;
 use App\Http\Controllers\API\ProductCategoryAPIController;
 use App\Http\Controllers\API\RawMaterialCategoryAPIController;
+use App\Http\Controllers\API\SupplierAPIController;
 use App\Http\Controllers\API\UserAPIController;
 use App\Http\Controllers\API\WarehouseAPIController;
 use Illuminate\Http\Request;
@@ -73,6 +74,11 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
     });
 
 });
+
+
+// Public Rotue For Testing Supplier API
+Route::get('/suppliers', [SupplierAPIController::class, 'index']);
+
 
 // Route::middleware(['auth:api', 'role:STOCK_CONTROLLER'])->group(function () {
 //     Route::prefix('users')->group(function () {
