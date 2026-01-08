@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             WarehouseSeeder::class,
             RawMaterialCategorySeeder::class,
             ProductCategorySeeder::class,
+            SupplierSeeder::class,
         ]);
     }
 }

@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('account_holder_name');
             $table->string('payment_link')->nullable();
             $table->string('qr_code_image')->nullable();
+            $table->string('bank_label')->nullable();
             $table->timestamps();
         });
     }

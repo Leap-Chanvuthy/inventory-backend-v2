@@ -16,6 +16,7 @@ class SupplierBank extends Model
         'account_holder_name',
         'payment_link',
         'qr_code_image',
+        'bank_label',
     ];
 
     public function supplier()
