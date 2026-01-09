@@ -26,4 +26,12 @@ class SupplierAPIController extends Controller
         return $this->supplierService->getSupplierById($id);
     }
 
+    public function store(Request $request){
+        return $this->supplierService->createSupplier($request);
+    }
+
+    public function update(Request $request, $id){
+        return $this->supplierService->updateSupplier($request, $id);
+    }
+
 }

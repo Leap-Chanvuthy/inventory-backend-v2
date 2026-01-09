@@ -2,97 +2,46 @@
 
 namespace App\Service;
 
-use App\Helpers\QueryBuilderHelper;
+
 use App\Helpers\FileUploadHelper;
 use App\Helpers\ResponseHelper;
 use App\Models\Supplier;
-use Spatie\QueryBuilder\AllowedFilter;
-use Illuminate\Database\Eloquent\Builder;
+use App\Models\SupplierBank;
+use App\QueryBuilders\SupplierQueryBuilder;
+use App\Validations\SupplierBankValidation;
+use App\Validations\SupplierValidation;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rules\Enum;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class SupplierService
 {
-    private function supplierBuilder(Request $request)
-    {
-        $perPage = (int) $request->query('per_page', 10);
-        $perPage = max(1, min($perPage, 100));
 
-        return QueryBuilderHelper::build(
-            model: Supplier::class,
+    protected $supplierValidation;
+    protected $supplierBankValidation;
+    protected $supplierQueryBuilder;
+    protected $supplierBankService;
 
-            joins: [],
-            selects: [
-                'suppliers.id',
-                'suppliers.official_name',
-                'suppliers.supplier_code',
-                'suppliers.contact_person',
-                'suppliers.phone',
-                'suppliers.email',
-                
-                // legal and business information
-                'suppliers.legal_business_name',
-                'suppliers.tax_identification_number',
-                'suppliers.business_registration_number',
-                'suppliers.supplier_category',
-                'suppliers.business_description',
-
-                // geolocational information
-                'suppliers.address_line1',
-                'suppliers.address_line2',
-                'suppliers.village',
-                'suppliers.commune',
-                'suppliers.district',
-                'suppliers.city',
-                'suppliers.province',
-                'suppliers.postal_code',
-                'suppliers.latitude',
-                'suppliers.longitude',
-                
-                'suppliers.created_at',
-                'suppliers.updated_at',
-            ],
-
-            allowedFilters: [
-                AllowedFilter::exact('id'),
-                AllowedFilter::exact('role'),
-
-                AllowedFilter::callback('search', function (Builder $query, $value) {
-                    $query->where(function ($q) use ($value) {
-                        $q->where('suppliers.official_name', 'LIKE', "%{$value}%")
-                            ->orWhere('suppliers.email', 'LIKE', "%{$value}%")
-                            ->orWhere('suppliers.supplier_code', 'LIKE', "%{$value}%")
-                            ->orWhere('suppliers.tax_identification_number', 'LIKE', "%{$value}%")
-                            ->orWhere('suppliers.phone', 'LIKE', "%{$value}%");
-                    });
-                }),
-            ],
-
-            allowedSorts: [
-                'created_at',
-                'updated_at',
-                'supplier_category',
-                'supplier_code',
-            ],
-
-            defaultSort: '-created_at',
-            withRelations: ['banks'],
-            withCounts: ['banks'],
-        )
-        ->paginate($perPage)
-        ->appends($request->query());
-        ;
+    public function __construct(
+        SupplierValidation $supplierValidation,
+        SupplierBankValidation $supplierBankValidation,
+        SupplierBankService $supplierBankService,
+        SupplierQueryBuilder $supplierQueryBuilder
+    ) {
+        $this->supplierValidation = $supplierValidation;
+        $this->supplierBankValidation = $supplierBankValidation;
+        $this->supplierBankService = $supplierBankService;
+        $this->supplierQueryBuilder = $supplierQueryBuilder;
     }
 
 
     public function getAllSuppliers(Request $request)
     {
         try {
-            $user = $this->supplierBuilder($request);
-            return ResponseHelper::success($user, "Suppliers retrieved successfully", 200);
-        }catch (Exception $e) {
+            $suppliers = $this->supplierQueryBuilder->supplierBuilder($request);
+            return ResponseHelper::success($suppliers, "Suppliers retrieved successfully", 200);
+        } catch (Exception $e) {
             return ResponseHelper::error('Error fetching suppliers', 500, $e->getMessage());
         }
     }
@@ -111,4 +60,111 @@ class SupplierService
     }
 
 
+    public function createSupplier(Request $request)
+    {
+        DB::beginTransaction();
+
+        try {
+            $validatedSupplier = $this->supplierValidation->validationFields($request);
+            $validatedBanks = $this->supplierBankValidation->validate($request);
+
+            if ($request->hasFile('image')) {
+                $validatedSupplier['image'] = FileUploadHelper::uploadSingle(
+                    $request->file('image'),
+                    'suppliers'
+                );
+            }
+
+            $banks = $validatedBanks['banks'] ?? [];
+            unset($validatedSupplier['banks']);
+
+            $supplier = Supplier::create($validatedSupplier);
+
+            // max:4 + distinct + enum already enforced by SupplierBankValidation
+            if (!empty($banks)) {
+                $this->supplierBankService->createMany($supplier, $banks);
+            }
+
+            DB::commit();
+
+            return ResponseHelper::success(
+                $supplier->load('banks'),
+                "Supplier created successfully",
+                201
+            );
+        } catch (ValidationException $ve) {
+            DB::rollBack();
+            return ResponseHelper::validation($ve->errors(), "Validation Error");
+        } catch (Exception $e) {
+            DB::rollBack();
+            return ResponseHelper::error("Failed creating supplier", 500, $e->getMessage());
+        }
+    }
+
+
+
+    public function updateSupplier(Request $request, int $id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $supplier = Supplier::with('banks')->find($id);
+            if (!$supplier) {
+                return ResponseHelper::error("Supplier not found", 404, null);
+            }
+
+            $validatedSupplier = $this->supplierValidation->updateValidationFields($request, $id);
+            $validatedBanks = $this->supplierBankValidation->validate($request);
+
+            if ($request->hasFile('image')) {
+                $validatedSupplier['image'] = FileUploadHelper::uploadSingle(
+                    $request->file('image'),
+                    'suppliers',
+                    $supplier->image
+                );
+            }
+
+            $incomingBanks = $validatedBanks['banks'] ?? [];
+
+            // Enforce "max 4 total" when adding new bank_name(s)
+            if (!empty($incomingBanks)) {
+                $existingNames = $supplier->banks->pluck('bank_name')->all();
+                $incomingNames = array_values(array_unique(array_map(
+                    fn ($b) => $b['bank_name'] ?? null,
+                    $incomingBanks
+                )));
+                $incomingNames = array_values(array_filter($incomingNames)); // remove nulls
+
+                $newNames = array_values(array_diff($incomingNames, $existingNames));
+
+                if (($supplier->banks->count() + count($newNames)) > 4) {
+                    throw ValidationException::withMessages([
+                        'banks' => ['A supplier can have at most 4 payment methods.'],
+                    ]);
+                }
+            }
+
+            $supplier->update($validatedSupplier);
+
+            if (!empty($incomingBanks)) {
+                // update existing by bank_name, create if not exists
+                $this->supplierBankService->upsertByBankName($supplier, $incomingBanks);
+            }
+
+            DB::commit();
+
+            return ResponseHelper::success(
+                $supplier->load('banks'),
+                "Supplier updated successfully",
+                200
+            );
+        } catch (ValidationException $ve) {
+            DB::rollBack();
+            return ResponseHelper::validation($ve->errors(), "Validation Error");
+        } catch (Exception $e) {
+            DB::rollBack();
+            return ResponseHelper::error("Failed updating supplier", 500, $e->getMessage());
+        }
+    }
+    
 }

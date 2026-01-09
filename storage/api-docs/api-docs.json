@@ -1451,14 +1451,14 @@
                 ]
             }
         },
-        "/api/suppliers/suppliers": {
+        "/api/suppliers": {
             "get": {
                 "tags": [
                     "Suppliers"
                 ],
                 "summary": "Get all suppliers with pagination, filters, sorting",
                 "description": "Retrieve a paginated list of suppliers. Supports search via filter[search], sorting, and pagination.",
-                "operationId": "10feb7f82918eb5242c58206c74ff191",
+                "operationId": "c680c4041313af96e17443c7a18c8f77",
                 "parameters": [
                     {
                         "name": "page",
@@ -1724,16 +1724,313 @@
                         "Bearer": []
                     }
                 ]
+            },
+            "post": {
+                "tags": [
+                    "Suppliers"
+                ],
+                "summary": "Create supplier (with up to 4 payment methods)",
+                "description": "Create supplier and optionally create supplier banks. banks[*][bank_name] must be one of PaymentMethodEnum values; max 4; no duplicates. Use multipart/form-data to upload images.",
+                "operationId": "05d7b013a9375f6731205184520dacf9",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "official_name",
+                                    "supplier_category",
+                                    "address_line1",
+                                    "village",
+                                    "commune",
+                                    "district",
+                                    "city",
+                                    "province"
+                                ],
+                                "properties": {
+                                    "official_name": {
+                                        "type": "string",
+                                        "example": "ABC Trading Co., Ltd"
+                                    },
+                                    "supplier_code": {
+                                        "description": "Optional; generated if missing",
+                                        "type": "string",
+                                        "example": "SUPXXXXXXX"
+                                    },
+                                    "contact_person": {
+                                        "type": "string",
+                                        "example": "John Doe",
+                                        "nullable": true
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "012345678",
+                                        "nullable": true
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "example": "supplier@example.com",
+                                        "nullable": true
+                                    },
+                                    "image": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
+                                    },
+                                    "legal_business_name": {
+                                        "type": "string",
+                                        "example": "ABC Trading Co., Ltd",
+                                        "nullable": true
+                                    },
+                                    "tax_identification_number": {
+                                        "type": "string",
+                                        "example": "1234567890",
+                                        "nullable": true
+                                    },
+                                    "business_registration_number": {
+                                        "type": "string",
+                                        "example": "BR-00001234",
+                                        "nullable": true
+                                    },
+                                    "supplier_category": {
+                                        "type": "string",
+                                        "example": "Raw Material"
+                                    },
+                                    "business_description": {
+                                        "type": "string",
+                                        "example": "Supplier of raw materials",
+                                        "nullable": true
+                                    },
+                                    "address_line1": {
+                                        "type": "string",
+                                        "example": "Street 123"
+                                    },
+                                    "address_line2": {
+                                        "type": "string",
+                                        "example": "Building A",
+                                        "nullable": true
+                                    },
+                                    "village": {
+                                        "type": "string",
+                                        "example": "Village 1"
+                                    },
+                                    "commune": {
+                                        "type": "string",
+                                        "example": "Commune 1"
+                                    },
+                                    "district": {
+                                        "type": "string",
+                                        "example": "District 1"
+                                    },
+                                    "city": {
+                                        "type": "string",
+                                        "example": "Phnom Penh"
+                                    },
+                                    "province": {
+                                        "type": "string",
+                                        "example": "Phnom Penh"
+                                    },
+                                    "postal_code": {
+                                        "type": "string",
+                                        "example": "12000",
+                                        "nullable": true
+                                    },
+                                    "latitude": {
+                                        "type": "number",
+                                        "example": 11.5564,
+                                        "nullable": true
+                                    },
+                                    "longitude": {
+                                        "type": "number",
+                                        "example": 104.9282,
+                                        "nullable": true
+                                    },
+                                    "banks[0][bank_name]": {
+                                        "type": "string",
+                                        "enum": [
+                                            "ABA",
+                                            "ACLEDA",
+                                            "WING",
+                                            "BAKONG"
+                                        ],
+                                        "example": "ABA"
+                                    },
+                                    "banks[0][account_number]": {
+                                        "type": "string",
+                                        "example": "123456789",
+                                        "nullable": true
+                                    },
+                                    "banks[0][account_holder_name]": {
+                                        "type": "string",
+                                        "example": "ABC Trading Co., Ltd",
+                                        "nullable": true
+                                    },
+                                    "banks[0][payment_link]": {
+                                        "type": "string",
+                                        "example": null,
+                                        "nullable": true
+                                    },
+                                    "banks[0][qr_code_image]": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
+                                    },
+                                    "banks[1][bank_name]": {
+                                        "type": "string",
+                                        "enum": [
+                                            "ABA",
+                                            "ACLEDA",
+                                            "WING",
+                                            "BAKONG"
+                                        ],
+                                        "example": "WING",
+                                        "nullable": true
+                                    },
+                                    "banks[1][account_number]": {
+                                        "type": "string",
+                                        "example": "987654321",
+                                        "nullable": true
+                                    },
+                                    "banks[1][account_holder_name]": {
+                                        "type": "string",
+                                        "example": "ABC Trading Co., Ltd",
+                                        "nullable": true
+                                    },
+                                    "banks[1][payment_link]": {
+                                        "type": "string",
+                                        "example": null,
+                                        "nullable": true
+                                    },
+                                    "banks[1][qr_code_image]": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
+                                    },
+                                    "banks[2][bank_name]": {
+                                        "type": "string",
+                                        "enum": [
+                                            "ABA",
+                                            "ACLEDA",
+                                            "WING",
+                                            "BAKONG"
+                                        ],
+                                        "example": "ACLEDA",
+                                        "nullable": true
+                                    },
+                                    "banks[2][account_number]": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "banks[2][account_holder_name]": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "banks[2][payment_link]": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "banks[2][qr_code_image]": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
+                                    },
+                                    "banks[3][bank_name]": {
+                                        "type": "string",
+                                        "enum": [
+                                            "ABA",
+                                            "ACLEDA",
+                                            "WING",
+                                            "BAKONG"
+                                        ],
+                                        "example": "BAKONG",
+                                        "nullable": true
+                                    },
+                                    "banks[3][account_number]": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "banks[3][account_holder_name]": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "banks[3][payment_link]": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "banks[3][qr_code_image]": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Supplier created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Supplier created successfully"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Supplier"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Validation Error"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
             }
         },
-        "/api/suppliers/suppliers/{id}": {
+        "/api/suppliers/{id}": {
             "get": {
                 "tags": [
                     "Suppliers"
                 ],
                 "summary": "Get supplier by ID",
                 "description": "Retrieve a single supplier including banks.",
-                "operationId": "4edbc69adf42de2c2ea9ccd584070d0f",
+                "operationId": "538108ca4eb800cd50f6fb217c8f6c88",
                 "parameters": [
                     {
                         "name": "id",
@@ -1812,6 +2109,287 @@
                                         "errors": {
                                             "type": "string",
                                             "example": "Exception message here"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Suppliers"
+                ],
+                "summary": "Update supplier (banks upsert by bank_name)",
+                "description": "Updates supplier fields and upserts banks by bank_name: if bank_name exists -> update, else -> create; total cannot exceed 4. Use multipart/form-data for images.",
+                "operationId": "f9a277f12679282fc7f05c166a0b84b7",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "_method"
+                                ],
+                                "properties": {
+                                    "_method": {
+                                        "description": "Set this to PATCH to emulate PATCH request using POST",
+                                        "type": "string",
+                                        "example": "PATCH"
+                                    },
+                                    "official_name": {
+                                        "type": "string",
+                                        "example": "ABC Trading Co., Ltd"
+                                    },
+                                    "contact_person": {
+                                        "type": "string",
+                                        "example": "John Doe",
+                                        "nullable": true
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "012345678",
+                                        "nullable": true
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "example": "supplier@example.com",
+                                        "nullable": true
+                                    },
+                                    "image": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
+                                    },
+                                    "supplier_category": {
+                                        "type": "string",
+                                        "example": "Raw Material"
+                                    },
+                                    "address_line1": {
+                                        "type": "string",
+                                        "example": "Street 123"
+                                    },
+                                    "address_line2": {
+                                        "type": "string",
+                                        "example": "Building A",
+                                        "nullable": true
+                                    },
+                                    "village": {
+                                        "type": "string",
+                                        "example": "Village 1"
+                                    },
+                                    "commune": {
+                                        "type": "string",
+                                        "example": "Commune 1"
+                                    },
+                                    "district": {
+                                        "type": "string",
+                                        "example": "District 1"
+                                    },
+                                    "city": {
+                                        "type": "string",
+                                        "example": "Phnom Penh"
+                                    },
+                                    "province": {
+                                        "type": "string",
+                                        "example": "Phnom Penh"
+                                    },
+                                    "banks[0][bank_name]": {
+                                        "type": "string",
+                                        "enum": [
+                                            "ABA",
+                                            "ACLEDA",
+                                            "WING",
+                                            "BAKONG"
+                                        ],
+                                        "example": "ABA",
+                                        "nullable": true
+                                    },
+                                    "banks[0][account_number]": {
+                                        "type": "string",
+                                        "example": "123456789",
+                                        "nullable": true
+                                    },
+                                    "banks[0][account_holder_name]": {
+                                        "type": "string",
+                                        "example": "ABC Trading Co., Ltd",
+                                        "nullable": true
+                                    },
+                                    "banks[0][payment_link]": {
+                                        "type": "string",
+                                        "example": null,
+                                        "nullable": true
+                                    },
+                                    "banks[0][qr_code_image]": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
+                                    },
+                                    "banks[1][bank_name]": {
+                                        "type": "string",
+                                        "enum": [
+                                            "ABA",
+                                            "ACLEDA",
+                                            "WING",
+                                            "BAKONG"
+                                        ],
+                                        "nullable": true
+                                    },
+                                    "banks[1][account_number]": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "banks[1][account_holder_name]": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "banks[1][payment_link]": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "banks[1][qr_code_image]": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
+                                    },
+                                    "banks[2][bank_name]": {
+                                        "type": "string",
+                                        "enum": [
+                                            "ABA",
+                                            "ACLEDA",
+                                            "WING",
+                                            "BAKONG"
+                                        ],
+                                        "nullable": true
+                                    },
+                                    "banks[2][account_number]": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "banks[2][account_holder_name]": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "banks[2][payment_link]": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "banks[2][qr_code_image]": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
+                                    },
+                                    "banks[3][bank_name]": {
+                                        "type": "string",
+                                        "enum": [
+                                            "ABA",
+                                            "ACLEDA",
+                                            "WING",
+                                            "BAKONG"
+                                        ],
+                                        "nullable": true
+                                    },
+                                    "banks[3][account_number]": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "banks[3][account_holder_name]": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "banks[3][payment_link]": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "banks[3][qr_code_image]": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Supplier updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Supplier updated successfully"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Supplier"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Supplier not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Supplier not found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Validation Error"
+                                        },
+                                        "errors": {
+                                            "type": "object"
                                         }
                                     },
                                     "type": "object"
@@ -2920,6 +3498,221 @@
         }
     },
     "components": {
+        "schemas": {
+            "SupplierBankInput": {
+                "required": [
+                    "bank_name"
+                ],
+                "properties": {
+                    "bank_name": {
+                        "description": "Payment method/bank name (must match PaymentMethodEnum)",
+                        "type": "string",
+                        "enum": [
+                            "ABA",
+                            "ACLEDA",
+                            "WING",
+                            "BAKONG"
+                        ],
+                        "example": "ABA"
+                    },
+                    "account_number": {
+                        "type": "string",
+                        "example": "123456789",
+                        "nullable": true
+                    },
+                    "account_holder_name": {
+                        "type": "string",
+                        "example": "ABC Trading Co., Ltd",
+                        "nullable": true
+                    },
+                    "payment_link": {
+                        "type": "string",
+                        "example": null,
+                        "nullable": true
+                    },
+                    "qr_code_image": {
+                        "description": "Optional QR image upload",
+                        "type": "string",
+                        "format": "binary",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "SupplierBank": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "supplier_id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "bank_name": {
+                        "type": "string",
+                        "example": "ABA"
+                    },
+                    "account_number": {
+                        "type": "string",
+                        "example": "123456789",
+                        "nullable": true
+                    },
+                    "account_holder_name": {
+                        "type": "string",
+                        "example": "ABC Trading Co., Ltd",
+                        "nullable": true
+                    },
+                    "payment_link": {
+                        "type": "string",
+                        "example": null,
+                        "nullable": true
+                    },
+                    "qr_code_image": {
+                        "type": "string",
+                        "example": null,
+                        "nullable": true
+                    },
+                    "bank_label": {
+                        "type": "string",
+                        "example": "https://.../aba-logo.png",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "example": "2026-01-01 12:00:00"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "example": "2026-01-01 12:00:00"
+                    }
+                },
+                "type": "object"
+            },
+            "Supplier": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "official_name": {
+                        "type": "string",
+                        "example": "ABC Trading Co., Ltd"
+                    },
+                    "supplier_code": {
+                        "type": "string",
+                        "example": "SUP-8K2JQ9XA"
+                    },
+                    "contact_person": {
+                        "type": "string",
+                        "example": "John Doe",
+                        "nullable": true
+                    },
+                    "phone": {
+                        "type": "string",
+                        "example": "012345678",
+                        "nullable": true
+                    },
+                    "email": {
+                        "type": "string",
+                        "example": "supplier@example.com",
+                        "nullable": true
+                    },
+                    "image": {
+                        "type": "string",
+                        "example": null,
+                        "nullable": true
+                    },
+                    "legal_business_name": {
+                        "type": "string",
+                        "example": "ABC Trading Co., Ltd",
+                        "nullable": true
+                    },
+                    "tax_identification_number": {
+                        "type": "string",
+                        "example": "1234567890",
+                        "nullable": true
+                    },
+                    "business_registration_number": {
+                        "type": "string",
+                        "example": "BR-00001234",
+                        "nullable": true
+                    },
+                    "supplier_category": {
+                        "type": "string",
+                        "example": "Raw Material"
+                    },
+                    "business_description": {
+                        "type": "string",
+                        "example": "Supplier of raw materials",
+                        "nullable": true
+                    },
+                    "address_line1": {
+                        "type": "string",
+                        "example": "Street 123"
+                    },
+                    "address_line2": {
+                        "type": "string",
+                        "example": "Building A",
+                        "nullable": true
+                    },
+                    "village": {
+                        "type": "string",
+                        "example": "Village 1"
+                    },
+                    "commune": {
+                        "type": "string",
+                        "example": "Commune 1"
+                    },
+                    "district": {
+                        "type": "string",
+                        "example": "District 1"
+                    },
+                    "city": {
+                        "type": "string",
+                        "example": "Phnom Penh"
+                    },
+                    "province": {
+                        "type": "string",
+                        "example": "Phnom Penh"
+                    },
+                    "postal_code": {
+                        "type": "string",
+                        "example": "12000",
+                        "nullable": true
+                    },
+                    "latitude": {
+                        "type": "number",
+                        "example": 11.5564,
+                        "nullable": true
+                    },
+                    "longitude": {
+                        "type": "number",
+                        "example": 104.9282,
+                        "nullable": true
+                    },
+                    "banks_count": {
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "banks": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SupplierBank"
+                        }
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "example": "2026-01-01 12:00:00"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "example": "2026-01-01 12:00:00"
+                    }
+                },
+                "type": "object"
+            }
+        },
         "securitySchemes": {
             "Bearer": {
                 "type": "http",
