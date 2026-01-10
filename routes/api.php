@@ -49,9 +49,11 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
     }); 
 
     Route::prefix('suppliers')->group(function () {
+        Route::post('/import', [SupplierAPIController::class, 'import']);
+        Route::get('/import-histories', [SupplierAPIController::class, 'getImportHistories']);
         Route::get('/', [SupplierAPIController::class, 'index']);
-        Route::get('/{id}', [SupplierAPIController::class, 'show']);
         Route::post('/', [SupplierAPIController::class, 'store']);
+        Route::get('/{id}', [SupplierAPIController::class, 'show']);
         Route::patch('/{id}', [SupplierAPIController::class, 'update']);
      });
 

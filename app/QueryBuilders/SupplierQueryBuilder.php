@@ -53,7 +53,9 @@ class SupplierQueryBuilder
 
             allowedFilters: [
                 AllowedFilter::exact('id'),
-                AllowedFilter::exact('role'),
+                AllowedFilter::exact('supplier_category'),
+                
+
 
                 AllowedFilter::callback('search', function (Builder $query, $value) {
                     $query->where(function ($q) use ($value) {

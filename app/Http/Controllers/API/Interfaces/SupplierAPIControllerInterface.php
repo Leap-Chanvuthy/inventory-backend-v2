@@ -69,6 +69,35 @@ namespace App\Http\Controllers\API\Interfaces;
  *   @OA\Property(property="updated_at", type="string", example="2026-01-01 12:00:00")
  * )
  *
+ * @OA\Schema(
+ *   schema="SupplierImportHistory",
+ *   type="object",
+ *   @OA\Property(property="id", type="integer", example=1),
+ *   @OA\Property(property="filename", type="string", example="suppliers.xlsx"),
+ *   @OA\Property(property="size", type="integer", example=204800),
+ *   @OA\Property(property="uploaded_by", type="integer", example=5),
+ *   @OA\Property(property="total_uploaded", type="integer", example=100),
+ *   @OA\Property(property="uploaded_at", type="string", example="2026-01-10 10:30:00"),
+ *   @OA\Property(property="created_at", type="string", example="2026-01-10 10:30:00"),
+ *   @OA\Property(property="updated_at", type="string", example="2026-01-10 10:30:00"),
+ *   @OA\Property(
+ *     property="user",
+ *     type="object",
+ *     nullable=true,
+ *     description="Uploader user (loaded via withRelations: ['user'])",
+ *     @OA\Property(property="id", type="integer", example=5),
+ *     @OA\Property(property="name", type="string", example="John Doe"),
+ *     @OA\Property(property="email", type="string", example="john@example.com")
+ *   ),
+ *   @OA\Property(property="user_count", type="integer", nullable=true, example=1, description="If withCounts is enabled")
+ * )
+ *
+ * @OA\Tag(
+ *   name="Suppliers",
+ *   description="API Endpoints for managing suppliers"
+ * )
+ *
+ * 
  * @OA\Tag(
  *     name="Suppliers",
  *     description="API Endpoints for managing suppliers"
@@ -426,5 +455,144 @@ interface SupplierAPIControllerInterface
      * )
      */
     public function update();
+
+
+        /**
+     * @OA\Post(
+     *   path="/api/suppliers/import",
+     *   tags={"Suppliers"},
+     *   security={{"Bearer":{}}},
+     *   summary="Import suppliers from Excel/CSV",
+     *   description="Upload an .xlsx or .csv file using multipart/form-data. Requires ADMIN role.",
+     *
+     *   @OA\RequestBody(
+     *     required=true,
+     *     @OA\MediaType(
+     *       mediaType="multipart/form-data",
+     *       @OA\Schema(
+     *         required={"supplier_file"},
+     *         @OA\Property(
+     *           property="supplier_file",
+     *           type="string",
+     *           format="binary",
+     *           description="Excel/CSV file (.xlsx or .csv), max 5MB"
+     *         )
+     *       )
+     *     )
+     *   ),
+     *
+     *   @OA\Response(
+     *     response=201,
+     *     description="Supplier imported successfully",
+     *     @OA\JsonContent(
+     *       @OA\Property(property="status", type="boolean", example=true),
+     *       @OA\Property(property="message", type="string", example="Supplier imported successfully"),
+     *       @OA\Property(
+     *         property="data",
+     *         type="object",
+     *         @OA\Property(property="total", type="integer", example=100)
+     *       )
+     *     )
+     *   ),
+     *
+     *   @OA\Response(
+     *     response=422,
+     *     description="Import validation failed",
+     *     @OA\JsonContent(
+     *       @OA\Property(property="status", type="boolean", example=false),
+     *       @OA\Property(property="message", type="string", example="Import validation failed"),
+     *       @OA\Property(property="errors", type="object")
+     *     )
+     *   ),
+     *
+     *   @OA\Response(
+     *     response=500,
+     *     description="Import failed",
+     *     @OA\JsonContent(
+     *       @OA\Property(property="status", type="boolean", example=false),
+     *       @OA\Property(property="message", type="string", example="Import failed"),
+     *       @OA\Property(property="errors", type="string", nullable=true, example="Exception message here")
+     *     )
+     *   )
+     * )
+     */
+    public function import();
+
+    /**
+     * @OA\Get(
+     *   path="/api/suppliers/import-histories",
+     *   tags={"Suppliers"},
+     *   security={{"Bearer":{}}},
+     *   summary="Get supplier import histories (paginated)",
+     *   description="Retrieve paginated import history records. Supports filter[search] which searches filename and uploader (user.name / user.email). Requires ADMIN role.",
+     *
+     *   @OA\Parameter(
+     *     name="page",
+     *     in="query",
+     *     description="Page number",
+     *     @OA\Schema(type="integer", example=1)
+     *   ),
+     *
+     *   @OA\Parameter(
+     *     name="per_page",
+     *     in="query",
+     *     description="Number of records per page (default 10, max 100)",
+     *     @OA\Schema(type="integer", example=10)
+     *   ),
+     *
+     *   @OA\Parameter(
+     *     name="filter[id]",
+     *     in="query",
+     *     description="Filter by import history id",
+     *     @OA\Schema(type="integer")
+     *   ),
+     *
+     *   @OA\Parameter(
+     *     name="filter[search]",
+     *     in="query",
+     *     description="Search by filename or uploader name/email",
+     *     @OA\Schema(type="string")
+     *   ),
+     *
+     *   @OA\Parameter(
+     *     name="sort",
+     *     in="query",
+     *     description="Sort by fields (e.g. -created_at, uploaded_by, updated_at)",
+     *     @OA\Schema(type="string", example="-created_at")
+     *   ),
+     *
+     *   @OA\Response(
+     *     response=200,
+     *     description="Import histories retrieved successfully",
+     *     @OA\JsonContent(
+     *       @OA\Property(property="status", type="boolean", example=true),
+     *       @OA\Property(property="message", type="string", example="Import histories retrieved successfully"),
+     *       @OA\Property(
+     *         property="data",
+     *         type="object",
+     *         @OA\Property(property="current_page", type="integer", example=1),
+     *         @OA\Property(property="per_page", type="integer", example=10),
+     *         @OA\Property(property="total", type="integer", example=25),
+     *         @OA\Property(
+     *           property="data",
+     *           type="array",
+     *           @OA\Items(ref="#/components/schemas/SupplierImportHistory")
+     *         )
+     *       )
+     *     )
+     *   ),
+     *
+     *   @OA\Response(
+     *     response=500,
+     *     description="Error fetching import histories",
+     *     @OA\JsonContent(
+     *       @OA\Property(property="status", type="boolean", example=false),
+     *       @OA\Property(property="message", type="string", example="Error fetching import histories"),
+     *       @OA\Property(property="errors", type="string", nullable=true, example="Exception message here")
+     *     )
+     *   )
+     * )
+     */
+    public function getImportHistories();
 
 }

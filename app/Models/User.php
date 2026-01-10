@@ -68,4 +68,11 @@ class User extends Authenticatable implements JWTSubject
     {
         return [];
     }
+
+    public function supplierImportHistories()
+    {
+        return $this->hasMany(SupplierImportHistory::class, 'uploaded_by');
+    }
+
+
 }
