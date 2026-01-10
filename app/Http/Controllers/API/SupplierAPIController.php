@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Service\SupplierService;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 
 class SupplierAPIController extends Controller
 {
@@ -32,6 +33,16 @@ class SupplierAPIController extends Controller
 
     public function update(Request $request, $id){
         return $this->supplierService->updateSupplier($request, $id);
+    }
+
+    public function import(Request $request)
+    {
+        return $this->supplierService->importSupplier($request);
+    }
+
+    public function getImportHistories(Request $request)
+    {
+        return $this->supplierService->getImportHistories($request);
     }
 
 }

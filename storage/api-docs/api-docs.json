@@ -2405,6 +2405,250 @@
                 ]
             }
         },
+        "/api/suppliers/import": {
+            "post": {
+                "tags": [
+                    "Suppliers"
+                ],
+                "summary": "Import suppliers from Excel/CSV",
+                "description": "Upload an .xlsx or .csv file using multipart/form-data. Requires ADMIN role.",
+                "operationId": "d74ab3d8b8f1a499b6469d78f2b209b6",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "supplier_file"
+                                ],
+                                "properties": {
+                                    "supplier_file": {
+                                        "description": "Excel/CSV file (.xlsx or .csv), max 5MB",
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Supplier imported successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Supplier imported successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 100
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Import validation failed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Import validation failed"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Import failed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Import failed"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "Exception message here",
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/suppliers/import-histories": {
+            "get": {
+                "tags": [
+                    "Suppliers"
+                ],
+                "summary": "Get supplier import histories (paginated)",
+                "description": "Retrieve paginated import history records. Supports filter[search] which searches filename and uploader (user.name / user.email). Requires ADMIN role.",
+                "operationId": "288d10b45bba00f0dedf330bd75d725f",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number",
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Number of records per page (default 10, max 100)",
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    },
+                    {
+                        "name": "filter[id]",
+                        "in": "query",
+                        "description": "Filter by import history id",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "description": "Search by filename or uploader name/email",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort by fields (e.g. -created_at, uploaded_by, updated_at)",
+                        "schema": {
+                            "type": "string",
+                            "example": "-created_at"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Import histories retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Import histories retrieved successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 25
+                                                },
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/SupplierImportHistory"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error fetching import histories",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Error fetching import histories"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "Exception message here",
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/users/{id}": {
             "get": {
                 "tags": [
@@ -3708,6 +3952,68 @@
                     "updated_at": {
                         "type": "string",
                         "example": "2026-01-01 12:00:00"
+                    }
+                },
+                "type": "object"
+            },
+            "SupplierImportHistory": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "filename": {
+                        "type": "string",
+                        "example": "suppliers.xlsx"
+                    },
+                    "size": {
+                        "type": "integer",
+                        "example": 204800
+                    },
+                    "uploaded_by": {
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "total_uploaded": {
+                        "type": "integer",
+                        "example": 100
+                    },
+                    "uploaded_at": {
+                        "type": "string",
+                        "example": "2026-01-10 10:30:00"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "example": "2026-01-10 10:30:00"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "example": "2026-01-10 10:30:00"
+                    },
+                    "user": {
+                        "description": "Uploader user (loaded via withRelations: ['user'])",
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "example": 5
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "John Doe"
+                            },
+                            "email": {
+                                "type": "string",
+                                "example": "john@example.com"
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "user_count": {
+                        "description": "If withCounts is enabled",
+                        "type": "integer",
+                        "example": 1,
+                        "nullable": true
                     }
                 },
                 "type": "object"
