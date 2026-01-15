@@ -6,6 +6,7 @@ use App\Enums\SupplierCategoryEnum;
 use App\Models\Supplier;
 use App\Helpers\GenerateUniqeCode;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Enum;
 use Maatwebsite\Excel\Concerns\{
     ToModel,
     WithHeadingRow,
@@ -22,16 +23,19 @@ class SuppliersImport implements ToModel, WithHeadingRow, WithValidation, SkipsO
 
     public function model(array $row)
     {
+        // Only called for VALID rows
         $this->imported++;
+
+        $supplierCode = $row['supplier_code'] ?? null;
 
         return new Supplier([
             'official_name' => $row['official_name'],
-            'supplier_code' => GenerateUniqeCode::generate(
-                Supplier::class,
-                'supplier_code',
-                8,
-                'SUP'
-            ),
+
+            // if supplier_code column is missing/empty, generate one
+            'supplier_code' => !empty($supplierCode)
+                ? $supplierCode
+                : GenerateUniqeCode::generate(Supplier::class, 'supplier_code', 8, 'SUP'),
+
             'contact_person' => $row['contact_person'] ?? null,
             'phone' => $row['phone'] ?? null,
             'email' => $row['email'] ?? null,
@@ -59,26 +63,39 @@ class SuppliersImport implements ToModel, WithHeadingRow, WithValidation, SkipsO
     {
         return [
             'official_name' => 'required|string|max:255',
+
+            // ✅ optional; validate only if provided
             'supplier_code' => [
                 'nullable',
                 'string',
-                'unique:suppliers,supplier_code',
                 'max:12',
                 'starts_with:SUP',
                 Rule::unique('suppliers', 'supplier_code'),
             ],
-            'email' => 'nullable|email|unique:suppliers,email',
-            'supplier_category' => [
-                'required',
-                Rule::in([SupplierCategoryEnum::CLOTHING , SupplierCategoryEnum::ELECTRONICS , SupplierCategoryEnum::FOOD , SupplierCategoryEnum::LOGISTICS , SupplierCategoryEnum::PRODUCTS , SupplierCategoryEnum::SERVICES , SupplierCategoryEnum::OTHERS]),
-            ],
+
+            'contact_person' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:50',
+            'email' => 'nullable|email|max:255',
+
+            'legal_business_name' => 'nullable|string|max:255',
+            'tax_identification_number' => 'nullable|string|max:100',
+            'business_registration_number' => 'nullable|string|max:100',
+
+            // ✅ validate enum properly
+            'supplier_category' => ['required', new Enum(SupplierCategoryEnum::class)],
+
+            'business_description' => 'nullable|string',
 
             'address_line1' => 'required|string',
+            'address_line2' => 'nullable|string',
             'village' => 'required|string',
             'commune' => 'required|string',
             'district' => 'required|string',
             'city' => 'required|string',
             'province' => 'required|string',
+            'postal_code' => 'nullable|string|max:20',
+            'latitude'  => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
         ];
     }
 

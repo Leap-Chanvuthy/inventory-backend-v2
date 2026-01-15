@@ -7,6 +7,7 @@ use App\Helpers\FileUploadHelper;
 use App\Helpers\ResponseHelper;
 use App\Imports\SuppliersImport;
 use App\Models\Supplier;
+use App\Models\SupplierImportHistory;
 use App\QueryBuilders\SupplierImportQuery;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
@@ -174,46 +175,51 @@ class SupplierService
         }
     }
 
-        public function importSupplier(Request $request)
-    {
-        DB::beginTransaction();
+public function importSupplier(Request $request)
+{
+    DB::beginTransaction();
 
-        try {
-            $validated = $request->validate([
-                'supplier_file' => 'required|file|mimes:xlsx,csv|max:5120',
-            ]);
+    try {
+        $validated = $request->validate([
+            'supplier_file' => 'required|file|mimes:xlsx,csv|max:5120',
+        ]);
 
-            $import = new SuppliersImport();
+        $import = new SuppliersImport();
 
-            Excel::import($import, $validated['supplier_file']);
+        Excel::import($import, $validated['supplier_file']);
 
-            \App\Models\SupplierImportHistory::create([
-                'filename'       => $validated['supplier_file']->getClientOriginalName(),
-                'size'           => $validated['supplier_file']->getSize(),
-                'uploaded_by'    => Auth::id(),
-                'total_uploaded' => $import->getImportedCount(),
-                'uploaded_at'    => now(),
-            ]);
+        SupplierImportHistory::create([
+            'filename'       => $validated['supplier_file']->getClientOriginalName(),
+            'size'           => $validated['supplier_file']->getSize(),
+            'uploaded_by'    => Auth::id(),
+            'total_uploaded' => $import->getImportedCount(),
+            'uploaded_at'    => now(),
+        ]);
 
-            DB::commit();
+        DB::commit();
 
-            Return ResponseHelper::success([
-               'total'   => $import->getImportedCount(),
-            ], 'Supplier imported successfully', 201);
-
-
-        } catch (ValidationException $e) {
-            DB::rollBack();
-            return ResponseHelper::validation($e->errors(), 'Import validation failed');
-        } catch (Throwable $e) {
-            DB::rollBack();
-
-            return response()->json([
-                'message' => 'Import failed',
-                'error'   => $e->getMessage(),
-            ], 500);
-        }
+        return ResponseHelper::success([
+            'total' => $import->getImportedCount(),
+            'failures' => collect($import->failures())->map(function ($f) {
+                return [
+                    'row' => $f->row(),
+                    'attribute' => $f->attribute(),
+                    'errors' => $f->errors(),
+                    'values' => $f->values(),
+                ];
+            })->values(),
+        ], 'Supplier imported successfully', 201);
+    } catch (ValidationException $e) {
+        DB::rollBack();
+        return ResponseHelper::validation($e->errors(), 'Import validation failed');
+    } catch (Throwable $e) {
+        DB::rollBack();
+        return response()->json([
+            'message' => 'Import failed',
+            'error'   => $e->getMessage(),
+        ], 500);
     }
+}
 
 
     public function getImportHistories(Request $request)
