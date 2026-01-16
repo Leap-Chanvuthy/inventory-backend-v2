@@ -42,6 +42,7 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
     });    
 
     Route::prefix('users')->group(function () {
+        Route::get('/statistics', [UserAPIController::class, 'getUserStatistics']);
         Route::get('/{id}', [UserAPIController::class, 'getUserById']);
         Route::get('/', [UserAPIController::class, 'getUsers']);
         Route::post('/', [UserAPIController::class, 'createUser']);

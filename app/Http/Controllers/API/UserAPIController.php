@@ -34,4 +34,8 @@ class UserAPIController extends Controller
         public function verifyEmail(Request $request){
             return $this -> userService -> verifyEmail($request);
         }
+
+        public function getUserStatistics(){
+            return $this -> userService -> getUserStatistics();
+        }
 }

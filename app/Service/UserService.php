@@ -17,6 +17,7 @@ use App\Mail\VerifyIdentityMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Carbon\Carbon;
 
 class UserService
 {
@@ -233,4 +234,62 @@ class UserService
             return ResponseHelper::error("Failed verifying email", 500, $e->getMessage());
         }
     }
+
+
+    public function getUserStatistics()
+    {
+        try {
+            $now = Carbon::now();
+
+            // Baseline: total users as of end of last month
+            $endOfLastMonth = $now->copy()->subMonthNoOverflow()->endOfMonth();
+
+            $totalUsers = User::count();
+            $totalUsersAsOfEndLastMonth = User::where('created_at', '<=', $endOfLastMonth)->count();
+
+            $delta = $totalUsers - $totalUsersAsOfEndLastMonth;
+
+            $trendPercent = $totalUsersAsOfEndLastMonth === 0
+                ? ($totalUsers > 0 ? 100.0 : 0.0)
+                : round(($delta / $totalUsersAsOfEndLastMonth) * 100, 2);
+
+            $trendDirection = $delta > 0 ? 'up' : ($delta < 0 ? 'down' : 'flat');
+
+            // Verified / unverified
+            $verifiedUsers = User::whereNotNull('email_verified_at')->count();
+            $unverifiedUsers = $totalUsers - $verifiedUsers;
+
+            // Totals by role (ensure all roles exist in output, even if 0)
+            $roleCountsRaw = User::query()
+                ->selectRaw('role, COUNT(*) as total')
+                ->groupBy('role')
+                ->pluck('total', 'role')
+                ->toArray();
+
+            $totalByRole = [];
+            foreach (UserRoleEnum::cases() as $roleCase) {
+                // DB value might be string or int depending on your enum backing; match both safely.
+                $key = (string) ($roleCase->value ?? $roleCase->name);
+                $totalByRole[$roleCase->name] = (int) ($roleCountsRaw[$key] ?? 0);
+            }
+
+            $statistics = [
+                'total_users' => $totalUsers,
+                'total_users_as_of_end_last_month' => $totalUsersAsOfEndLastMonth,
+                'total_users_trend' => [
+                    'delta' => $delta,
+                    'percent' => $trendPercent,
+                    'direction' => $trendDirection,
+                ],
+                'total_by_role' => $totalByRole,
+                'verified_users' => $verifiedUsers,
+                'unverified_users' => $unverifiedUsers,
+            ];
+
+            return ResponseHelper::success($statistics, "User statistics retrieved successfully", 200);
+        } catch (Exception $e) {
+            return ResponseHelper::error("Failed getting user statistics", 500, $e->getMessage());
+        }
+    }
+
 }
