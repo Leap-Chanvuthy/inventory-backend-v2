@@ -826,6 +826,339 @@
                 ]
             }
         },
+        "/api/customer-categories": {
+            "get": {
+                "tags": [
+                    "Customer Categories"
+                ],
+                "summary": "Get all customer categories",
+                "description": "Retrieve a paginated list of customer categories.",
+                "operationId": "1393ece1c2ec6bd761cbe8d6f36d997f",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Items per page (1..100)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 10,
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "description": "Search by category_name or description",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[id]",
+                        "in": "query",
+                        "description": "Exact match by id",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort fields: id, category_name, created_at, updated_at. Prefix with '-' for desc (e.g. -created_at).",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Customer categories retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Customer categories retrieved successfully"
+                                        },
+                                        "data": {
+                                            "description": "Laravel paginator payload",
+                                            "properties": {
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/CustomerCategory"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden (ADMIN only)"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/customer-categories/{id}": {
+            "get": {
+                "tags": [
+                    "Customer Categories"
+                ],
+                "summary": "Get a customer category by id",
+                "description": "Requires auth and ADMIN role.",
+                "operationId": "CustomerCategoriesShow",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Customer category retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Customer category retrieved successfully"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/CustomerCategory"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden (ADMIN only)"
+                    },
+                    "404": {
+                        "description": "Customer category not found"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Customer Categories"
+                ],
+                "summary": "Update a customer category",
+                "description": "Requires auth and ADMIN role.",
+                "operationId": "CustomerCategoriesUpdate",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "category_name": {
+                                        "type": "string",
+                                        "maxLength": 255,
+                                        "example": "Retail"
+                                    },
+                                    "label_color": {
+                                        "type": "string",
+                                        "example": "#22c55e",
+                                        "nullable": true
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Walk-in / retail customers",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Customer category updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Product category updated successfully"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/CustomerCategory"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden (ADMIN only)"
+                    },
+                    "404": {
+                        "description": "Customer category not found"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/customer-categories": {
+            "post": {
+                "tags": [
+                    "Customer Categories"
+                ],
+                "summary": "Create a customer category",
+                "description": "Requires auth and ADMIN role.",
+                "operationId": "CustomerCategoriesStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "category_name"
+                                ],
+                                "properties": {
+                                    "category_name": {
+                                        "type": "string",
+                                        "maxLength": 255,
+                                        "example": "VIP"
+                                    },
+                                    "label_color": {
+                                        "type": "string",
+                                        "example": "#5c52d6",
+                                        "nullable": true
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "High value customers",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Customer category created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Customer category created successfully"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/CustomerCategory"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden (ADMIN only)"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/product-categories": {
             "get": {
                 "tags": [
@@ -3743,6 +4076,41 @@
     },
     "components": {
         "schemas": {
+            "CustomerCategory": {
+                "title": "Customer Category",
+                "description": "Customer category model",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "category_name": {
+                        "type": "string",
+                        "example": "VIP"
+                    },
+                    "label_color": {
+                        "type": "string",
+                        "example": "#5c52d6",
+                        "nullable": true
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "High value customers",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-01-01T12:00:00Z"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-01-02T12:00:00Z"
+                    }
+                },
+                "type": "object"
+            },
             "SupplierBankInput": {
                 "required": [
                     "bank_name"
@@ -4055,6 +4423,10 @@
         {
             "name": "Company",
             "description": "Company"
+        },
+        {
+            "name": "Customer Categories",
+            "description": "Customer Categories"
         }
     ]
 }

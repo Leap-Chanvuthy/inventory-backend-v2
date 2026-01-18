@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\API\AuthAPIController;
 use App\Http\Controllers\API\CompanyInfoAPIController;
+use App\Http\Controllers\API\CustomerCategoryAPIController;
 use App\Http\Controllers\API\ProductCategoryAPIController;
 use App\Http\Controllers\API\RawMaterialCategoryAPIController;
 use App\Http\Controllers\API\SupplierAPIController;
@@ -81,6 +82,14 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
         Route::get('/{id}', [ProductCategoryAPIController::class, 'show']);
         Route::post('/', [ProductCategoryAPIController::class, 'store']);
         Route::patch('/{id}', [ProductCategoryAPIController::class, 'update']);
+    });
+
+
+    Route::prefix('customer-categories')->group(function () {
+        Route::get('/', [CustomerCategoryAPIController::class, 'index']);
+        Route::get('/{id}', [CustomerCategoryAPIController::class, 'show']);
+        Route::post('/', [CustomerCategoryAPIController::class, 'store']);
+        Route::patch('/{id}', [CustomerCategoryAPIController::class, 'update']);
     });
 
 });
