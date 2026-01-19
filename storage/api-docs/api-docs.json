@@ -1005,7 +1005,7 @@
                 ]
             }
         },
-        "/customer-categories/{id}": {
+        "/api/customer-categories/{id}": {
             "get": {
                 "tags": [
                     "Customer Categories"
@@ -1065,9 +1065,7 @@
                         "Bearer": []
                     }
                 ]
-            }
-        },
-        "/api/customer-categories/{id}": {
+            },
             "patch": {
                 "tags": [
                     "Customer Categories"
