@@ -923,6 +923,86 @@
                         "Bearer": []
                     }
                 ]
+            },
+            "post": {
+                "tags": [
+                    "Customer Categories"
+                ],
+                "summary": "Create a customer category",
+                "description": "Requires auth and ADMIN role.",
+                "operationId": "CustomerCategoriesStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "category_name"
+                                ],
+                                "properties": {
+                                    "category_name": {
+                                        "type": "string",
+                                        "maxLength": 255,
+                                        "example": "VIP"
+                                    },
+                                    "label_color": {
+                                        "type": "string",
+                                        "example": "#5c52d6",
+                                        "nullable": true
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "High value customers",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Customer category created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Customer category created successfully"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/CustomerCategory"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden (ADMIN only)"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
             }
         },
         "/customer-categories/{id}": {
@@ -985,7 +1065,9 @@
                         "Bearer": []
                     }
                 ]
-            },
+            }
+        },
+        "/api/customer-categories/{id}": {
             "patch": {
                 "tags": [
                     "Customer Categories"
@@ -1062,88 +1144,6 @@
                     },
                     "404": {
                         "description": "Customer category not found"
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    },
-                    "500": {
-                        "description": "Server error"
-                    }
-                },
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ]
-            }
-        },
-        "/customer-categories": {
-            "post": {
-                "tags": [
-                    "Customer Categories"
-                ],
-                "summary": "Create a customer category",
-                "description": "Requires auth and ADMIN role.",
-                "operationId": "CustomerCategoriesStore",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "category_name"
-                                ],
-                                "properties": {
-                                    "category_name": {
-                                        "type": "string",
-                                        "maxLength": 255,
-                                        "example": "VIP"
-                                    },
-                                    "label_color": {
-                                        "type": "string",
-                                        "example": "#5c52d6",
-                                        "nullable": true
-                                    },
-                                    "description": {
-                                        "type": "string",
-                                        "example": "High value customers",
-                                        "nullable": true
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Customer category created successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean",
-                                            "example": true
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Customer category created successfully"
-                                        },
-                                        "data": {
-                                            "$ref": "#/components/schemas/CustomerCategory"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthenticated"
-                    },
-                    "403": {
-                        "description": "Forbidden (ADMIN only)"
                     },
                     "422": {
                         "description": "Validation error"
