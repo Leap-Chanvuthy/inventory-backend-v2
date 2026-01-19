@@ -125,7 +125,7 @@ interface CustomerCategoryAPIControllerInterface
 
     /**
      * @OA\Post(
-     *   path="/customer-categories",
+     *   path="/api/customer-categories",
      *   operationId="CustomerCategoriesStore",
      *   tags={"Customer Categories"},
      *   summary="Create a customer category",
@@ -160,7 +160,7 @@ interface CustomerCategoryAPIControllerInterface
 
     /**
      * @OA\Patch(
-     *   path="/customer-categories/{id}",
+     *   path="/api/customer-categories/{id}",
      *   operationId="CustomerCategoriesUpdate",
      *   tags={"Customer Categories"},
      *   summary="Update a customer category",
