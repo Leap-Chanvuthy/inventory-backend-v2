@@ -93,7 +93,7 @@ interface CustomerCategoryAPIControllerInterface
 
     /**
      * @OA\Get(
-     *   path="/customer-categories/{id}",
+     *   path="/api/customer-categories/{id}",
      *   operationId="CustomerCategoriesShow",
      *   tags={"Customer Categories"},
      *   summary="Get a customer category by id",
