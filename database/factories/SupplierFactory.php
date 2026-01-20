@@ -17,7 +17,7 @@ class SupplierFactory extends Factory
         $randomId = rand(1, 30);
 
         return [
-            'image' => "https://avatar.iran.liara.run/public/{$randomId}",
+            'image' => "https://api.dicebear.com/9.x/adventurer/svg?seed={$randomId}",
             'official_name' => $this->faker->company,
             'supplier_code' => GenerateUniqeCode::generate(Supplier::class, 'supplier_code', 8, 'SUP'),
             'contact_person' => $this->faker->name,

@@ -39,7 +39,7 @@ class UserFactory extends Factory
             'phone_number' => $phoneNumber,
             'role' => $this->faker->randomElement($roles),
             'password' => Hash::make('password123'), // default password
-            'profile_picture' => "https://avatar.iran.liara.run/public/{$randomId}",
+            'profile_picture' => "https://api.dicebear.com/9.x/adventurer/svg?seed={$randomId}",
             'email_verified_at' => now(),
         ];
     }
