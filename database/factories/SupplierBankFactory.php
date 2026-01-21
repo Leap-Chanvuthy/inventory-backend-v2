@@ -15,15 +15,17 @@ class SupplierBankFactory extends Factory
     {
         $paymentMethods = array_map(fn($m) => $m->value, PaymentMethodEnum::cases());
         $method = $this->faker->randomElement($paymentMethods);
-        $bankLabelHelper = new GetBankingLabel();
+        $randomId = rand(1, 30);
+        $qrcodeImageUrl = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=Example={$randomId}";
 
         return [
             'bank_name' => $method,
             'account_number' => $this->faker->bankAccountNumber,
             'account_holder_name' => $this->faker->name,
             'payment_link' => $this->faker->url,
-            'qr_code_image' => $this->faker->imageUrl(200, 200, 'business'),
-            'bank_label' => $bankLabelHelper->getPaymentMethodLabel($method),
+            'qr_code_image' => $qrcodeImageUrl,
+            'bank_label' => static fn (array $attributes) => (new GetBankingLabel())
+                ->getPaymentMethodLabel($attributes['bank_name'] ?? $method),
         ];
     }
 }
