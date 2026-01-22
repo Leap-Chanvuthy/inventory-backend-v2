@@ -6,6 +6,7 @@ use App\Http\Controllers\API\CustomerCategoryAPIController;
 use App\Http\Controllers\API\ProductCategoryAPIController;
 use App\Http\Controllers\API\RawMaterialCategoryAPIController;
 use App\Http\Controllers\API\SupplierAPIController;
+use App\Http\Controllers\API\UOMAPIController;
 use App\Http\Controllers\API\UserAPIController;
 use App\Http\Controllers\API\WarehouseAPIController;
 use Illuminate\Http\Request;
@@ -59,6 +60,13 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
         Route::patch('/{id}', [SupplierAPIController::class, 'update']);
      });
 
+
+    Route::prefix('uoms')->group(function () {
+        Route::get('/', [UOMAPIController::class, 'index']);
+        Route::get('/{id}', [UOMAPIController::class, 'show']);
+        Route::post('/', [UOMAPIController::class, 'create']);
+        Route::patch('/{id}', [UOMAPIController::class, 'update']);
+     });
 
     Route::prefix('warehouses')->group(function () {
         Route::get('/', [WarehouseAPIController::class, 'index']);

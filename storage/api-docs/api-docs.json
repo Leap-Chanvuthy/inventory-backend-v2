@@ -2980,6 +2980,348 @@
                 ]
             }
         },
+        "/api/uoms": {
+            "get": {
+                "tags": [
+                    "UOM"
+                ],
+                "summary": "List UOMs (paginated) with filtering/search/sorting.",
+                "operationId": "1444273ee922ff93ceb7e873656a8333",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Items per page (1..100). Default 10.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "description": "Search in name, symbol, uom_type, uom_code.",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[id]",
+                        "in": "query",
+                        "description": "Exact match by id.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[is_active]",
+                        "in": "query",
+                        "description": "Exact match by active flag.",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort by fields. Prefix with '-' for desc (e.g. -created_at). Allowed: uom_code,name,symbol,uom_type,created_at,updated_at",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "-created_at"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated list of UOMs",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UOMPagination"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden (ADMIN only)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "UOM"
+                ],
+                "summary": "Create a new UOM.",
+                "operationId": "60c429b693eac639475fa8ef3cce8993",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UOMCreateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "UOM created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UOM"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden (ADMIN only)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/uoms/{id}": {
+            "get": {
+                "tags": [
+                    "UOM"
+                ],
+                "summary": "Get a single UOM by id.",
+                "operationId": "00beb68cbff9521b31b6391979bcfb22",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "UOM id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "UOM found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UOM"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "UOM not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden (ADMIN only)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "UOM"
+                ],
+                "summary": "Update an existing UOM.",
+                "operationId": "6732dc6da8f6daaf87bfa9b7b520e3dd",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "UOM id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UOMUpdateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "UOM updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UOM"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "UOM not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden (ADMIN only)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/users/{id}": {
             "get": {
                 "tags": [
@@ -4383,6 +4725,232 @@
                     }
                 },
                 "type": "object"
+            },
+            "UOM": {
+                "required": [
+                    "id",
+                    "uom_code",
+                    "name",
+                    "uom_type",
+                    "is_active",
+                    "created_at",
+                    "updated_at"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "uom_code": {
+                        "type": "string",
+                        "example": "UOM00000001"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Kilogram"
+                    },
+                    "symbol": {
+                        "type": "string",
+                        "example": "kg",
+                        "nullable": true
+                    },
+                    "uom_type": {
+                        "type": "string",
+                        "example": "WEIGHT"
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Metric weight unit",
+                        "nullable": true
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2026-01-22T10:00:00Z"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2026-01-22T10:00:00Z"
+                    }
+                },
+                "type": "object"
+            },
+            "UOMCreateRequest": {
+                "required": [
+                    "name",
+                    "uom_type"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "Piece"
+                    },
+                    "symbol": {
+                        "type": "string",
+                        "example": "pc",
+                        "nullable": true
+                    },
+                    "uom_type": {
+                        "type": "string",
+                        "example": "COUNT"
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Count-based UOM",
+                        "nullable": true
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
+                    }
+                },
+                "type": "object"
+            },
+            "UOMUpdateRequest": {
+                "required": [
+                    "name",
+                    "uom_type"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "Piece"
+                    },
+                    "symbol": {
+                        "type": "string",
+                        "example": "pc",
+                        "nullable": true
+                    },
+                    "uom_type": {
+                        "type": "string",
+                        "example": "COUNT"
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Updated description",
+                        "nullable": true
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
+                    }
+                },
+                "type": "object"
+            },
+            "PaginationLinks": {
+                "properties": {
+                    "first": {
+                        "type": "string",
+                        "example": "https://api.example.com/uoms?page=1",
+                        "nullable": true
+                    },
+                    "last": {
+                        "type": "string",
+                        "example": "https://api.example.com/uoms?page=10",
+                        "nullable": true
+                    },
+                    "prev": {
+                        "type": "string",
+                        "example": null,
+                        "nullable": true
+                    },
+                    "next": {
+                        "type": "string",
+                        "example": "https://api.example.com/uoms?page=2",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "PaginationMeta": {
+                "properties": {
+                    "current_page": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "from": {
+                        "type": "integer",
+                        "example": 1,
+                        "nullable": true
+                    },
+                    "last_page": {
+                        "type": "integer",
+                        "example": 10
+                    },
+                    "path": {
+                        "type": "string",
+                        "example": "https://api.example.com/uoms"
+                    },
+                    "per_page": {
+                        "type": "integer",
+                        "example": 10
+                    },
+                    "to": {
+                        "type": "integer",
+                        "example": 10,
+                        "nullable": true
+                    },
+                    "total": {
+                        "type": "integer",
+                        "example": 100
+                    }
+                },
+                "type": "object"
+            },
+            "UOMPagination": {
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/UOM"
+                        }
+                    },
+                    "links": {
+                        "$ref": "#/components/schemas/PaginationLinks"
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                },
+                "type": "object"
+            },
+            "ApiError": {
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "example": "UOM not found"
+                    },
+                    "errors": {
+                        "type": "object",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "ValidationError": {
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "example": "The given data was invalid."
+                    },
+                    "errors": {
+                        "type": "object",
+                        "example": {
+                            "name": [
+                                "The name has already been taken."
+                            ],
+                            "uom_code": [
+                                "The uom code field is required."
+                            ]
+                        }
+                    }
+                },
+                "type": "object"
             }
         },
         "securitySchemes": {
@@ -4409,6 +4977,10 @@
         {
             "name": "Suppliers",
             "description": "API Endpoints for managing suppliers"
+        },
+        {
+            "name": "UOM",
+            "description": "Unit of Measurement management"
         },
         {
             "name": "Users",
