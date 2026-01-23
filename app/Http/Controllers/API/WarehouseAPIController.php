@@ -35,6 +35,11 @@ class WarehouseAPIController extends Controller
         return $this->warehouseService->updateWarehouse($request, $id);
     }
 
+    public function delete($id)
+    {
+        return $this->warehouseService->deleteWarehouse($id);
+    }
+
     public function deleteWarehouseImage($warehouseId, $imageId)
     {
         return $this->warehouseService->deleteWarehouseImage($warehouseId, $imageId);

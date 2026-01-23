@@ -35,6 +35,10 @@ class SupplierAPIController extends Controller
         return $this->supplierService->updateSupplier($request, $id);
     }
 
+    public function delete ($id){
+        return $this -> supplierService -> deleteSupplier($id);
+    }
+
     public function import(Request $request)
     {
         return $this->supplierService->importSupplier($request);

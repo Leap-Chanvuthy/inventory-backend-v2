@@ -58,6 +58,7 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
         Route::post('/', [SupplierAPIController::class, 'store']);
         Route::get('/{id}', [SupplierAPIController::class, 'show']);
         Route::patch('/{id}', [SupplierAPIController::class, 'update']);
+        Route::delete('/{id}' , [SupplierAPIController::class , 'delete'] );
      });
 
 
@@ -66,6 +67,7 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
         Route::get('/{id}', [UOMAPIController::class, 'show']);
         Route::post('/', [UOMAPIController::class, 'create']);
         Route::patch('/{id}', [UOMAPIController::class, 'update']);
+        Route::delete('/{id}', [UOMAPIController::class, 'delete']);
      });
 
     Route::prefix('warehouses')->group(function () {
@@ -73,6 +75,7 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
         Route::get('/{id}', [WarehouseAPIController::class, 'show']);
         Route::post('/', [WarehouseAPIController::class, 'store']);
         Route::patch('/{id}', [WarehouseAPIController::class, 'update']);
+        Route::delete('/{id}', [WarehouseAPIController::class, 'delete']);
         Route::delete('/{warehouseId}/images/{imageId}', [WarehouseAPIController::class, 'deleteWarehouseImage']);
      });
 
@@ -82,6 +85,7 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
         Route::get('/{id}', [RawMaterialCategoryAPIController::class, 'show']);
         Route::post('/', [RawMaterialCategoryAPIController::class, 'store']);
         Route::patch('/{id}', [RawMaterialCategoryAPIController::class, 'update']);
+        Route::delete('/{id}', [RawMaterialCategoryAPIController::class, 'delete'] );
     });
 
 
@@ -90,6 +94,7 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
         Route::get('/{id}', [ProductCategoryAPIController::class, 'show']);
         Route::post('/', [ProductCategoryAPIController::class, 'store']);
         Route::patch('/{id}', [ProductCategoryAPIController::class, 'update']);
+        Route::delete('/{id}', [ProductCategoryAPIController::class, 'delete'] );
     });
 
 
@@ -98,6 +103,7 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
         Route::get('/{id}', [CustomerCategoryAPIController::class, 'show']);
         Route::post('/', [CustomerCategoryAPIController::class, 'store']);
         Route::patch('/{id}', [CustomerCategoryAPIController::class, 'update']);
+        Route::delete('/{id}', [CustomerCategoryAPIController::class, 'delete'] );
     });
 
 });

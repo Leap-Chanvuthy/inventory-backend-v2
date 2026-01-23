@@ -38,5 +38,10 @@ class ProductCategoryAPIController extends Controller
     {
         return $this->productCategoryService->updateProductCategory($request, $id);
     }
+
+    public function delete($id)
+    {
+        return $this->productCategoryService->deleteProductCategory($id);
+    }
     
 }

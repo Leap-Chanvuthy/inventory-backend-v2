@@ -231,4 +231,34 @@ interface UOMAPIControllerInterface
      * )
      */
     public function update(Request $request, $id);
+
+
+    /**
+     * Delete a UOM by id.
+     *
+     * @OA\Delete(
+     *   path="/api/uoms/{id}",
+     *   tags={"UOM"},
+     *   security={{"Bearer":{}}},
+     *   @OA\Parameter(
+     *     name="id",
+     *     in="path",
+     *     required=true,
+     *     description="UOM id",
+     *     @OA\Schema(type="integer")
+     *   ),
+     *   @OA\Response(
+     *     response=200,
+     *     description="UOM deleted",
+     *     @OA\JsonContent(
+     *       @OA\Property(property="message", type="string", example="UOM deleted successfully")
+     *     )
+     *   ),
+     *   @OA\Response(response=404, description="UOM not found", @OA\JsonContent(ref="#/components/schemas/ApiError")),
+     *   @OA\Response(response=401, description="Unauthenticated", @OA\JsonContent(ref="#/components/schemas/ApiError")),
+     *   @OA\Response(response=403, description="Forbidden (ADMIN only)", @OA\JsonContent(ref="#/components/schemas/ApiError")),
+     *   @OA\Response(response=500, description="Server error", @OA\JsonContent(ref="#/components/schemas/ApiError"))
+     * )
+     */
+    public function delete($id);
 }

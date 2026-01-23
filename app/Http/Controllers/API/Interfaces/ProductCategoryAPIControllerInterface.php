@@ -208,4 +208,45 @@ interface ProductCategoryAPIControllerInterface
      * )
      */
     public function update($id);
+
+
+
+
+    /**
+     * @OA\Delete(
+     *     path="/api/product-categories/{id}",
+     *     tags={"Product Categories"},
+     *     security={{"Bearer":{}}},
+     *     summary="Delete a product category",
+     *     description="Delete a specific product category by its ID.",
+     *
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="Product Category ID",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Product category deleted successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Product category deleted successfully")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=404,
+     *         description="Product category not found"
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=500,
+     *         description="Failed deleting product category"
+     *     )
+     * )
+     */
+    public function delete($id);
 }

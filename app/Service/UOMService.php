@@ -78,4 +78,14 @@ class UOMService
         }
     }
 
+    public function deleteUOM($id){
+        try {
+            $uom = UOM::findOrFail($id);
+            $uom->delete();
+            return ResponseHelper::success( null, 'UOM deleted successfully', 200);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Failed to delete UOM: ', 500, $e->getMessage());
+        }
+    }
+
 }

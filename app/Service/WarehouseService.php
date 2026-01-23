@@ -239,27 +239,44 @@ class WarehouseService
     }
 
 
-public function deleteWarehouseImage($warehouseId, $imageId)
-{
-    try {
-        $warehouse = Warehouse::find($warehouseId);
-        if (!$warehouse) {
-            return ResponseHelper::error("Warehouse not found", 404);
+    public function deleteWarehouse($id)
+    {
+        try {
+            $warehouse = Warehouse::find($id);
+            if (!$warehouse) {
+                return ResponseHelper::error("Warehouse not found", 404);
+            }
+
+            $warehouse->delete();
+            return ResponseHelper::success(null, "Warehouse deleted successfully", 200);
+
+        } catch (Exception $e) {
+            return ResponseHelper::error("Failed deleting warehouse", 500, $e->getMessage());
         }
-
-        $image = $warehouse->images()->where('id', $imageId)->first();
-        if (!$image) {
-            return ResponseHelper::error("Image not found for this warehouse", 404);
-        }
-
-        ImageDeleteHelper::deleteSingle($image);
-
-        return ResponseHelper::success(null, "Warehouse image deleted successfully" , 200);
-
-    } catch (Exception $e) {
-        return ResponseHelper::error("Failed deleting warehouse image", 500, $e->getMessage());
     }
-}
+
+
+    public function deleteWarehouseImage($warehouseId, $imageId)
+    {
+        try {
+            $warehouse = Warehouse::find($warehouseId);
+            if (!$warehouse) {
+                return ResponseHelper::error("Warehouse not found", 404);
+            }
+
+            $image = $warehouse->images()->where('id', $imageId)->first();
+            if (!$image) {
+                return ResponseHelper::error("Image not found for this warehouse", 404);
+            }
+
+            ImageDeleteHelper::deleteSingle($image);
+
+            return ResponseHelper::success(null, "Warehouse image deleted successfully" , 200);
+
+        } catch (Exception $e) {
+            return ResponseHelper::error("Failed deleting warehouse image", 500, $e->getMessage());
+        }
+    }
 
 
 

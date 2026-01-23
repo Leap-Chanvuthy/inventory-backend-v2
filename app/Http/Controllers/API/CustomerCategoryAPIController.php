@@ -38,4 +38,10 @@ class CustomerCategoryAPIController extends Controller
     {
         return $this->customerCategoryService->updateCustomerCategory($request, $id);
     }
+
+    public function delete($id)
+    {
+        return $this->customerCategoryService->deleteCustomerCategory($id);
+    }
+
 }

@@ -37,6 +37,11 @@ class RawMaterialCategoryAPIController extends Controller
         return $this->rawMaterialCategoryService->updateRawMaterialCategory($request, $id);
     }
 
+    public function delete($id)
+    {
+        return $this->rawMaterialCategoryService->deleteRawMaterialCategory($id);
+    }
+
 
     
 }

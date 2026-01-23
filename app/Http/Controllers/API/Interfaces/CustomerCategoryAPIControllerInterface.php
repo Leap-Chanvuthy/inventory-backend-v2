@@ -198,6 +198,38 @@ interface CustomerCategoryAPIControllerInterface
      * )
      */
     public function update(Request $request, $id);
+
+    /**
+     * @OA\Delete(
+     *   path="/api/customer-categories/{id}",
+     *   operationId="CustomerCategoriesDelete",
+     *   tags={"Customer Categories"},
+     *   summary="Delete a customer category",
+     *   description="Requires auth and ADMIN role.",
+     *   security={{"Bearer":{}}},
+     *   @OA\Parameter(
+     *     name="id",
+     *     in="path",
+     *     required=true,
+     *     @OA\Schema(type="integer")
+     *   ),
+     *   @OA\Response(
+     *     response=200,
+     *     description="Customer category deleted successfully",
+     *     @OA\JsonContent(
+     *       type="object",
+     *       @OA\Property(property="success", type="boolean", example=true),
+     *       @OA\Property(property="message", type="string", example="Customer category deleted successfully")
+     *     )
+     *   ),
+     *   @OA\Response(response=401, description="Unauthenticated"),
+     *   @OA\Response(response=403, description="Forbidden (ADMIN only)"),
+     *   @OA\Response(response=404, description="Customer category not found"),
+     *   @OA\Response(response=500, description="Server error")
+     * )
+     */
+    public function delete($id);
+
 }
 
 /**

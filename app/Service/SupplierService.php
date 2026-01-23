@@ -221,6 +221,21 @@ public function importSupplier(Request $request)
     }
 }
 
+    public function deleteSupplier ($id){
+        try {
+            $supplier = Supplier::findOrFail($id);
+            if (!$supplier) {
+                return ResponseHelper::error("Supplier not found", 404, null);
+            }
+
+            $supplier->delete();
+
+            return ResponseHelper::success(null, "Supplier deleted successfully", 200);
+        } catch (Exception $e) {
+            return ResponseHelper::error("Failed deleting supplier", 500, $e->getMessage());
+        }
+    }
+
 
     public function getImportHistories(Request $request)
     {

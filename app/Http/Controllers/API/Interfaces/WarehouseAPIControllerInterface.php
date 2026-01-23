@@ -223,6 +223,41 @@ interface WarehouseAPIControllerInterface
 
     /**
      * @OA\Delete(
+     *     path="/api/warehouses/{id}",
+     *     tags={"Warehouses"},
+     *     security={{"Bearer":{}}},
+     *     summary="Delete a warehouse",
+     *     description="Remove a warehouse from the system.",
+     *
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="Warehouse ID",
+     *         @OA\Schema(type="integer", example=10)
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Warehouse deleted successfully"
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=404,
+     *         description="Warehouse not found"
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=500,
+     *         description="Failed deleting warehouse"
+     *     )
+     * )
+     */
+    public function delete($id);
+
+
+    /**
+     * @OA\Delete(
      *     path="/api/warehouses/{warehouseId}/images/{imageId}",
      *     tags={"Warehouses"},
      *     security={{"Bearer":{}}},

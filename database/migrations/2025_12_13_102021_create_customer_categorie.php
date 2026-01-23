@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('label_color')->nullable()->default('#FFFFFF');
             $table->text('description')->nullable();
             $table->timestamps();
+            $table -> softDeletes();
         });
     }
 

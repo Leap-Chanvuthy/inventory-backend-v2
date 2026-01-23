@@ -22,6 +22,7 @@ return new class extends Migration
             $table->string('longitude')->nullable();
             $table->text('warehouse_description')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
@@ -30,6 +31,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('warehouses');
     }
 };

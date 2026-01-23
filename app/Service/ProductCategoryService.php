@@ -112,5 +112,19 @@ class ProductCategoryService {
             return ResponseHelper::error('Failed to update product category: ', 500, $e->getMessage());
         }
     }
+
+    public function deleteProductCategory ($id){
+        try{
+            $category = ProductCategory::findOrFail($id);
+            if (!$category) {
+                return ResponseHelper::error('Product category not found', 404);
+            }
+
+            $category -> delete();
+            return ResponseHelper::success(null , 'Product category deleted successfully' , 200);
+        } catch (Exception $e){
+            return ResponseHelper::error('Failed to delete product category: ', 500, $e->getMessage());
+        }
+    }
     
 }

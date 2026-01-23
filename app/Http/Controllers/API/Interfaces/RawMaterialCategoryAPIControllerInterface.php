@@ -207,4 +207,43 @@ interface RawMaterialCategoryAPIControllerInterface
      * )
      */
     public function update($id);
+
+
+    /**
+     * @OA\Delete(
+     *     path="/api/raw-material-categories/{id}",
+     *     tags={"Raw Material Categories"},
+     *     security={{"Bearer":{}}},
+     *     summary="Delete a raw material category",
+     *     description="Delete a specific raw material category by its ID.",
+     *
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="Category ID",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Category deleted successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Raw material category deleted successfully")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=404,
+     *         description="Category not found"
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=500,
+     *         description="Failed deleting category"
+     *     )
+     * )
+     */
+    public function delete($id);
 }

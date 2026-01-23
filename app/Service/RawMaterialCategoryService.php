@@ -110,5 +110,20 @@ class RawMaterialCategoryService {
     }
 
 
+    public function deleteRawMaterialCategory ($id){
+        try {
+
+            $category = RawMaterialCategory::findOrFail($id);
+            if (!$category) {
+                return ResponseHelper::error('Raw material category not found', 404);
+            }
+            $category->delete();
+            return ResponseHelper::success(null, 'Raw material category deleted successfully', 200);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Failed to delete raw material category: ' . $e->getMessage(), 500);
+        }
+    }
+
+
 
 }

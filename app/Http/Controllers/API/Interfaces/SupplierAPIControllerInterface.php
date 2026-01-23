@@ -457,7 +457,56 @@ interface SupplierAPIControllerInterface
     public function update();
 
 
-        /**
+
+    /**
+     * @OA\Delete(
+     *     path="/api/suppliers/{id}",
+     *     tags={"Suppliers"},
+     *     security={{"Bearer":{}}},
+     *     summary="Delete supplier by ID",
+     *     description="Deletes a supplier by its ID.",
+     *
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="Supplier ID",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Supplier deleted successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Supplier deleted successfully")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=404,
+     *         description="Supplier not found",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Supplier not found")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=500,
+     *         description="Failed to delete supplier",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Failed to delete supplier"),
+     *             @OA\Property(property="errors", type="string", example="Exception message here")
+     *         )
+     *     )
+     * )
+     */
+    public function delete($id);
+
+
+    /**
      * @OA\Post(
      *   path="/api/suppliers/import",
      *   tags={"Suppliers"},

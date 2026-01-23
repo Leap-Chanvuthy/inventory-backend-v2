@@ -38,4 +38,8 @@ class UOMAPIController extends Controller
         return $this->UOMService->updateUOM($request, $id);
     }
 
+    public function delete ($id){
+        return $this -> UOMService -> deleteUOM($id);
+    }
+
 }
