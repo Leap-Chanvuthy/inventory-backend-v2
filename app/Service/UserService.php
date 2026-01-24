@@ -16,7 +16,7 @@ use Illuminate\Validation\Rules\Enum;
 use App\Mail\VerifyIdentityMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\ValidationException; 
 use Carbon\Carbon;
 
 class UserService
