@@ -20,7 +20,7 @@ use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 
 class UserService
-{
+{ 
     private function userBuilder(Request $request)
     {
         $perPage = (int) $request->query('per_page', 10);
