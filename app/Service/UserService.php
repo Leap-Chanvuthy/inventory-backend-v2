@@ -6,7 +6,7 @@ namespace App\Service;
 use App\Enums\UserRoleEnum;
 use App\Helpers\FileUploadHelper;
 use App\Helpers\ResponseHelper;
-use App\Models\User;
+use App\Models\User; 
 use App\Helpers\QueryBuilderHelper;
 use Spatie\QueryBuilder\AllowedFilter;
 use Illuminate\Database\Eloquent\Builder;
