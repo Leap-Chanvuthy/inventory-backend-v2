@@ -1,0 +1,107 @@
+<?php
+
+namespace App\Validations;
+
+use App\Enums\CustomerStatusEnum;
+use App\Helpers\GenerateUniqeCode;
+use App\Models\Customer;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+
+class CustomerValidation {
+
+    private function normalizeCustomerCategoryId(Request $request): void
+    {
+        if ($request->filled('customer_category_id')) {
+            $request->merge([
+                'customer_category_id' => (int) $request->input('customer_category_id'),
+            ]);
+        }
+    }
+
+    public function CreateValidation(Request $request): array
+    {
+        if (!$request->filled('customer_code')) {
+            $request->merge([
+                'customer_code' => GenerateUniqeCode::generate(
+                    Customer::class,
+                    'customer_code',
+                    8,
+                    'CUS'
+                ),
+            ]);
+        }
+
+        $this->normalizeCustomerCategoryId($request);
+
+        return $request->validate([
+            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'customer_code' => [
+                'required',
+                'string',
+                'max:12',
+                'starts_with:CUS',
+                Rule::unique('customers', 'customer_code'),
+            ],
+            'fullname' => 'required|string|max:50',
+            'email_address' => 'nullable|email|max:50',
+            'phone_number' => 'required|string|max:50',
+            'social_media' => 'nullable|string|max:100',
+            'customer_address' => 'required|string|max:255',
+            'google_map_link' => 'nullable|string|max:100',
+            'customer_status' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::in([
+                    CustomerStatusEnum::ACTIVE,
+                    CustomerStatusEnum::INACTIVE,
+                    CustomerStatusEnum::PROSPECTIVE,
+                ]),
+            ],
+            'customer_category_id' => [
+                'required',
+                'integer',
+                'exists:customer_categories,id',
+            ],
+            'customer_note' => 'nullable|string',
+        ]);
+
+    }
+
+
+    public function UpdateValidation(Request $request, $id): array
+    {
+        $this->normalizeCustomerCategoryId($request);
+
+        return $request->validate([
+            'image' => 'sometimes|nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'fullname' => 'sometimes|required|string|max:50',
+            'email_address' => 'sometimes|nullable|email|max:50',
+            'phone_number' => 'sometimes|required|string|max:50',
+            'social_media' => 'sometimes|nullable|string|max:100',
+            'customer_address' => 'sometimes|required|string|max:255',
+            'google_map_link' => 'sometimes|nullable|string|max:100',
+            'customer_status' => [
+                'sometimes',
+                'required',
+                'string',
+                'max:255',
+                Rule::in([
+                    CustomerStatusEnum::ACTIVE,
+                    CustomerStatusEnum::INACTIVE,
+                    CustomerStatusEnum::PROSPECTIVE,
+                ]),
+            ],
+            'customer_category_id' => [
+                'sometimes',
+                'required',
+                'integer',
+                'exists:customer_categories,id',
+            ],
+            'customer_note' => 'sometimes|nullable|string',
+        ]);
+    }
+
+
+}

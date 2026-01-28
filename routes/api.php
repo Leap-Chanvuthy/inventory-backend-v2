@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\API\AuthAPIController;
 use App\Http\Controllers\API\CompanyInfoAPIController;
+use App\Http\Controllers\API\CustomerAPIController;
 use App\Http\Controllers\API\CustomerCategoryAPIController;
 use App\Http\Controllers\API\ProductCategoryAPIController;
 use App\Http\Controllers\API\RawMaterialCategoryAPIController;
@@ -34,7 +35,9 @@ Route::post('/reset-password', [AuthAPIController::class, 'resetPassword']);
 Route::post('/users/verify-email', [UserAPIController::class, 'verifyEmail']);
 
 
-Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
+
+// Protected Routes for ADMIN ONLY USERS
+Route::middleware(['auth:api'])->group(function () {
     Route::prefix('company')->group(function () {
         Route::get('/info', [CompanyInfoAPIController::class, 'getCompanyInfo']);
         Route::post('/general-info', [CompanyInfoAPIController::class, 'updateGeneral']);
@@ -50,6 +53,11 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
         Route::post('/', [UserAPIController::class, 'createUser']);
         Route::patch('/{id}', [UserAPIController::class, 'updateUser']);
     }); 
+});
+
+
+// Protected Routes for ADMIN and STOCK_CONTROLLER
+Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(function () {
 
     Route::prefix('suppliers')->group(function () {
         Route::post('/import', [SupplierAPIController::class, 'import']);
@@ -97,7 +105,14 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
         Route::delete('/{id}', [ProductCategoryAPIController::class, 'delete'] );
     });
 
+});
 
+
+
+// Protected Routes for ADMIN and VENDER 
+Route::middleware(['auth:api', 'role:ADMIN' , 'role:CUSTOMER'])->group(function () {
+
+    // Customer Categories Routes 
     Route::prefix('customer-categories')->group(function () {
         Route::get('/', [CustomerCategoryAPIController::class, 'index']);
         Route::get('/{id}', [CustomerCategoryAPIController::class, 'show']);
@@ -106,16 +121,15 @@ Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
         Route::delete('/{id}', [CustomerCategoryAPIController::class, 'delete'] );
     });
 
+    // Customers Routes
+    Route::prefix('customers')->group(function () {
+        Route::get('/', [CustomerAPIController::class, 'index']);
+        Route::get('/{id}', [CustomerAPIController::class, 'show']);
+        Route::post('/', [CustomerAPIController::class, 'store']);
+        Route::patch('/{id}', [CustomerAPIController::class, 'update']);
+        Route::delete('/{id}' , [CustomerAPIController::class , 'destroy'] );
+     });
+
 });
-
-
-
-
-// Route::middleware(['auth:api', 'role:STOCK_CONTROLLER'])->group(function () {
-//     Route::prefix('users')->group(function () {
-//         Route::get('/{id}', [UserAPIController::class, 'getUserById']);
-//         Route::get('/', [UserAPIController::class, 'getUsers']);
-//     }); 
-// });
 
 

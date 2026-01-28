@@ -24,12 +24,18 @@ class Customer extends Model
         'email_address',
         'phone_number',
         'social_media',
-        'shipping_address',
+        'customer_address',
         'google_map_link',
         'customer_status',
         'customer_category_id',
         'customer_note',
     ];
+
+
+    public function customerCategory()
+    {
+        return $this->belongsTo(CustomerCategory::class, 'customer_category_id');
+    }
 
 
 }

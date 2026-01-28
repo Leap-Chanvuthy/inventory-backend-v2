@@ -19,11 +19,11 @@ return new class extends Migration
             $table -> string('email_address' , 50) -> nullable();
             $table -> string('phone_number' , 50);
             $table -> string('social_media' , 100)-> nullable();
-            $table -> string('shipping_address' , 255);
+            $table -> string('customer_address' , 255);
             $table ->string('google_map_link', 100)->nullable();
             $table -> string('customer_status' , 255);
             $table -> foreignId('customer_category_id') -> constrained('customer_categories') -> restrictOnDelete() -> cascadeOnUpdate();
-            $table -> text('customer_note');
+            $table -> text('customer_note')->nullable();
             $table ->timestamps();
             $table ->softDeletes();
         });
