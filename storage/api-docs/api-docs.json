@@ -6032,7 +6032,7 @@
     "tags": [
         {
             "name": "Authentication",
-            "description": "API Endpoints for user authentication and password reset"
+            "description": "API Endpoints for user authentication and password reset (Accessible for: All Users)"
         },
         {
             "name": "Customers",
@@ -6040,27 +6040,27 @@
         },
         {
             "name": "Product Categories",
-            "description": "API Endpoints for managing product categories"
+            "description": "API Endpoints for managing product categories. (Accessible for: ADMIN and STOCK_CONTROLLER Users)"
         },
         {
             "name": "Raw Material Categories",
-            "description": "API Endpoints for managing raw material categories"
+            "description": "API Endpoints for managing raw material categories. (Accessible for: ADMIN and STOCK_CONTROLLER Users)"
         },
         {
             "name": "Suppliers",
-            "description": "API Endpoints for managing suppliers"
+            "description": "API Endpoints for managing suppliers. (Only Accessible for: ADMIN, and STOCK_CONTROLLER Users)"
         },
         {
             "name": "UOM",
-            "description": "Unit of Measurement management"
+            "description": "Unit of Measurement management. (Only Accessible for: ADMIN & STOCK_CONTROLLER Users)"
         },
         {
             "name": "Users",
-            "description": "API Endpoints for retrieving user information"
+            "description": "API Endpoints for retrieving user information. (Accessible only for: ADMIN Users)"
         },
         {
             "name": "Warehouses",
-            "description": "API Endpoints for managing warehouses"
+            "description": "API Endpoints for managing warehouses. (Only Accessible for: ADMIN and STOCK_CONTROLLER Users)"
         },
         {
             "name": "Company",

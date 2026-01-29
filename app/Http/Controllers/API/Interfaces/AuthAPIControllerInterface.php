@@ -5,7 +5,7 @@ namespace App\Http\Controllers\API\Interfaces;
 /**
  * @OA\Tag(
  *     name="Authentication",
- *     description="API Endpoints for user authentication and password reset"
+ *     description="API Endpoints for user authentication and password reset (Accessible for: All Users)"
  * )
  */
 interface AuthAPIControllerInterface

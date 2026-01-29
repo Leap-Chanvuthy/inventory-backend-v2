@@ -5,7 +5,7 @@ namespace App\Http\Controllers\API\Interfaces;
 /**
  * @OA\Tag(
  *     name="Raw Material Categories",
- *     description="API Endpoints for managing raw material categories"
+ *     description="API Endpoints for managing raw material categories. (Accessible for: ADMIN and STOCK_CONTROLLER Users)"
  * )
  */
 interface RawMaterialCategoryAPIControllerInterface

@@ -5,7 +5,7 @@ namespace App\Http\Controllers\API\Interfaces;
 /**
  * @OA\Tag(
  *     name="Product Categories",
- *     description="API Endpoints for managing product categories"
+ *     description="API Endpoints for managing product categories. (Accessible for: ADMIN and STOCK_CONTROLLER Users)"
  * )
  */
 interface ProductCategoryAPIControllerInterface

@@ -5,7 +5,7 @@ namespace App\Http\Controllers\API\Interfaces;
 /**
  * @OA\Tag(
  *     name="Company Information",
- *     description="API Endpoints for managing company information"
+ *     description="API Endpoints for managing company information (Only Accessible for: ADMIN Users)"
  * )
  */
 

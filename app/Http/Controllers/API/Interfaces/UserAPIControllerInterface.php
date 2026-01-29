@@ -5,7 +5,7 @@ namespace App\Http\Controllers\API\Interfaces;
 /**
  * @OA\Tag(
  *     name="Users",
- *     description="API Endpoints for retrieving user information"
+ *     description="API Endpoints for retrieving user information. (Accessible only for: ADMIN Users)"
  * )
  */
 interface UserAPIControllerInterface

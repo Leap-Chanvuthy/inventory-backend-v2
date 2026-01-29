@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 /**
  * @OA\Tag(
  *   name="UOM",
- *   description="Unit of Measurement management"
+ *   description="Unit of Measurement management. (Only Accessible for: ADMIN & STOCK_CONTROLLER Users)"
  * )
  *
  * @OA\Schema(

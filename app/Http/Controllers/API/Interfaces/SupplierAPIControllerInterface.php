@@ -100,7 +100,7 @@ namespace App\Http\Controllers\API\Interfaces;
  * 
  * @OA\Tag(
  *     name="Suppliers",
- *     description="API Endpoints for managing suppliers"
+ *     description="API Endpoints for managing suppliers. (Only Accessible for: ADMIN, and STOCK_CONTROLLER Users)"
  * )
  */
 interface SupplierAPIControllerInterface

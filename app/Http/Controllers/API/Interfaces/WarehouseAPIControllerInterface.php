@@ -5,7 +5,7 @@ namespace App\Http\Controllers\API\Interfaces;
 /**
  * @OA\Tag(
  *     name="Warehouses",
- *     description="API Endpoints for managing warehouses"
+ *     description="API Endpoints for managing warehouses. (Only Accessible for: ADMIN and STOCK_CONTROLLER Users)"
  * )
  */
 interface WarehouseAPIControllerInterface
