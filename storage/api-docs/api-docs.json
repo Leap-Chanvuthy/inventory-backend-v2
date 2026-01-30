@@ -3931,6 +3931,250 @@
                 ]
             }
         },
+        "/api/suppliers/statistics": {
+            "get": {
+                "tags": [
+                    "Suppliers"
+                ],
+                "summary": "Get supplier statistics",
+                "description": "Returns supplier KPIs and chart-ready aggregates including trend vs last month, totals, totals by category, import history stats, and chart datasets.",
+                "operationId": "c850b300a4068871f46ffbcd89470740",
+                "responses": {
+                    "200": {
+                        "description": "Supplier statistics retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Supplier statistics retrieved successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "total_suppliers": {
+                                                    "type": "integer",
+                                                    "example": 120
+                                                },
+                                                "total_suppliers_as_of_end_last_month": {
+                                                    "type": "integer",
+                                                    "example": 110
+                                                },
+                                                "total_suppliers_trend": {
+                                                    "properties": {
+                                                        "delta": {
+                                                            "type": "integer",
+                                                            "example": 10
+                                                        },
+                                                        "percent": {
+                                                            "type": "number",
+                                                            "format": "float",
+                                                            "example": 9.09
+                                                        },
+                                                        "direction": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "up",
+                                                                "down",
+                                                                "flat"
+                                                            ],
+                                                            "example": "up"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "new_suppliers": {
+                                                    "properties": {
+                                                        "this_month": {
+                                                            "type": "integer",
+                                                            "example": 12
+                                                        },
+                                                        "last_month": {
+                                                            "type": "integer",
+                                                            "example": 8
+                                                        },
+                                                        "trend": {
+                                                            "properties": {
+                                                                "delta": {
+                                                                    "type": "integer",
+                                                                    "example": 4
+                                                                },
+                                                                "percent": {
+                                                                    "type": "number",
+                                                                    "format": "float",
+                                                                    "example": 50
+                                                                },
+                                                                "direction": {
+                                                                    "type": "string",
+                                                                    "enum": [
+                                                                        "up",
+                                                                        "down",
+                                                                        "flat"
+                                                                    ],
+                                                                    "example": "up"
+                                                                }
+                                                            },
+                                                            "type": "object"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "total_by_category": {
+                                                    "description": "Count of suppliers per SupplierCategoryEnum",
+                                                    "type": "object",
+                                                    "example": {
+                                                        "ELECTRONICS": 12,
+                                                        "FOOD": 20,
+                                                        "CLOTHING": 5,
+                                                        "LOGISTICS": 7,
+                                                        "SERVICES": 30,
+                                                        "PRODUCTS": 40,
+                                                        "OTHERS": 6
+                                                    },
+                                                    "additionalProperties": {
+                                                        "type": "integer"
+                                                    }
+                                                },
+                                                "imports": {
+                                                    "properties": {
+                                                        "total_histories": {
+                                                            "type": "integer",
+                                                            "example": 25
+                                                        },
+                                                        "total_uploaded_rows": {
+                                                            "type": "integer",
+                                                            "example": 5400
+                                                        },
+                                                        "total_files_size_bytes": {
+                                                            "type": "integer",
+                                                            "example": 10485760
+                                                        },
+                                                        "average_file_size_bytes": {
+                                                            "type": "integer",
+                                                            "example": 419430
+                                                        },
+                                                        "largest_file_size_bytes": {
+                                                            "type": "integer",
+                                                            "example": 2097152
+                                                        },
+                                                        "recent": {
+                                                            "description": "Last 5 import records",
+                                                            "type": "array",
+                                                            "items": {
+                                                                "$ref": "#/components/schemas/SupplierImportHistory"
+                                                            }
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "charts": {
+                                                    "properties": {
+                                                        "suppliers_created_by_month": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "properties": {
+                                                                    "month": {
+                                                                        "type": "string",
+                                                                        "example": "2026-01"
+                                                                    },
+                                                                    "total": {
+                                                                        "type": "integer",
+                                                                        "example": 12
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            }
+                                                        },
+                                                        "imports_by_month": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "properties": {
+                                                                    "month": {
+                                                                        "type": "string",
+                                                                        "example": "2026-01"
+                                                                    },
+                                                                    "total_imports": {
+                                                                        "type": "integer",
+                                                                        "example": 3
+                                                                    },
+                                                                    "total_uploaded": {
+                                                                        "type": "integer",
+                                                                        "example": 1200
+                                                                    },
+                                                                    "total_size_bytes": {
+                                                                        "type": "integer",
+                                                                        "example": 2048000
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            }
+                                                        },
+                                                        "top_provinces": {
+                                                            "description": "Top 10 provinces by supplier count",
+                                                            "type": "array",
+                                                            "items": {
+                                                                "properties": {
+                                                                    "province": {
+                                                                        "type": "string",
+                                                                        "example": "Phnom Penh"
+                                                                    },
+                                                                    "total": {
+                                                                        "type": "integer",
+                                                                        "example": 42
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            }
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error fetching supplier statistics",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Error fetching supplier statistics"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "Exception message here",
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/uoms": {
             "get": {
                 "tags": [

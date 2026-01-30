@@ -644,4 +644,124 @@ interface SupplierAPIControllerInterface
      */
     public function getImportHistories();
 
+    /**
+     * @OA\Get(
+     *   path="/api/suppliers/statistics",
+     *   tags={"Suppliers"},
+     *   security={{"Bearer":{}}},
+     *   summary="Get supplier statistics",
+     *   description="Returns supplier KPIs and chart-ready aggregates including trend vs last month, totals, totals by category, import history stats, and chart datasets.",
+     *
+     *   @OA\Response(
+     *     response=200,
+     *     description="Supplier statistics retrieved successfully",
+     *     @OA\JsonContent(
+     *       @OA\Property(property="status", type="boolean", example=true),
+     *       @OA\Property(property="message", type="string", example="Supplier statistics retrieved successfully"),
+     *       @OA\Property(
+     *         property="data",
+     *         type="object",
+     *
+     *         @OA\Property(property="total_suppliers", type="integer", example=120),
+     *         @OA\Property(property="total_suppliers_as_of_end_last_month", type="integer", example=110),
+     *         @OA\Property(
+     *           property="total_suppliers_trend",
+     *           type="object",
+     *           @OA\Property(property="delta", type="integer", example=10),
+     *           @OA\Property(property="percent", type="number", format="float", example=9.09),
+     *           @OA\Property(property="direction", type="string", enum={"up","down","flat"}, example="up")
+     *         ),
+     *
+     *         @OA\Property(
+     *           property="new_suppliers",
+     *           type="object",
+     *           @OA\Property(property="this_month", type="integer", example=12),
+     *           @OA\Property(property="last_month", type="integer", example=8),
+     *           @OA\Property(
+     *             property="trend",
+     *             type="object",
+     *             @OA\Property(property="delta", type="integer", example=4),
+     *             @OA\Property(property="percent", type="number", format="float", example=50),
+     *             @OA\Property(property="direction", type="string", enum={"up","down","flat"}, example="up")
+     *           )
+     *         ),
+     *
+     *         @OA\Property(
+     *           property="total_by_category",
+     *           type="object",
+     *           description="Count of suppliers per SupplierCategoryEnum",
+     *           @OA\AdditionalProperties(type="integer"),
+     *           example={"ELECTRONICS":12,"FOOD":20,"CLOTHING":5,"LOGISTICS":7,"SERVICES":30,"PRODUCTS":40,"OTHERS":6}
+     *         ),
+     *
+     *         @OA\Property(
+     *           property="imports",
+     *           type="object",
+     *           @OA\Property(property="total_histories", type="integer", example=25),
+     *           @OA\Property(property="total_uploaded_rows", type="integer", example=5400),
+     *           @OA\Property(property="total_files_size_bytes", type="integer", example=10485760),
+     *           @OA\Property(property="average_file_size_bytes", type="integer", example=419430),
+     *           @OA\Property(property="largest_file_size_bytes", type="integer", example=2097152),
+     *           @OA\Property(
+     *             property="recent",
+     *             type="array",
+     *             description="Last 5 import records",
+     *             @OA\Items(ref="#/components/schemas/SupplierImportHistory")
+     *           )
+     *         ),
+     *
+     *         @OA\Property(
+     *           property="charts",
+     *           type="object",
+     *
+     *           @OA\Property(
+     *             property="suppliers_created_by_month",
+     *             type="array",
+     *             @OA\Items(
+     *               type="object",
+     *               @OA\Property(property="month", type="string", example="2026-01"),
+     *               @OA\Property(property="total", type="integer", example=12)
+     *             )
+     *           ),
+     *
+     *           @OA\Property(
+     *             property="imports_by_month",
+     *             type="array",
+     *             @OA\Items(
+     *               type="object",
+     *               @OA\Property(property="month", type="string", example="2026-01"),
+     *               @OA\Property(property="total_imports", type="integer", example=3),
+     *               @OA\Property(property="total_uploaded", type="integer", example=1200),
+     *               @OA\Property(property="total_size_bytes", type="integer", example=2048000)
+     *             )
+     *           ),
+     *
+     *           @OA\Property(
+     *             property="top_provinces",
+     *             type="array",
+     *             description="Top 10 provinces by supplier count",
+     *             @OA\Items(
+     *               type="object",
+     *               @OA\Property(property="province", type="string", example="Phnom Penh"),
+     *               @OA\Property(property="total", type="integer", example=42)
+     *             )
+     *           )
+     *         )
+     *       )
+     *     )
+     *   ),
+     *
+     *   @OA\Response(
+     *     response=500,
+     *     description="Error fetching supplier statistics",
+     *     @OA\JsonContent(
+     *       @OA\Property(property="status", type="boolean", example=false),
+     *       @OA\Property(property="message", type="string", example="Error fetching supplier statistics"),
+     *       @OA\Property(property="errors", type="string", nullable=true, example="Exception message here")
+     *     )
+     *   )
+     * )
+     */
+    public function getSupplierStatistics();
+
 }
