@@ -49,4 +49,9 @@ class SupplierAPIController extends Controller
         return $this->supplierService->getImportHistories($request);
     }
 
+    public function getSupplierStatistics()
+    {
+        return $this->supplierService->getSupplierStatistics();
+    }
+
 }

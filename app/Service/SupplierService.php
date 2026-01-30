@@ -6,6 +6,7 @@ namespace App\Service;
 use App\Helpers\FileUploadHelper;
 use App\Helpers\ResponseHelper;
 use App\Imports\SuppliersImport;
+use App\Enums\SupplierCategoryEnum;
 use App\Models\Supplier;
 use App\Models\SupplierImportHistory;
 use App\QueryBuilders\SupplierImportQuery;
@@ -14,6 +15,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\QueryBuilders\SupplierQueryBuilder;
 use App\Validations\SupplierBankValidation;
 use App\Validations\SupplierValidation;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -244,6 +246,164 @@ public function importSupplier(Request $request)
             return ResponseHelper::success($histories, 'Import histories retrieved successfully', 200);
         } catch (Exception $e) {
             return ResponseHelper::error('Error fetching import histories', 500, $e->getMessage());
+        }
+    }
+
+
+    public function getSupplierStatistics()
+    {
+        try {
+            $now = Carbon::now();
+
+            // Baseline: total suppliers as of end of last month
+            $endOfLastMonth = $now->copy()->subMonthNoOverflow()->endOfMonth();
+            $totalSuppliers = Supplier::count();
+            $totalSuppliersAsOfEndLastMonth = Supplier::where('created_at', '<=', $endOfLastMonth)->count();
+
+            $deltaTotal = $totalSuppliers - $totalSuppliersAsOfEndLastMonth;
+            $trendPercent = $totalSuppliersAsOfEndLastMonth === 0
+                ? ($totalSuppliers > 0 ? 100.0 : 0.0)
+                : round(($deltaTotal / $totalSuppliersAsOfEndLastMonth) * 100, 2);
+            $trendDirection = $deltaTotal > 0 ? 'up' : ($deltaTotal < 0 ? 'down' : 'flat');
+
+            // New suppliers: this month vs last month (more intuitive month-to-month KPI)
+            $startOfThisMonth = $now->copy()->startOfMonth();
+            $startOfLastMonth = $now->copy()->subMonthNoOverflow()->startOfMonth();
+            $endOfLastMonthForNew = $now->copy()->subMonthNoOverflow()->endOfMonth();
+
+            $newThisMonth = Supplier::where('created_at', '>=', $startOfThisMonth)->count();
+            $newLastMonth = Supplier::whereBetween('created_at', [$startOfLastMonth, $endOfLastMonthForNew])->count();
+            $deltaNew = $newThisMonth - $newLastMonth;
+            $newTrendPercent = $newLastMonth === 0
+                ? ($newThisMonth > 0 ? 100.0 : 0.0)
+                : round(($deltaNew / $newLastMonth) * 100, 2);
+            $newTrendDirection = $deltaNew > 0 ? 'up' : ($deltaNew < 0 ? 'down' : 'flat');
+
+            // Totals by category (ensure all enum categories exist in output even if 0)
+            $categoryCountsRaw = Supplier::query()
+                ->selectRaw('supplier_category, COUNT(*) as total')
+                ->groupBy('supplier_category')
+                ->pluck('total', 'supplier_category')
+                ->toArray();
+
+            $totalByCategory = [];
+            foreach (SupplierCategoryEnum::cases() as $case) {
+                $key = (string) ($case->value ?? $case->name);
+                $totalByCategory[$case->name] = (int) ($categoryCountsRaw[$key] ?? 0);
+            }
+
+            // Import statistics
+            $totalImportHistories = SupplierImportHistory::count();
+            $totalImportedFilesSizeBytes = (int) (SupplierImportHistory::sum('size') ?? 0);
+            $totalImportedRows = (int) (SupplierImportHistory::sum('total_uploaded') ?? 0);
+            $averageImportFileSizeBytes = $totalImportHistories > 0
+                ? (int) round($totalImportedFilesSizeBytes / $totalImportHistories)
+                : 0;
+            $largestImportFileSizeBytes = (int) (SupplierImportHistory::max('size') ?? 0);
+
+            // Charts (DB-agnostic grouping in PHP)
+            $monthsBack = 12;
+            $startWindow = $now->copy()->startOfMonth()->subMonthsNoOverflow($monthsBack - 1);
+            $monthKeys = [];
+            for ($i = 0; $i < $monthsBack; $i++) {
+                $monthKeys[] = $startWindow->copy()->addMonthsNoOverflow($i)->format('Y-m');
+            }
+
+            $supplierCreatedRows = Supplier::query()
+                ->where('created_at', '>=', $startWindow)
+                ->get(['created_at']);
+
+            $supplierCreatedByMonthMap = array_fill_keys($monthKeys, 0);
+            foreach ($supplierCreatedRows as $row) {
+                $key = Carbon::parse($row->created_at)->format('Y-m');
+                if (array_key_exists($key, $supplierCreatedByMonthMap)) {
+                    $supplierCreatedByMonthMap[$key] += 1;
+                }
+            }
+
+            $suppliersCreatedByMonth = [];
+            foreach ($supplierCreatedByMonthMap as $month => $total) {
+                $suppliersCreatedByMonth[] = ['month' => $month, 'total' => $total];
+            }
+
+            $importRows = SupplierImportHistory::query()
+                ->where('uploaded_at', '>=', $startWindow)
+                ->get(['uploaded_at', 'size', 'total_uploaded']);
+
+            $importsByMonthMap = array_fill_keys($monthKeys, [
+                'total_imports' => 0,
+                'total_uploaded' => 0,
+                'total_size_bytes' => 0,
+            ]);
+
+            foreach ($importRows as $row) {
+                $key = Carbon::parse($row->uploaded_at)->format('Y-m');
+                if (!array_key_exists($key, $importsByMonthMap)) {
+                    continue;
+                }
+                $importsByMonthMap[$key]['total_imports'] += 1;
+                $importsByMonthMap[$key]['total_uploaded'] += (int) ($row->total_uploaded ?? 0);
+                $importsByMonthMap[$key]['total_size_bytes'] += (int) ($row->size ?? 0);
+            }
+
+            $importsByMonth = [];
+            foreach ($importsByMonthMap as $month => $data) {
+                $importsByMonth[] = array_merge(['month' => $month], $data);
+            }
+
+            // Extra stats for charts: suppliers by province (top 10)
+            $topProvinces = Supplier::query()
+                ->selectRaw('province, COUNT(*) as total')
+                ->whereNotNull('province')
+                ->where('province', '!=', '')
+                ->groupBy('province')
+                ->orderByDesc('total')
+                ->limit(10)
+                ->get()
+                ->map(fn ($r) => ['province' => $r->province, 'total' => (int) $r->total])
+                ->values();
+
+            $recentImports = SupplierImportHistory::query()
+                ->orderByDesc('uploaded_at')
+                ->limit(5)
+                ->get(['id', 'filename', 'size', 'total_uploaded', 'uploaded_at']);
+
+            $statistics = [
+                'total_suppliers' => $totalSuppliers,
+                'total_suppliers_as_of_end_last_month' => $totalSuppliersAsOfEndLastMonth,
+                'total_suppliers_trend' => [
+                    'delta' => $deltaTotal,
+                    'percent' => $trendPercent,
+                    'direction' => $trendDirection,
+                ],
+                'new_suppliers' => [
+                    'this_month' => $newThisMonth,
+                    'last_month' => $newLastMonth,
+                    'trend' => [
+                        'delta' => $deltaNew,
+                        'percent' => $newTrendPercent,
+                        'direction' => $newTrendDirection,
+                    ],
+                ],
+                'total_by_category' => $totalByCategory,
+                'imports' => [
+                    'total_histories' => $totalImportHistories,
+                    'total_uploaded_rows' => $totalImportedRows,
+                    'total_files_size_bytes' => $totalImportedFilesSizeBytes,
+                    'average_file_size_bytes' => $averageImportFileSizeBytes,
+                    'largest_file_size_bytes' => $largestImportFileSizeBytes,
+                    'recent' => $recentImports,
+                ],
+                'charts' => [
+                    'suppliers_created_by_month' => $suppliersCreatedByMonth,
+                    'imports_by_month' => $importsByMonth,
+                    'top_provinces' => $topProvinces,
+                ],
+            ];
+
+            return ResponseHelper::success($statistics, 'Supplier statistics retrieved successfully', 200);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Error fetching supplier statistics', 500, $e->getMessage());
         }
     }
 

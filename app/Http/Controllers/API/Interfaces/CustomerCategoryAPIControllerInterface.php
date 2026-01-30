@@ -8,7 +8,7 @@ use OpenApi\Annotations as OA;
 /**
  * @OA\Tag(
  *     name="Customer Categories",
- *     description="API Endpoints for managing customer categories"
+ *     description="API Endpoints for managing customer categories (Only Accessible for: VENDER Users)"
  * )
  */
 

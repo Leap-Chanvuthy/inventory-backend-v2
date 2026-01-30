@@ -62,6 +62,7 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
     Route::prefix('suppliers')->group(function () {
         Route::post('/import', [SupplierAPIController::class, 'import']);
         Route::get('/import-histories', [SupplierAPIController::class, 'getImportHistories']);
+        Route::get('/statistics', [SupplierAPIController::class, 'getSupplierStatistics']);
         Route::get('/', [SupplierAPIController::class, 'index']);
         Route::post('/', [SupplierAPIController::class, 'store']);
         Route::get('/{id}', [SupplierAPIController::class, 'show']);
