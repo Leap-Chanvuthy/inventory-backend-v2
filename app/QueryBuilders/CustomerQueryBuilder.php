@@ -63,7 +63,7 @@ class CustomerQueryBuilder {
             ],
 
             defaultSort: '-created_at',
-            withRelations: ['customerCategory'],
+            withRelations: [  'customerCategory' => fn ($q) => $q->withTrashed(),],
             
         )
         ->paginate($perPage)
