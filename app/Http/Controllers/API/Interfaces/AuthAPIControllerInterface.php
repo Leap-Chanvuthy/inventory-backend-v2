@@ -26,25 +26,42 @@ interface AuthAPIControllerInterface
      *         )
      *     ),
      *
-     *     @OA\Response(
-     *         response=200,
-     *         description="Login successful",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="status", type="boolean", example=true),
-     *             @OA\Property(property="message", type="string", example="Login successful"),
-     *             @OA\Property(
-     *                 property="data",
-     *                 type="object",
-     *                 @OA\Property(property="user", type="object"),
-     *                 @OA\Property(
-     *                     property="authorisation",
-     *                     type="object",
-     *                     @OA\Property(property="token", type="string", example="jwt-token-here"),
-     *                     @OA\Property(property="type", type="string", example="Bearer")
-     *                 )
-     *             )
-     *         )
-     *     ),
+    *     @OA\Response(
+    *         response=200,
+    *         description="Login successful OR two-factor required",
+    *         @OA\JsonContent(
+    *             oneOf={
+    *                 @OA\Schema(
+    *                     type="object",
+    *                     @OA\Property(property="status", type="boolean", example=true),
+    *                     @OA\Property(property="message", type="string", example="Login successful"),
+    *                     @OA\Property(
+    *                         property="data",
+    *                         type="object",
+    *                         @OA\Property(property="user", type="object"),
+    *                         @OA\Property(
+    *                             property="authorisation",
+    *                             type="object",
+    *                             @OA\Property(property="token", type="string", example="jwt-token-here"),
+    *                             @OA\Property(property="type", type="string", example="Bearer")
+    *                         )
+    *                     )
+    *                 ),
+    *                 @OA\Schema(
+    *                     type="object",
+    *                     @OA\Property(property="status", type="boolean", example=true),
+    *                     @OA\Property(property="message", type="string", example="Two-factor authentication required"),
+    *                     @OA\Property(
+    *                         property="data",
+    *                         type="object",
+    *                         @OA\Property(property="two_factor_required", type="boolean", example=true),
+    *                         @OA\Property(property="two_factor_token", type="string", example="random-pending-token"),
+    *                         @OA\Property(property="expires_in_seconds", type="integer", example=300)
+    *                     )
+    *                 )
+    *             }
+    *         )
+    *     ),
      *
      *     @OA\Response(
      *         response=401,
@@ -84,6 +101,67 @@ interface AuthAPIControllerInterface
      * )
      */
     public function login();
+
+
+    /**
+     * @OA\Post(
+     *     path="/api/login/2fa",
+     *     tags={"Authentication"},
+     *     summary="Verify two-factor code and receive JWT token",
+     *     description="Second step for users with 2FA enabled. Provide the two_factor_token from /api/login plus either a TOTP code or a recovery_code.",
+     *
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"two_factor_token"},
+     *             @OA\Property(property="two_factor_token", type="string", example="random-pending-token"),
+     *             @OA\Property(property="code", type="string", nullable=true, example="123456"),
+     *             @OA\Property(property="recovery_code", type="string", nullable=true, example="AB12CD34EF")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Login successful",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Login successful"),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="user", type="object"),
+     *                 @OA\Property(
+     *                     property="authorisation",
+     *                     type="object",
+     *                     @OA\Property(property="token", type="string", example="jwt-token-here"),
+     *                     @OA\Property(property="type", type="string", example="Bearer")
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=401,
+     *         description="Two-factor token invalid or expired",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Two-factor token is invalid or expired."),
+     *             @OA\Property(property="errors", type="object")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=422,
+     *         description="Invalid two-factor code",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Invalid two-factor code"),
+     *             @OA\Property(property="errors", type="object")
+     *         )
+     *     )
+     * )
+     */
+    public function verifyTwoFactor();
 
 
     /**

@@ -15,9 +15,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use App\Service\TwoFactorService;
 
 class AuthService
 {
+    public function __construct(private readonly TwoFactorService $twoFactorService)
+    {
+    }
+
     public function login(Request $request)
     {
         try {
@@ -41,16 +46,22 @@ class AuthService
                 ]);
             }
 
-            $token = JWTAuth::claims(['role' => $user->role])->attempt($credentials);
-            if (!$token) {
-                return ResponseHelper::error('Invalid credentials', 401);
-            }
-
             if ($user->email_verified_at === null) {
                 return ResponseHelper::error('Email is not verified.', 403, 
                 [
                     'email' => ['Email not verified. Please verify your email before logging in.']
                 ]);
+            }
+
+            // If 2FA is enabled for this user, return a short-lived pending token.
+            $pendingResponse = $this->twoFactorService->maybeCreatePendingLogin($user);
+            if ($pendingResponse !== null) {
+                return $pendingResponse;
+            }
+
+            $token = JWTAuth::claims(['role' => $user->role])->attempt($credentials);
+            if (!$token) {
+                return ResponseHelper::error('Invalid credentials', 401);
             }
 
             return ResponseHelper::success([
@@ -64,6 +75,54 @@ class AuthService
             return ResponseHelper::validation($e->errors(), 'Validation failed');
         } catch (\Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    public function verifyTwoFactor(Request $request)
+    {
+        try {
+            $request->validate([
+                'two_factor_token' => 'required|string',
+                'code' => 'nullable|string',
+                'recovery_code' => 'nullable|string',
+            ]);
+
+            $pendingToken = $request->input('two_factor_token');
+            $user = $this->twoFactorService->consumePendingLoginToken($pendingToken);
+
+            if (!$user) {
+                return ResponseHelper::error('Two-factor token is invalid or expired.', 401, [
+                    'two_factor_token' => ['Two-factor token is invalid or expired.']
+                ]);
+            }
+
+            $verified = $this->twoFactorService->verifyTotpOrRecoveryCode(
+                user: $user,
+                code: $request->input('code'),
+                recoveryCode: $request->input('recovery_code'),
+                consumeRecoveryCode: true
+            );
+
+            if ($verified !== true) {
+                return $verified;
+            }
+
+            $this->twoFactorService->clearPendingLoginToken($pendingToken);
+
+            // Issue normal JWT
+            $token = JWTAuth::claims(['role' => $user->role])->fromUser($user);
+
+            return ResponseHelper::success([
+                'user' => $user,
+                'authorisation' => [
+                    'token' => $token,
+                    'type' => 'Bearer',
+                ]
+            ], 'Login successful', 200);
+        } catch (ValidationException $e) {
+            return ResponseHelper::validation($e->errors(), 'Validation failed');
+        } catch (Exception $e) {
+            return ResponseHelper::error('Something went wrong', 500, ['error' => $e->getMessage()]);
         }
     }
 

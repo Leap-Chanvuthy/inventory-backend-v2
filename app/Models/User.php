@@ -43,6 +43,8 @@ class User extends Authenticatable implements JWTSubject
         'otp_expires_at',
         'google_id',
         'email_verification_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
  
     /**
@@ -51,6 +53,8 @@ class User extends Authenticatable implements JWTSubject
     protected $casts = [
         'email_verified_at' => 'datetime',
         'role' => UserRoleEnum::class,
+        'two_factor_enabled' => 'boolean',
+        'two_factor_confirmed_at' => 'datetime',
     ];
 
     /**

@@ -7,6 +7,7 @@ use App\Http\Controllers\API\CustomerCategoryAPIController;
 use App\Http\Controllers\API\ProductCategoryAPIController;
 use App\Http\Controllers\API\RawMaterialCategoryAPIController;
 use App\Http\Controllers\API\SupplierAPIController;
+use App\Http\Controllers\API\TwoFactorAPIController;
 use App\Http\Controllers\API\UOMAPIController;
 use App\Http\Controllers\API\UserAPIController;
 use App\Http\Controllers\API\WarehouseAPIController;
@@ -30,6 +31,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 
 Route::post('/login', [AuthAPIController::class, 'login']);
+Route::post('/login/2fa', [AuthAPIController::class, 'verifyTwoFactor']);
 Route::post('/send-reset-link', [AuthAPIController::class, 'sendResetLink']);
 Route::post('/reset-password', [AuthAPIController::class, 'resetPassword']);
 Route::post('/users/verify-email', [UserAPIController::class, 'verifyEmail']);
@@ -38,6 +40,12 @@ Route::post('/users/verify-email', [UserAPIController::class, 'verifyEmail']);
 
 // Protected Routes for ADMIN ONLY USERS
 Route::middleware(['auth:api'])->group(function () {
+    Route::prefix('two-factor')->group(function () {
+        Route::post('/setup', [TwoFactorAPIController::class, 'setup']);
+        Route::post('/confirm', [TwoFactorAPIController::class, 'confirm']);
+        Route::post('/disable', [TwoFactorAPIController::class, 'disable']);
+    });
+
     Route::prefix('company')->group(function () {
         Route::get('/info', [CompanyInfoAPIController::class, 'getCompanyInfo']);
         Route::post('/general-info', [CompanyInfoAPIController::class, 'updateGeneral']);

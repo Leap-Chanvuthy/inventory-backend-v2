@@ -18,6 +18,11 @@ class AuthAPIController extends Controller
         return $this->authService->login($request);
     }
 
+    public function verifyTwoFactor(Request $request)
+    {
+        return $this->authService->verifyTwoFactor($request);
+    }
+
     public function sendResetLink(Request $request)
     {
         return $this->authService->sendResetLink($request);
