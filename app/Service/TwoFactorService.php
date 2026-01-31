@@ -141,6 +141,7 @@ class TwoFactorService
 
         return ResponseHelper::success([
             'two_factor_required' => true,
+            'two_factor_enabled' => $user->two_factor_enabled,
             'two_factor_token' => $pendingToken,
             'expires_in_seconds' => self::PENDING_TTL_SECONDS,
         ], 'Two-factor authentication required', 200);

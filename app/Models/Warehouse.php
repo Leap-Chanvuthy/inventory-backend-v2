@@ -25,4 +25,9 @@ class Warehouse extends Model
     public function images(){
         return $this->hasMany(WarehouseImage::class);
     }
+
+    public function raw_materials()
+    {
+        return $this->hasMany(RawMaterial::class, 'warehouse_id');
+    }
 }

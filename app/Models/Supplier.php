@@ -44,4 +44,9 @@ class Supplier extends Model
     {
         return $this->hasMany(SupplierBank::class);
     }
+
+    public function raw_materials()
+    {
+        return $this->hasMany(RawMaterial::class, 'supplier_id');
+    }
 }

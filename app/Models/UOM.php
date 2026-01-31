@@ -25,7 +25,7 @@ class UOM extends Model
 
     public function raw_materials()
     {
-        // return $this->hasMany(RawMaterial::class, 'uom_id');
+        return $this->hasMany(RawMaterial::class, 'uom_id');
     }
 
 }

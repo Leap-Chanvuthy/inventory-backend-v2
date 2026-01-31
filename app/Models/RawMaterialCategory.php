@@ -19,4 +19,8 @@ class RawMaterialCategory extends Model
         'description',
     ];
 
+    public function raw_materials(){
+        return $this -> hasMany(RawMaterial::class , 'raw_material_category_id' , 'id');
+    }
+
 }

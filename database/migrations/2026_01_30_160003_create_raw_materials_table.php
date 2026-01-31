@@ -20,12 +20,7 @@ return new class extends Migration
             $table -> double('quantity');
             $table -> double('remaining_quantity');
             $table -> double('minimum_quantity_stock_level');
-            $table -> double('unit_price_in_usd');
-            $table -> double('total_value_in_usd'); 
-            $table -> double('exchange_rate_from_usd_to_riel');
-            $table -> double('unit_price_in_riel');
-            $table -> double('total_value_in_riel');
-            $table -> double('exchange_rate_from_riel_to_usd');
+
             $table -> date('expiry_date');
             $table -> string('status' , 100);
             $table -> text('description') -> nullable();
