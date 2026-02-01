@@ -5,6 +5,7 @@ use App\Http\Controllers\API\CompanyInfoAPIController;
 use App\Http\Controllers\API\CustomerAPIController;
 use App\Http\Controllers\API\CustomerCategoryAPIController;
 use App\Http\Controllers\API\ProductCategoryAPIController;
+use App\Http\Controllers\API\RawMaterialAPIController;
 use App\Http\Controllers\API\RawMaterialCategoryAPIController;
 use App\Http\Controllers\API\SupplierAPIController;
 use App\Http\Controllers\API\TwoFactorAPIController;
@@ -36,6 +37,8 @@ Route::post('/send-reset-link', [AuthAPIController::class, 'sendResetLink']);
 Route::post('/reset-password', [AuthAPIController::class, 'resetPassword']);
 Route::post('/users/verify-email', [UserAPIController::class, 'verifyEmail']);
 
+
+Route::post('/raw-materials/create' , [RawMaterialAPIController::class , 'store'] ) ;
 
 
 // Protected Routes for ADMIN ONLY USERS
@@ -140,5 +143,7 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:CUSTOMER'])->group(function 
      });
 
 });
+
+
 
 

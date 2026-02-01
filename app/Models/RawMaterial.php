@@ -23,8 +23,6 @@ class RawMaterial extends Model
         'material_name',
         'material_sku_code',
         'barcode',
-        'quantity',
-        'remaining_quantity',
         'minimum_quantity_stock_level',
         'expiry_date',
         'status',
@@ -50,6 +48,11 @@ class RawMaterial extends Model
 
     public function uom(){
         return $this -> belongsTo(UOM::class , 'uom_id' , 'id');
+    }
+
+    public function rm_images()
+    {
+        return $this->hasMany(RMImage::class, 'raw_material_id');
     }
 
     public function rm_stock_movements()

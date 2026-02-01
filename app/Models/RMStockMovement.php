@@ -14,11 +14,14 @@ class RMStockMovement extends Model
 
     protected $casts = [
         'movement_type' => RawMaterialStockMovementTypeEnum::class,
+        'raw_material_id' => 'integer',
+        'quantity' => 'float',
     ];
 
     protected $fillable = [
         'raw_material_id',
         'quantity',
+        'direction',
         'movement_type',
         'movement_date',
     ];

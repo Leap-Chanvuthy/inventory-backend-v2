@@ -17,8 +17,6 @@ return new class extends Migration
             $table -> string('material_name' , 50);
             $table -> string('material_sku_code' , 255) -> unique();
             $table->  string('barcode')->nullable();
-            $table -> double('quantity');
-            $table -> double('remaining_quantity');
             $table -> double('minimum_quantity_stock_level');
 
             $table -> date('expiry_date');
@@ -40,6 +38,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('raw_materials');
     }
 };

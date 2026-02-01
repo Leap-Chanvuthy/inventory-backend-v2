@@ -14,13 +14,16 @@ return new class extends Migration
         Schema::create('rm_purchasing_transactions', function (Blueprint $table) {
             $table->id();
             $table -> foreignId('raw_material_id') -> constrained('raw_materials') -> restrictOnDelete() -> cascadeOnUpdate();
+            $table -> foreignId('supplier_id') -> constrained('suppliers') -> restrictOnDelete() -> cascadeOnUpdate();
+            $table -> double('quantity');
             $table -> double('unit_price_in_usd');
             $table -> double('total_value_in_usd'); 
             $table -> double('exchange_rate_from_usd_to_riel');
             $table -> double('unit_price_in_riel');
             $table -> double('total_value_in_riel');
             $table -> double('exchange_rate_from_riel_to_usd');
-            $table->timestamps();
+            $table -> date('transaction_date');
+            $table -> timestamps();
         });
     }
 
