@@ -8,7 +8,9 @@ use App\Models\RMImage;
 use App\Models\RMPurchasingTransaction;
 use App\Models\RMStockMovement;
 use App\Models\RawMaterial;
+use App\QueryBuilders\RawMaterialQueryBuilder;
 use App\Validations\RMValidation;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -17,12 +19,54 @@ use Illuminate\Validation\ValidationException;
 class RawMaterialService
 {
     protected RMValidation $rmValidation;
+    protected RawMaterialQueryBuilder $rawMaterialQueryBuilder;
 
-    public function __construct(RMValidation $rmValidation)
+    public function __construct(
+        RMValidation $rmValidation,
+        RawMaterialQueryBuilder $rawMaterialQueryBuilder
+        )
     {
-        $this->rmValidation = $rmValidation;
+        $this -> rmValidation = $rmValidation;
+        $this -> rawMaterialQueryBuilder = $rawMaterialQueryBuilder;
     }
 
+    // Get all raw materials with filtering, sorting, and pagination
+    public function getAllRawMaterials(Request $request)
+    {
+        try {
+            return $this->rawMaterialQueryBuilder->rawMaterialBuilder($request); 
+        }catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+
+    // Get raw material by ID
+    public function getRawMaterialById($id)
+    {
+        try {
+            $rawMaterial = RawMaterial::with([
+                                'rm_category' => fn ($q) => $q->withTrashed(),
+                'supplier' => fn ($q) => $q->withTrashed(),
+                'warehouse' => fn ($q) => $q->withTrashed(),
+                'uom' => fn ($q) => $q->withTrashed(),
+                                'rm_purchasing_transactions',
+                                'rm_stock_movements',
+                                'rm_images',
+            ])->findOrFail($id);
+                
+            if (!$rawMaterial) {
+                return ResponseHelper::error('Raw Material not found', 404);
+            }
+            return ResponseHelper::success($rawMaterial, 'Raw Material retrieved successfully');
+        } catch (Exception $e) {        
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+
+
+    // Create a new raw material along with purchasing transaction, stock movement, and images.
     public function createRawMaterial(Request $request)
     {
         try {

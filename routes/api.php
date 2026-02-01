@@ -38,7 +38,6 @@ Route::post('/reset-password', [AuthAPIController::class, 'resetPassword']);
 Route::post('/users/verify-email', [UserAPIController::class, 'verifyEmail']);
 
 
-Route::post('/raw-materials/create' , [RawMaterialAPIController::class , 'store'] ) ;
 
 
 // Protected Routes for ADMIN ONLY USERS
@@ -69,6 +68,10 @@ Route::middleware(['auth:api'])->group(function () {
 
 // Protected Routes for ADMIN and STOCK_CONTROLLER
 Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(function () {
+
+    Route::get('/raw-materials' , [RawMaterialAPIController::class , 'index'] );
+    Route::get('/raw-materials/{id}' , [RawMaterialAPIController::class , 'show'] );
+    Route::post('/raw-materials/create' , [RawMaterialAPIController::class , 'store'] );
 
     Route::prefix('suppliers')->group(function () {
         Route::post('/import', [SupplierAPIController::class, 'import']);

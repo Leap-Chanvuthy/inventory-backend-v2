@@ -21,7 +21,12 @@ class RawMaterialAPIController extends Controller
 
     public function index(Request $request)
     {
-        //
+        return $this ->  rawMaterialService -> getAllRawMaterials($request);
+    }
+
+    public function show($id)
+    {
+        return $this->rawMaterialService->getRawMaterialById($id);
     }
 
     public function store(Request $request)
