@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             CustomerCategorySeeder::class,
             SupplierSeeder::class,
             UOMSeeder::class,
+            RawMaterialSeeder::class,
             CustomerSeeder::class,
         ]);
     }

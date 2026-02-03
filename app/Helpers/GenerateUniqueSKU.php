@@ -79,16 +79,30 @@ class GenerateUniqueSKU
                 throw new InvalidArgumentException("Relation path '{$path}' not found on model.");
             }
 
-            $data[$key] = Str::upper((string) $value);
+            $data[$key] = self::sanitizeToken((string) $value);
         }
 
         return $data;
     }
 
+    protected static function sanitizeToken(string $value): string
+    {
+        $value = Str::upper(trim($value));
+
+        // Remove spaces and non-alphanumeric characters to keep SKU safe.
+        $value = preg_replace('/[^A-Z0-9]+/', '', $value) ?? '';
+
+        if ($value === '') {
+            throw new InvalidArgumentException('Resolved token is empty after sanitizing.');
+        }
+
+        return $value;
+    }
+
     protected static function applyFormat(string $format, array $replacements): string
     {
         return preg_replace_callback('/\{(\w+)\}/', function ($matches) use ($replacements) {
-            return $replacements[$matches[1]] ?? '';
+            return (string) ($replacements[$matches[1]] ?? '');
         }, $format);
     }
 }

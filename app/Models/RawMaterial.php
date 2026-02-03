@@ -23,9 +23,8 @@ class RawMaterial extends Model
         'material_name',
         'material_sku_code',
         'barcode',
-        'minimum_quantity_stock_level',
+        'minimum_stock_level',
         'expiry_date',
-        'status',
         'description',
         'raw_material_category_id',
         'uom_id',
@@ -58,11 +57,6 @@ class RawMaterial extends Model
     public function rm_stock_movements()
     {
         return $this->hasMany(RMStockMovement::class, 'raw_material_id');
-    }
-
-    public function rm_purchasing_transactions()
-    {
-        return $this->hasMany(RMPurchasingTransaction::class, 'raw_material_id');
     }
 
 }

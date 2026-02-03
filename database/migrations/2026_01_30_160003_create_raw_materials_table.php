@@ -17,10 +17,9 @@ return new class extends Migration
             $table -> string('material_name' , 50);
             $table -> string('material_sku_code' , 255) -> unique();
             $table->  string('barcode')->nullable();
-            $table -> double('minimum_quantity_stock_level');
+            $table -> double('minimum_stock_level');
 
             $table -> date('expiry_date');
-            $table -> string('status' , 100);
             $table -> text('description') -> nullable();
 
             $table -> foreignId('raw_material_category_id') ->constrained('raw_material_categories')  -> restrictOnDelete() -> cascadeOnUpdate();

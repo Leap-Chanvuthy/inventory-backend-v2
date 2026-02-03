@@ -16,9 +16,11 @@ return new class extends Migration
         Schema::create('rm_stock_movements', function (Blueprint $table) {
             $table->id();
 
-            $table->foreignId('raw_material_id')
-                ->constrained()
-                ->restrictOnDelete();
+            $table->foreignId('raw_material_id')->constrained('raw_materials')->restrictOnDelete()->cascadeOnUpdate();
+
+
+            $table->foreignId('supplier_id')->constrained('suppliers')->restrictOnDelete()->cascadeOnUpdate();
+
 
             $table->decimal('quantity', 15, 4);
 
@@ -27,14 +29,23 @@ return new class extends Migration
             $table->enum('movement_type', [
                 RawMaterialStockMovementTypeEnum::PURCHASE->value,
                 RawMaterialStockMovementTypeEnum::RE_ORDER->value,
-                RawMaterialStockMovementTypeEnum::SALE->value,
                 RawMaterialStockMovementTypeEnum::PRODUCTION_SCRAP->value,
                 RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value,
                 RawMaterialStockMovementTypeEnum::ADJUSTMENT_IN->value,
                 RawMaterialStockMovementTypeEnum::ADJUSTMENT_OUT->value,
             ]);
 
+
+            $table->double('unit_price_in_usd')->min(0);
+            $table->double('total_value_in_usd')->min(0);
+            $table->double('exchange_rate_from_usd_to_riel')->min(0);
+            $table->double('unit_price_in_riel')->min(0);
+            $table->double('total_value_in_riel')->min(0);
+            $table->double('exchange_rate_from_riel_to_usd')->min(0);
+
             $table->timestamp('movement_date');
+            $table->text('note')->nullable();
+            
             $table->timestamps();
         });
     }

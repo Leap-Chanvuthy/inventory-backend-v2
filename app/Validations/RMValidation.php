@@ -5,9 +5,9 @@ namespace App\Validations;
 
 
 use App\Helpers\GenerateUniqueSKU;
-use App\Helpers\CurrencyPricingHelper;
 use App\Models\RawMaterial;
 use App\Models\RawMaterialCategory;
+use App\Models\UOM;
 use Illuminate\Http\Request;
 
 class RMValidation {
@@ -27,8 +27,24 @@ class RMValidation {
 
             if ($cat) {
                 $rm->rm_category()->associate($cat);
-                $relations = ['cat' => 'rm_category.category_name'];
+                $relations['cat'] = 'rm_category.category_name';
                 $format = '{prefix}-{cat}-{random}';
+            }
+        }
+
+        // Include UOM in SKU (required by validation)
+        if ($request->filled('uom_id')) {
+            $uom = UOM::find($request->input('uom_id'));
+            if ($uom) {
+                $rm->uom()->associate($uom);
+                // Use name because it's required (symbol can be nullable)
+                $relations['uom'] = 'uom.name';
+
+                // If we already have category, format becomes RM-{CAT}-{UOM}-{RANDOM}
+                // Otherwise fallback to RM-{UOM}-{RANDOM}
+                $format = isset($relations['cat'])
+                    ? '{prefix}-{cat}-{uom}-{random}'
+                    : '{prefix}-{uom}-{random}';
             }
         }
 
@@ -49,9 +65,8 @@ class RMValidation {
             'material_name' => 'required|string|max:255',
             'material_sku_code' => 'required|string|unique:raw_materials,material_sku_code|max:255',
             'barcode' => 'nullable|string|max:255',
-            'minimum_quantity_stock_level' => 'required|numeric|min:0',
+            'minimum_stock_level' => 'required|numeric|min:0',
             'expiry_date' => 'required|date',
-            'status' => 'required|in:IN_STOCK,OUT_OF_STOCK,LOW_STOCK,EXPIRED',
             'description' => 'nullable|string',
             'raw_material_category_id' => 'required|exists:raw_material_categories,id',
             'uom_id' => 'required|exists:unit_of_measurements,id',
@@ -61,29 +76,12 @@ class RMValidation {
     }
 
 
-    public function CreateRMPurchasingTransactionValidation (Request $request): array
-    {
-        CurrencyPricingHelper::fillRMPurchasingCurrencyFields($request);
-
-        return [
-            'raw_material_id' => 'required|exists:raw_materials,id',
-            'supplier_id' => 'required|exists:suppliers,id',
-            'quantity' => 'required|numeric|min:0',
-            'transaction_date' => 'required|date',
-            'unit_price_in_usd' => 'required|numeric|min:0',
-            'total_value_in_usd' => 'nullable|numeric|min:0',
-            'exchange_rate_from_usd_to_riel' => 'required|numeric|min:0',
-            'unit_price_in_riel' => 'nullable|numeric|min:0',
-            'total_value_in_riel' => 'nullable|numeric|min:0',
-            'exchange_rate_from_riel_to_usd' => 'nullable|numeric|min:0',
-        ];
-    }
-
 
     public function CreateRMStockMovementValidation (Request $request): array
     {
         return [
             'raw_material_id' => 'required|exists:raw_materials,id',
+            'supplier_id' => 'required|exists:suppliers,id',
             'quantity' => 'required|numeric|min:0',
             'direction' => 'required|in:IN,OUT',
             'movement_type' => (function () use ($request) {
@@ -92,6 +90,13 @@ class RMValidation {
                 }
                 return 'required|in:PURCHASE,RE_ORDER,SALE,PRODUCTION_SCRAP,PRODUCTION_RECEIPT,ADJUSTMENT_IN,ADJUSTMENT_OUT';
             })(),
+            'unit_price_in_usd' => 'required|numeric|min:0',
+            'total_value_in_usd' => 'required|numeric|min:0',
+            'exchange_rate_from_usd_to_riel' => 'required|numeric|min:0',
+            'unit_price_in_riel' => 'required|numeric|min:0',
+            'total_value_in_riel' => 'required|numeric|min:0',
+            'exchange_rate_from_riel_to_usd' => 'required|numeric|min:0',
+            'note' => 'nullable|string',
             'movement_date' => 'required|date',
         ];
     }
@@ -100,15 +105,11 @@ class RMValidation {
     {
         return [
             'raw_material_id' => 'nullable|exists:raw_materials,id',
-            'image' => 'nullable_without:images|image|max:2048',
-            'images' => 'nullable_without:image|array|max:4',
+            // Images are optional on create. If provided, validate type/size.
+            'image' => 'nullable|image|max:2048',
+            'images' => 'nullable|array|max:4',
             'images.*' => 'image|max:2048',
         ];
     }
-
-
-
-    
-
 
 }

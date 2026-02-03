@@ -2439,6 +2439,393 @@
                 ]
             }
         },
+        "/api/raw-materials": {
+            "get": {
+                "tags": [
+                    "Raw Materials"
+                ],
+                "summary": "Get raw materials (pagination, filters, sorting)",
+                "description": "Retrieve a paginated list of raw materials. Supports filtering/sorting depending on the query builder implementation.",
+                "operationId": "e06b2b92ace20be454c5cc7482644a2e",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Number of items per page (default 10, max 100)",
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "description": "Search by material name / SKU / barcode / related names (depends on implementation)",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[raw_material_category_id]",
+                        "in": "query",
+                        "description": "Filter by category ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[uom_id]",
+                        "in": "query",
+                        "description": "Filter by UOM ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[supplier_id]",
+                        "in": "query",
+                        "description": "Filter by supplier ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[warehouse_id]",
+                        "in": "query",
+                        "description": "Filter by warehouse ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort fields (e.g. -created_at, material_name)",
+                        "schema": {
+                            "type": "string",
+                            "example": "-created_at"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Raw materials retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Something went wrong"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "Exception message here"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/raw-materials/{id}": {
+            "get": {
+                "tags": [
+                    "Raw Materials"
+                ],
+                "summary": "Get a raw material by ID",
+                "description": "Retrieve a single raw material with relations: category, supplier, warehouse, uom, stock movements, images.",
+                "operationId": "27b008891eab84c39976d67fdd612b7c",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Raw material ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Raw material retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Raw Material retrieved successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Raw Material not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Raw Material not found"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": null
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Something went wrong"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "Exception message here"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/raw-materials/create": {
+            "post": {
+                "tags": [
+                    "Raw Materials"
+                ],
+                "summary": "Create raw material (with initial PURCHASE stock movement + optional images)",
+                "description": "Creates raw material main data, then automatically creates one RM stock movement (movement_type=PURCHASE, direction=IN, movement_date=now). Supports up to 4 images.",
+                "operationId": "3e1f0472d2c54367a64af50421a561eb",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "material_name",
+                                    "minimum_stock_level",
+                                    "expiry_date",
+                                    "raw_material_category_id",
+                                    "uom_id",
+                                    "supplier_id",
+                                    "warehouse_id",
+                                    "quantity",
+                                    "unit_price_in_usd",
+                                    "exchange_rate_from_usd_to_riel"
+                                ],
+                                "properties": {
+                                    "material_name": {
+                                        "type": "string",
+                                        "example": "Steel Sheet"
+                                    },
+                                    "minimum_stock_level": {
+                                        "type": "number",
+                                        "example": 10
+                                    },
+                                    "expiry_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-12-01"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Some note",
+                                        "nullable": true
+                                    },
+                                    "raw_material_category_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "uom_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "supplier_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "warehouse_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "quantity": {
+                                        "type": "number",
+                                        "example": 50
+                                    },
+                                    "unit_price_in_usd": {
+                                        "description": "Used to compute totals",
+                                        "type": "number",
+                                        "example": 2.5
+                                    },
+                                    "exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "example": 4100
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Purchased from supplier A",
+                                        "nullable": true
+                                    },
+                                    "image": {
+                                        "description": "Single image (jpeg/png/jpg, <=2MB)",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "images[]": {
+                                        "description": "Multiple images (max 4, each <=2MB)",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "binary"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Raw material created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Raw material created successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Validation Error"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Something went wrong"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "Exception message here"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/raw-material-categories": {
             "get": {
                 "tags": [
@@ -6692,6 +7079,10 @@
         {
             "name": "Product Categories",
             "description": "API Endpoints for managing product categories. (Accessible for: ADMIN and STOCK_CONTROLLER Users)"
+        },
+        {
+            "name": "Raw Materials",
+            "description": "API Endpoints for managing raw materials (including initial PURCHASE stock movement and images)"
         },
         {
             "name": "Raw Material Categories",

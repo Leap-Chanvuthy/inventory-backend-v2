@@ -6,6 +6,7 @@ use App\Http\Controllers\API\CustomerAPIController;
 use App\Http\Controllers\API\CustomerCategoryAPIController;
 use App\Http\Controllers\API\ProductCategoryAPIController;
 use App\Http\Controllers\API\RawMaterialAPIController;
+use App\Http\Controllers\API\RMStockMovementAPIController;
 use App\Http\Controllers\API\RawMaterialCategoryAPIController;
 use App\Http\Controllers\API\SupplierAPIController;
 use App\Http\Controllers\API\TwoFactorAPIController;
@@ -74,6 +75,9 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
         Route::get('/' , [RawMaterialAPIController::class , 'index'] );
         Route::get('/{id}' , [RawMaterialAPIController::class , 'show'] );
         Route::post('/create' , [RawMaterialAPIController::class , 'store'] );
+
+        // Stock movements for a raw material
+        Route::post('/{rawMaterialId}/stock-movements', [RMStockMovementAPIController::class, 'store']);
     });
 
     Route::prefix('suppliers')->group(function () {

@@ -48,12 +48,11 @@ class RawMaterialQueryBuilder {
                 AllowedFilter::callback('search', function (Builder $query, $value) {
                     $query->where(function ($q) use ($value) {
                         $q->where('raw_materials.material_name', 'LIKE', "%{$value}%")
-                          ->orWhere('raw_materials.material_sku', 'LIKE', "%{$value}%")
+                          ->orWhere('raw_materials.material_sku_code', 'LIKE', "%{$value}%")
                           ->orWhere('raw_material_categories.category_name', 'LIKE', "%{$value}%")
                           ->orWhere('suppliers.official_name', 'LIKE', "%{$value}%")
                           ->orWhere('warehouses.warehouse_name', 'LIKE', "%{$value}%")
-                          ->orWhere('unit_of_measurements.uom_name', 'LIKE', "%{$value}%")
-                          ->orWhere('raw_materials.material_sku_code', 'LIKE', "%{$value}%");
+                          ->orWhere('unit_of_measurements.name', 'LIKE', "%{$value}%");
                     });
                 }),
 
@@ -67,7 +66,7 @@ class RawMaterialQueryBuilder {
                 'created_at',
                 'updated_at',
                 'material_name',
-                'material_sku',
+                'material_sku_code',
                 'raw_material_category_name',
                 'official_name',
                 'warehouse_name',
