@@ -55,11 +55,52 @@ class RawMaterialService
                 'rm_stock_movements',
                 'rm_images',
             ])->findOrFail($id);
+
+
+            // Find total count of stock movement by type
+            $totalCountByMovementType = RMStockMovement::where('raw_material_id', $rawMaterial -> id)
+            ->select('movement_type', DB::raw('COUNT(*) as total'))
+            ->groupBy('movement_type')
+            ->pluck('total', 'movement_type');
+
+            
+                        
+            // Calculate current quantity in stock
+            $currentQtyInStock = 0;
+            foreach ($rawMaterial->rm_stock_movements as $movement) {
+                $qty = (float) ($movement->quantity ?? 0);
+                $currentQtyInStock += ($movement->direction === 'OUT') ? (-$qty) : $qty;
+            }
+
+            // Find stock status
+            $isExpired = false;
+            $rawMaterialStatus = '';
+            if ($rawMaterial->expiry_date) {
+                // Mark as expired when expiry_date is today or earlier.
+                $isExpired = $rawMaterial->expiry_date->startOfDay()->lte(now()->startOfDay());
+            }
+
+            if ($isExpired) {
+                $rawMaterialStatus = 'EXPIRED';
+            } elseif ($currentQtyInStock <= 0) {
+                $rawMaterialStatus = 'OUT_OF_STOCK';
+            } elseif ($currentQtyInStock <= (float) $rawMaterial->minimum_stock_level) {
+                $rawMaterialStatus = 'LOW_STOCK';
+            } else {
+                $rawMaterialStatus = 'IN_STOCK';
+            }
+
                 
             if (!$rawMaterial) {
                 return ResponseHelper::error('Raw Material not found', 404);
             }
-            return ResponseHelper::success($rawMaterial, 'Raw Material retrieved successfully');
+
+            return ResponseHelper::success([
+                'raw_material' => $rawMaterial,
+                'current_qty_in_stock' => $currentQtyInStock,
+                'raw_material_status' => $rawMaterialStatus,
+                'total_count_by_movement_type' => $totalCountByMovementType,
+            ],  'Raw Material retrieved successfully');
         } catch (Exception $e) {        
             return ResponseHelper::error($e->getMessage(), 500);
         }
@@ -204,6 +245,86 @@ class RawMaterialService
             return ResponseHelper::error($e->getMessage(), 500);
         }
     }
+
+    
+    
+
+
+    // Reorder Raw Material
+    public function reorderRawMaterial(Request $request , $rawMaterialId)
+    {
+        try {
+            $rawMaterial = RawMaterial::findOrFail($rawMaterialId);
+
+            // For data consistency: supplier_id must always come from the raw material.
+            // Ignore/remove any supplier_id provided by clients.
+            $request->request->remove('supplier_id');
+
+            // Enforce reorder flow defaults
+            $request->merge([
+                'raw_material_id' => $rawMaterial->id,
+                'supplier_id' => $rawMaterial->supplier_id,
+                'direction' => StockDirectionEnum::IN->value,
+                'movement_type' => RawMaterialStockMovementTypeEnum::RE_ORDER->value,
+                'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
+            ]);
+
+            // Only accept USD unit price + USD->Riel exchange rate as inputs;
+            // compute everything else from quantity.
+            $request->merge([
+                'total_value_in_usd' => null,
+                'unit_price_in_riel' => null,
+                'total_value_in_riel' => null,
+                'exchange_rate_from_riel_to_usd' => null,
+            ]);
+
+            CurrencyPricingHelper::fillRMPurchasingCurrencyFields($request);
+
+            $rules = $this->rmValidation->CreateRMStockMovementValidation($request);
+            $validated = Validator::make($request->all(), $rules)->validate();
+
+            $movement = DB::transaction(function () use ($validated, $rawMaterial) {
+                return RMStockMovement::create([
+                    'raw_material_id' => $rawMaterial->id,
+                    'supplier_id' => $validated['supplier_id'],
+                    'quantity' => $validated['quantity'],
+                    'direction' => StockDirectionEnum::IN->value,
+                    'movement_type' => RawMaterialStockMovementTypeEnum::RE_ORDER->value,
+                    'movement_date' => $validated['movement_date'],
+                    'unit_price_in_usd' => $validated['unit_price_in_usd'],
+                    'total_value_in_usd' => $validated['total_value_in_usd'],
+                    'exchange_rate_from_usd_to_riel' => $validated['exchange_rate_from_usd_to_riel'],
+                    'unit_price_in_riel' => $validated['unit_price_in_riel'],
+                    'total_value_in_riel' => $validated['total_value_in_riel'],
+                    'exchange_rate_from_riel_to_usd' => $validated['exchange_rate_from_riel_to_usd'],
+                    'note' => $validated['note'] ?? null,
+                ]);
+            });
+
+            // $data = [
+            //     'raw_material' => $rawMaterial->fresh([
+            //         'rm_category' => fn($q) => $q -> withTrashed(),
+            //         'supplier' => fn ($q) => $q->withTrashed(),
+            //         'warehouse' => fn ($q) => $q->withTrashed(),
+            //         'uom' => fn ($q) => $q->withTrashed(),
+            //         'rm_stock_movements',
+            //         'rm_images',
+            //     ]),
+            //     'stock_movement' => $movement,
+            // ];
+
+            return ResponseHelper::success($movement, 'Raw material reordered successfully', 201);
+
+        }catch (ValidationException $e){
+            return ResponseHelper::validation($e -> errors() , 'Validation Error');
+        }catch (Exception $e){
+            return ResponseHelper::error($e -> getMessage() , 500);
+        }
+    }
+
+
+
+
 }
 
 

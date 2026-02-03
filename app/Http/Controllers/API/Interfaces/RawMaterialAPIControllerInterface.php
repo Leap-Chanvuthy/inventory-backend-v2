@@ -202,4 +202,54 @@ interface RawMaterialAPIControllerInterface
      * )
      */
     public function store();
+
+
+    /**
+     * @OA\Post(
+     *     path="/api/raw-materials/{rawMaterialId}/reorder",
+     *     tags={"Raw Materials"},
+     *     security={{"Bearer":{}}},
+     *     summary="Reorder raw material stock (creates RE_ORDER / IN movement)",
+     *     description="Creates a stock movement with movement_type=RE_ORDER and direction=IN. Pricing/valuation is computed from quantity, unit_price_in_usd and exchange_rate_from_usd_to_riel.",
+     *
+     *     @OA\Parameter(
+     *         name="rawMaterialId",
+     *         in="path",
+     *         required=true,
+     *         description="Raw material ID",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"quantity","unit_price_in_usd","exchange_rate_from_usd_to_riel"},
+     *             @OA\Property(property="quantity", type="number", example=10),
+     *             @OA\Property(property="unit_price_in_usd", type="number", example=5),
+     *             @OA\Property(property="exchange_rate_from_usd_to_riel", type="number", example=4100),
+     *             @OA\Property(property="movement_date", type="string", format="date-time", nullable=true, example="2026-02-03 10:30:00"),
+     *             @OA\Property(property="note", type="string", nullable=true, example="Reorder due to low stock")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=201,
+     *         description="Raw material reordered successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Raw material reordered successfully"),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation Error"
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Internal server error"
+     *     )
+     * )
+     */
+    public function reorder();
 }

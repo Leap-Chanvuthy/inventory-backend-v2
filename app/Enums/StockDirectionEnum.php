@@ -4,8 +4,8 @@
 namespace App\Enums;    
 
 
-class StockDirectionEnum
+enum StockDirectionEnum : string
 {
-    const IN = 'IN';
-    const OUT = 'OUT';
+    case IN = 'IN';
+    case OUT = 'OUT';
 }

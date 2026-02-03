@@ -34,4 +34,9 @@ class RawMaterialAPIController extends Controller
         return $this->rawMaterialService->createRawMaterial($request);
     }
 
+    public function reorder(Request $request, int $rawMaterialId)
+    {
+        return $this->rawMaterialService->reorderRawMaterial($request, $rawMaterialId);
+    }
+
 }

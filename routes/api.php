@@ -76,6 +76,9 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
         Route::get('/{id}' , [RawMaterialAPIController::class , 'show'] );
         Route::post('/create' , [RawMaterialAPIController::class , 'store'] );
 
+        // Reorder (creates a RE_ORDER / IN stock movement with computed valuation)
+        Route::post('/{rawMaterialId}/reorder', [RawMaterialAPIController::class, 'reorder']);
+
         // Stock movements for a raw material
         Route::post('/{rawMaterialId}/stock-movements', [RMStockMovementAPIController::class, 'store']);
     });

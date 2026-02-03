@@ -2826,6 +2826,104 @@
                 ]
             }
         },
+        "/api/raw-materials/{rawMaterialId}/reorder": {
+            "post": {
+                "tags": [
+                    "Raw Materials"
+                ],
+                "summary": "Reorder raw material stock (creates RE_ORDER / IN movement)",
+                "description": "Creates a stock movement with movement_type=RE_ORDER and direction=IN. Pricing/valuation is computed from quantity, unit_price_in_usd and exchange_rate_from_usd_to_riel.",
+                "operationId": "d876a847bc195ef556d8136c7f765f18",
+                "parameters": [
+                    {
+                        "name": "rawMaterialId",
+                        "in": "path",
+                        "description": "Raw material ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "quantity",
+                                    "unit_price_in_usd",
+                                    "exchange_rate_from_usd_to_riel"
+                                ],
+                                "properties": {
+                                    "quantity": {
+                                        "type": "number",
+                                        "example": 10
+                                    },
+                                    "unit_price_in_usd": {
+                                        "type": "number",
+                                        "example": 5
+                                    },
+                                    "exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "example": 4100
+                                    },
+                                    "movement_date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-02-03 10:30:00",
+                                        "nullable": true
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Reorder due to low stock",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Raw material reordered successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Raw material reordered successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/raw-material-categories": {
             "get": {
                 "tags": [
