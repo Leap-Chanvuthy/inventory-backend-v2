@@ -2975,6 +2975,103 @@
                 ]
             }
         },
+        "/api/raw-materials/{rawMaterialId}/images": {
+            "delete": {
+                "tags": [
+                    "Raw Materials"
+                ],
+                "summary": "Delete raw material images",
+                "description": "Deletes one or more raw material images. Send an array of image IDs (use a single ID in the array to delete one image at a time). Images are deleted from storage and removed from the rm_images table.",
+                "operationId": "1737992600ecb39ea9b00162c80de32f",
+                "parameters": [
+                    {
+                        "name": "rawMaterialId",
+                        "in": "path",
+                        "description": "Raw material ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "image_ids"
+                                ],
+                                "properties": {
+                                    "image_ids": {
+                                        "description": "Array of rm_images IDs to delete (max 4)",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer",
+                                            "example": 10
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Raw material image(s) deleted successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Raw material image(s) deleted successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "deleted_image_ids": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "integer",
+                                                        "example": 10
+                                                    }
+                                                },
+                                                "deleted_count": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Raw Material not found or some images not found for this raw material"
+                    },
+                    "422": {
+                        "description": "Validation Error"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/raw-materials/{rawMaterialId}/reorder": {
             "post": {
                 "tags": [

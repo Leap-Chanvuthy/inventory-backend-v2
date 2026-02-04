@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Service\RMImageService;
 use App\Service\RawMaterialService;
 use Illuminate\Http\Request;
 
@@ -10,12 +11,15 @@ class RawMaterialAPIController extends Controller
 {
     
     protected $rawMaterialService;
+    protected $rmImageService;
 
     public function __construct(
-        RawMaterialService $rawMaterialService
+        RawMaterialService $rawMaterialService,
+        RMImageService $rmImageService
     )
     {
         $this->rawMaterialService = $rawMaterialService;
+        $this->rmImageService = $rmImageService;
     }
 
 
@@ -42,6 +46,11 @@ class RawMaterialAPIController extends Controller
     public function update(Request $request, int $id)
     {
         return $this->rawMaterialService->updateRawMaterial($id, $request);
+    }
+
+    public function deleteImages(Request $request, int $rawMaterialId)
+    {
+        return $this->rmImageService->deleteRawMaterialImages($rawMaterialId, $request);
     }
 
 }

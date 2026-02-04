@@ -271,6 +271,67 @@ interface RawMaterialAPIControllerInterface
 
 
     /**
+     * @OA\Delete(
+     *     path="/api/raw-materials/{rawMaterialId}/images",
+     *     tags={"Raw Materials"},
+     *     security={{"Bearer":{}}},
+     *     summary="Delete raw material images",
+     *     description="Deletes one or more raw material images. Send an array of image IDs (use a single ID in the array to delete one image at a time). Images are deleted from storage and removed from the rm_images table.",
+     *
+     *     @OA\Parameter(
+     *         name="rawMaterialId",
+     *         in="path",
+     *         required=true,
+     *         description="Raw material ID",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"image_ids"},
+     *             @OA\Property(
+     *                 property="image_ids",
+     *                 type="array",
+     *                 description="Array of rm_images IDs to delete (max 4)",
+     *                 @OA\Items(type="integer", example=10)
+     *             )
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Raw material image(s) deleted successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Raw material image(s) deleted successfully"),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="deleted_image_ids", type="array", @OA\Items(type="integer", example=10)),
+     *                 @OA\Property(property="deleted_count", type="integer", example=1)
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Raw Material not found or some images not found for this raw material"
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation Error"
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Internal server error"
+     *     )
+     * )
+     */
+    public function deleteImages();
+
+
+
+    /**
      * @OA\Post(
      *     path="/api/raw-materials/{rawMaterialId}/reorder",
      *     tags={"Raw Materials"},

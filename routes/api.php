@@ -77,6 +77,9 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
         Route::post('/create' , [RawMaterialAPIController::class , 'store'] );
         Route::patch('/{id}', [RawMaterialAPIController::class, 'update']);
 
+        // Delete one-or-more raw material images
+        Route::delete('/{rawMaterialId}/images', [RawMaterialAPIController::class, 'deleteImages']);
+
         // Reorder (creates a RE_ORDER / IN stock movement with computed valuation)
         Route::post('/{rawMaterialId}/reorder', [RawMaterialAPIController::class, 'reorder']);
 
