@@ -18,10 +18,6 @@ return new class extends Migration
 
             $table->foreignId('raw_material_id')->constrained('raw_materials')->restrictOnDelete()->cascadeOnUpdate();
 
-
-            $table->foreignId('supplier_id')->constrained('suppliers')->restrictOnDelete()->cascadeOnUpdate();
-
-
             $table->decimal('quantity', 15, 4);
 
             $table->enum('direction', [StockDirectionEnum::IN -> value, StockDirectionEnum::OUT -> value]);

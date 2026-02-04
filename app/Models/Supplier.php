@@ -50,8 +50,4 @@ class Supplier extends Model
         return $this->hasMany(RawMaterial::class, 'supplier_id');
     }
 
-    public function rm_stock_movement(){
-        return $this->hasMany(RMStockMovement::class, 'supplier_id');
-    }
-
 }

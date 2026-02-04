@@ -2648,6 +2648,154 @@
                         "Bearer": []
                     }
                 ]
+            },
+            "patch": {
+                "tags": [
+                    "Raw Materials"
+                ],
+                "summary": "Update raw material + its PURCHASE stock movement",
+                "description": "Updates raw material fields and updates the existing PURCHASE stock movement fields (quantity, unit_price_in_usd, exchange_rate_from_usd_to_riel, note, movement_date). PURCHASE movement type cannot be changed. Supplier is stored on raw_materials.",
+                "operationId": "eb65c0e703f0bcfd04788ae89bec6537",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Raw material ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "material_name",
+                                    "minimum_stock_level",
+                                    "expiry_date",
+                                    "raw_material_category_id",
+                                    "uom_id",
+                                    "warehouse_id",
+                                    "quantity",
+                                    "unit_price_in_usd",
+                                    "exchange_rate_from_usd_to_riel"
+                                ],
+                                "properties": {
+                                    "material_name": {
+                                        "type": "string",
+                                        "example": "Steel Sheet"
+                                    },
+                                    "barcode": {
+                                        "type": "string",
+                                        "example": "123456789",
+                                        "nullable": true
+                                    },
+                                    "minimum_stock_level": {
+                                        "type": "number",
+                                        "example": 10
+                                    },
+                                    "expiry_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-12-01"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Some note",
+                                        "nullable": true
+                                    },
+                                    "raw_material_category_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "uom_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "supplier_id": {
+                                        "type": "integer",
+                                        "example": 1,
+                                        "nullable": true
+                                    },
+                                    "warehouse_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "quantity": {
+                                        "description": "PURCHASE movement quantity",
+                                        "type": "number",
+                                        "example": 50
+                                    },
+                                    "unit_price_in_usd": {
+                                        "description": "PURCHASE unit price",
+                                        "type": "number",
+                                        "example": 2.5
+                                    },
+                                    "exchange_rate_from_usd_to_riel": {
+                                        "description": "PURCHASE exchange rate",
+                                        "type": "number",
+                                        "example": 4100
+                                    },
+                                    "movement_date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-02-04 10:30:00",
+                                        "nullable": true
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Updated purchase info",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Raw material updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Raw material updated successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Raw Material not found"
+                    },
+                    "422": {
+                        "description": "Validation Error"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
             }
         },
         "/api/raw-materials/create": {
@@ -2669,7 +2817,6 @@
                                     "expiry_date",
                                     "raw_material_category_id",
                                     "uom_id",
-                                    "supplier_id",
                                     "warehouse_id",
                                     "quantity",
                                     "unit_price_in_usd",
@@ -2703,8 +2850,10 @@
                                         "example": 1
                                     },
                                     "supplier_id": {
+                                        "description": "Optional; stored on raw_materials",
                                         "type": "integer",
-                                        "example": 1
+                                        "example": 1,
+                                        "nullable": true
                                     },
                                     "warehouse_id": {
                                         "type": "integer",

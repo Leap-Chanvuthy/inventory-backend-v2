@@ -30,8 +30,6 @@ class RMStockMovementService
             $request->merge([
                 'raw_material_id' => $rawMaterialId,
                 'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
-                // Default supplier to raw material supplier if client doesn't send
-                'supplier_id' => $request->input('supplier_id', $rawMaterial->supplier_id),
             ]);
 
             if (!$request->filled('movement_type')) {
@@ -82,7 +80,6 @@ class RMStockMovementService
             $movement = DB::transaction(function () use ($validated) {
                 return RMStockMovement::create([
                     'raw_material_id' => $validated['raw_material_id'],
-                    'supplier_id' => $validated['supplier_id'],
                     'quantity' => $validated['quantity'],
                     'direction' => $validated['direction'],
                     'movement_type' => $validated['movement_type'],

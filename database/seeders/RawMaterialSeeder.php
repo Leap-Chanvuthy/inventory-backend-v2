@@ -21,7 +21,6 @@ class RawMaterialSeeder extends Seeder
         // Ensure ALL raw materials have MANY movements and supplier consistency
         RawMaterial::query()->chunk(100, function ($rawMaterials) use ($faker) {
             foreach ($rawMaterials as $rm) {
-                $supplierId = (int) $rm->supplier_id;
 
                 // Rebuild movements for deterministic, valid stock (no negative).
                 RMStockMovement::query()->where('raw_material_id', $rm->id)->delete();
@@ -40,7 +39,6 @@ class RawMaterialSeeder extends Seeder
 
                 RMStockMovement::create([
                     'raw_material_id' => $rm->id,
-                    'supplier_id' => $supplierId,
                     'quantity' => $purchaseQty,
                     'direction' => 'IN',
                     'movement_type' => RawMaterialStockMovementTypeEnum::PURCHASE->value,
@@ -104,7 +102,6 @@ class RawMaterialSeeder extends Seeder
                     if (in_array($type, $zeroPriceTypes, true)) {
                         RMStockMovement::create([
                             'raw_material_id' => $rm->id,
-                            'supplier_id' => $supplierId,
                             'quantity' => $qty,
                             'direction' => $direction,
                             'movement_type' => $type,
@@ -127,7 +124,6 @@ class RawMaterialSeeder extends Seeder
 
                         RMStockMovement::create([
                             'raw_material_id' => $rm->id,
-                            'supplier_id' => $supplierId,
                             'quantity' => $qty,
                             'direction' => $direction,
                             'movement_type' => $type,

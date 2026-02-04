@@ -139,7 +139,7 @@ interface RawMaterialAPIControllerInterface
      *         @OA\MediaType(
      *             mediaType="multipart/form-data",
      *             @OA\Schema(
-     *                 required={"material_name","minimum_stock_level","expiry_date","raw_material_category_id","uom_id","supplier_id","warehouse_id","quantity","unit_price_in_usd","exchange_rate_from_usd_to_riel"},
+    *                 required={"material_name","minimum_stock_level","expiry_date","raw_material_category_id","uom_id","warehouse_id","quantity","unit_price_in_usd","exchange_rate_from_usd_to_riel"},
      *
      *                 @OA\Property(property="material_name", type="string", example="Steel Sheet"),
      *                 @OA\Property(property="minimum_stock_level", type="number", example=10),
@@ -148,7 +148,7 @@ interface RawMaterialAPIControllerInterface
      *
      *                 @OA\Property(property="raw_material_category_id", type="integer", example=1),
      *                 @OA\Property(property="uom_id", type="integer", example=1),
-     *                 @OA\Property(property="supplier_id", type="integer", example=1),
+    *                 @OA\Property(property="supplier_id", type="integer", nullable=true, example=1, description="Optional; stored on raw_materials"),
      *                 @OA\Property(property="warehouse_id", type="integer", example=1),
      *
      *                 @OA\Property(property="quantity", type="number", example=50),
@@ -202,6 +202,72 @@ interface RawMaterialAPIControllerInterface
      * )
      */
     public function store();
+
+    /**
+     * @OA\Patch(
+     *     path="/api/raw-materials/{id}",
+     *     tags={"Raw Materials"},
+     *     security={{"Bearer":{}}},
+     *     summary="Update raw material + its PURCHASE stock movement",
+     *     description="Updates raw material fields and updates the existing PURCHASE stock movement fields (quantity, unit_price_in_usd, exchange_rate_from_usd_to_riel, note, movement_date). PURCHASE movement type cannot be changed. Supplier is stored on raw_materials.",
+     *
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="Raw material ID",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"material_name","minimum_stock_level","expiry_date","raw_material_category_id","uom_id","warehouse_id","quantity","unit_price_in_usd","exchange_rate_from_usd_to_riel"},
+     *
+     *             @OA\Property(property="material_name", type="string", example="Steel Sheet"),
+     *             @OA\Property(property="barcode", type="string", nullable=true, example="123456789"),
+     *             @OA\Property(property="minimum_stock_level", type="number", example=10),
+     *             @OA\Property(property="expiry_date", type="string", format="date", example="2026-12-01"),
+     *             @OA\Property(property="description", type="string", nullable=true, example="Some note"),
+     *
+     *             @OA\Property(property="raw_material_category_id", type="integer", example=1),
+     *             @OA\Property(property="uom_id", type="integer", example=1),
+     *             @OA\Property(property="supplier_id", type="integer", nullable=true, example=1),
+     *             @OA\Property(property="warehouse_id", type="integer", example=1),
+     *
+     *             @OA\Property(property="quantity", type="number", example=50, description="PURCHASE movement quantity"),
+     *             @OA\Property(property="unit_price_in_usd", type="number", example=2.5, description="PURCHASE unit price"),
+     *             @OA\Property(property="exchange_rate_from_usd_to_riel", type="number", example=4100, description="PURCHASE exchange rate"),
+     *             @OA\Property(property="movement_date", type="string", format="date-time", nullable=true, example="2026-02-04 10:30:00"),
+     *             @OA\Property(property="note", type="string", nullable=true, example="Updated purchase info")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Raw material updated successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Raw material updated successfully"),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Raw Material not found"
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation Error"
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Internal server error"
+     *     )
+     * )
+     */
+    public function update();
+
 
 
     /**

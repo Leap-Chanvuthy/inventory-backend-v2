@@ -182,8 +182,6 @@ class RawMaterialService
                 // 2) Create initial Stock Movement (PURCHASE / IN / now)
                 $request->merge([
                     'raw_material_id' => $rawMaterial->id,
-                    // keep supplier_id consistent with raw material selection
-                    'supplier_id' => $request->input('supplier_id', $rawMaterial->supplier_id),
                     'direction' => 'IN',
                     'movement_type' => 'PURCHASE',
                     'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
@@ -196,7 +194,6 @@ class RawMaterialService
 
                 $movement = RMStockMovement::create([
                     'raw_material_id' => $rawMaterial->id,
-                    'supplier_id' => $stockMovementData['supplier_id'],
                     'quantity' => $stockMovementData['quantity'],
                     'direction' => 'IN',
                     'movement_type' => 'PURCHASE',
@@ -246,6 +243,132 @@ class RawMaterialService
         }
     }
 
+
+    // Update Raw Material
+    public function updateRawMaterial($id, Request $request)
+    {
+        try {
+
+            $rawMaterial = RawMaterial::query()->findOrFail($id);
+
+            $purchaseMovement = RMStockMovement::query()
+                ->where('raw_material_id', $rawMaterial->id)
+                ->where('movement_type', RawMaterialStockMovementTypeEnum::PURCHASE->value)
+                ->first();
+
+            if (!$purchaseMovement) {
+                return ResponseHelper::validation([
+                    'movement_type' => ['PURCHASE stock movement not found for this raw material.'],
+                ], 'Validation Error');
+            }
+
+            // Do not allow changing PURCHASE movement type.
+            if ($request->has('movement_type') && $request->input('movement_type') !== RawMaterialStockMovementTypeEnum::PURCHASE->value) {
+                return ResponseHelper::validation([
+                    'movement_type' => ['PURCHASE movement type cannot be changed.'],
+                ], 'Validation Error');
+            }
+
+            // Validate everything up-front and return ALL errors at once.
+            $mergeErrors = function (array $base, array $incoming): array {
+                foreach ($incoming as $field => $messages) {
+                    $base[$field] = array_values(array_unique(array_merge($base[$field] ?? [], $messages)));
+                }
+                return $base;
+            };
+
+            $errors = [];
+
+            // 1) Raw material validation
+            $rawMaterialRules = $this->rmValidation->UpdateRMValidation($request, (int) $rawMaterial->id);
+            $rawMaterialValidator = Validator::make($request->all(), $rawMaterialRules);
+            if ($rawMaterialValidator->fails()) {
+                $errors = $mergeErrors($errors, $rawMaterialValidator->errors()->toArray());
+            }
+
+            // 2) PURCHASE stock movement update validation (qty/unit price/exchange rate)
+            // Enforce movement properties for PURCHASE.
+            $request->merge([
+                'raw_material_id' => $rawMaterial->id,
+                'movement_type' => RawMaterialStockMovementTypeEnum::PURCHASE->value,
+                'direction' => StockDirectionEnum::IN->value,
+                'movement_date' => $request->input('movement_date', optional($purchaseMovement->movement_date)->toDateTimeString() ?? now()->toDateTimeString()),
+            ]);
+
+            CurrencyPricingHelper::fillRMPurchasingCurrencyFields($request);
+
+            $purchaseRules = $this->rmValidation->CreateRMStockMovementValidation($request);
+            $purchaseValidator = Validator::make($request->all(), $purchaseRules);
+            if ($purchaseValidator->fails()) {
+                $errors = $mergeErrors($errors, $purchaseValidator->errors()->toArray());
+            }
+
+            if (!empty($errors)) {
+                return ResponseHelper::validation($errors, 'Validation Error');
+            }
+
+            return DB::transaction(function () use ($request, $rawMaterial, $purchaseMovement) {
+                $rawMaterialRules = $this->rmValidation->UpdateRMValidation($request, (int) $rawMaterial->id);
+                $rawMaterialData = Validator::make($request->all(), $rawMaterialRules)->validate();
+
+                $rawMaterial->update([
+                    'material_name' => $rawMaterialData['material_name'],
+                    'barcode' => $rawMaterialData['barcode'] ?? null,
+                    'minimum_stock_level' => $rawMaterialData['minimum_stock_level'],
+                    'expiry_date' => $rawMaterialData['expiry_date'],
+                    'description' => $rawMaterialData['description'] ?? null,
+                    'raw_material_category_id' => $rawMaterialData['raw_material_category_id'],
+                    'uom_id' => $rawMaterialData['uom_id'],
+                    'supplier_id' => $rawMaterialData['supplier_id'] ?? null,
+                    'warehouse_id' => $rawMaterialData['warehouse_id'],
+                ]);
+
+                // Recompute pricing after any field changes.
+                $request->merge([
+                    'raw_material_id' => $rawMaterial->id,
+                    'movement_type' => RawMaterialStockMovementTypeEnum::PURCHASE->value,
+                    'direction' => StockDirectionEnum::IN->value,
+                ]);
+
+                CurrencyPricingHelper::fillRMPurchasingCurrencyFields($request);
+
+                $purchaseRules = $this->rmValidation->CreateRMStockMovementValidation($request);
+                $purchaseData = Validator::make($request->all(), $purchaseRules)->validate();
+
+                $purchaseMovement->update([
+                    'quantity' => $purchaseData['quantity'],
+                    'direction' => StockDirectionEnum::IN->value,
+                    'movement_type' => RawMaterialStockMovementTypeEnum::PURCHASE->value,
+                    'movement_date' => $purchaseData['movement_date'],
+                    'unit_price_in_usd' => $purchaseData['unit_price_in_usd'],
+                    'total_value_in_usd' => $purchaseData['total_value_in_usd'],
+                    'exchange_rate_from_usd_to_riel' => $purchaseData['exchange_rate_from_usd_to_riel'],
+                    'unit_price_in_riel' => $purchaseData['unit_price_in_riel'],
+                    'total_value_in_riel' => $purchaseData['total_value_in_riel'],
+                    'exchange_rate_from_riel_to_usd' => $purchaseData['exchange_rate_from_riel_to_usd'],
+                    'note' => $purchaseData['note'] ?? null,
+                ]);
+
+                $data = [
+                    'raw_material' => $rawMaterial->fresh([
+                        'rm_category',
+                        'supplier' => fn ($q) => $q->withTrashed(),
+                        'warehouse' => fn ($q) => $q->withTrashed(),
+                        'uom' => fn ($q) => $q->withTrashed(),
+                        'rm_stock_movements',
+                        'rm_images',
+                    ]),
+                ];
+
+                return ResponseHelper::success($data, 'Raw material updated successfully', 200);
+            });
+        }catch (ValidationException $e) {
+            return ResponseHelper::validation($e -> errors(), 'Validation Error');
+        }catch (Exception $e) {
+            return ResponseHelper::error($e -> getMessage(), 500);
+        }
+    }
+
     
     
 
@@ -263,7 +386,6 @@ class RawMaterialService
             // Enforce reorder flow defaults
             $request->merge([
                 'raw_material_id' => $rawMaterial->id,
-                'supplier_id' => $rawMaterial->supplier_id,
                 'direction' => StockDirectionEnum::IN->value,
                 'movement_type' => RawMaterialStockMovementTypeEnum::RE_ORDER->value,
                 'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
@@ -286,7 +408,6 @@ class RawMaterialService
             $movement = DB::transaction(function () use ($validated, $rawMaterial) {
                 return RMStockMovement::create([
                     'raw_material_id' => $rawMaterial->id,
-                    'supplier_id' => $validated['supplier_id'],
                     'quantity' => $validated['quantity'],
                     'direction' => StockDirectionEnum::IN->value,
                     'movement_type' => RawMaterialStockMovementTypeEnum::RE_ORDER->value,
@@ -300,18 +421,6 @@ class RawMaterialService
                     'note' => $validated['note'] ?? null,
                 ]);
             });
-
-            // $data = [
-            //     'raw_material' => $rawMaterial->fresh([
-            //         'rm_category' => fn($q) => $q -> withTrashed(),
-            //         'supplier' => fn ($q) => $q->withTrashed(),
-            //         'warehouse' => fn ($q) => $q->withTrashed(),
-            //         'uom' => fn ($q) => $q->withTrashed(),
-            //         'rm_stock_movements',
-            //         'rm_images',
-            //     ]),
-            //     'stock_movement' => $movement,
-            // ];
 
             return ResponseHelper::success($movement, 'Raw material reordered successfully', 201);
 
@@ -330,147 +439,5 @@ class RawMaterialService
 
 
 
-
-
-// I have updated some of my database fields as you can see in this validation fields:
-
-// <?php 
-
-
-// namespace App\Validations;
-
-
-// use App\Helpers\GenerateUniqueSKU;
-// use App\Helpers\CurrencyPricingHelper;
-// use App\Models\RawMaterial;
-// use App\Models\RawMaterialCategory;
-// use Illuminate\Http\Request;
-
-// class RMValidation {
-
-
-//     // Handle the validation for creating a Raw Material
-//     public function CreateRMValidation (Request $request): array
-//     {
-//         $rm = new RawMaterial();
-
-//         $relations = [];
-//         $format = '{prefix}-{random}';
-
-//         // Use the category chosen by the user (raw_material_category_id)
-//         if ($request->filled('raw_material_category_id')) {
-//             $cat = RawMaterialCategory::find($request->input('raw_material_category_id'));
-
-//             if ($cat) {
-//                 $rm->rm_category()->associate($cat);
-//                 $relations = ['cat' => 'rm_category.category_name'];
-//                 $format = '{prefix}-{cat}-{random}';
-//             }
-//         }
-
-//         if (!$request->filled('material_sku_code')) {
-//             $request->merge([
-//                 'material_sku_code' => GenerateUniqueSKU::generate(
-//                     model: $rm,
-//                     field: 'material_sku_code',
-//                     randomLength: 6,
-//                     prefix: 'RM',
-//                     relations: $relations,
-//                     format: $format
-//                 )
-//             ]);
-//         }
-
-//         return [
-//             'material_name' => 'required|string|max:255',
-//             'material_sku_code' => 'required|string|unique:raw_materials,material_sku_code|max:255',
-//             'barcode' => 'nullable|string|max:255',
-//             'minimum_quantity_stock_level' => 'required|numeric|min:0',
-//             'expiry_date' => 'nullable|date',
-//             'status' => 'required|in:IN_STOCK,OUT_OF_STOCK,LOW_STOCK,EXPIRED',
-//             'description' => 'nullable|string',
-//             'raw_material_category_id' => 'required|exists:raw_material_categories,id',
-//             'uom_id' => 'required|exists:uoms,id',
-//             'supplier_id' => 'nullable|exists:suppliers,id',
-//             'warehouse_id' => 'required|exists:warehouses,id',
-//         ];
-//     }
-
-
-//     public function CreateRMPurchasingTransactionValidation (Request $request): array
-//     {
-//         CurrencyPricingHelper::fillRMPurchasingCurrencyFields($request);
-
-//         return [
-//             'raw_material_id' => 'required|exists:raw_materials,id',
-//             'supplier_id' => 'required|exists:suppliers,id',
-//             'quantity' => 'required|numeric|min:0',
-//             'transaction_date' => 'required|date',
-//             'unit_price_in_usd' => 'required|numeric|min:0',
-//             'total_value_in_usd' => 'required|numeric|min:0',
-//             'exchange_rate_from_usd_to_riel' => 'required|numeric|min:0',
-//             'unit_price_in_riel' => 'required|numeric|min:0',
-//             'total_value_in_riel' => 'required|numeric|min:0',
-//             'exchange_rate_from_riel_to_usd' => 'required|numeric|min:0',
-//         ];
-//     }
-
-
-//     public function CreateRMStockMovementValidation (Request $request): array
-//     {
-//         return [
-//             'raw_material_id' => 'required|exists:raw_materials,id',
-//             'quantity' => 'required|numeric|min:0',
-//             'direction' => 'required|in:IN,OUT',
-//             'movement_type' => (function () use ($request) {
-//                 if (!$request->filled('movement_type')) {
-//                     $request->merge(['movement_type' => 'PURCHASE']);
-//                 }
-//                 return 'required|in:PURCHASE,RE_ORDER,SALE,PRODUCTION_SCRAP,PRODUCTION_RECEIPT,ADJUSTMENT_IN,ADJUSTMENT_OUT';
-//             })(),
-//             'movement_date' => 'required|date',
-//         ];
-//     }
-
-//     public function CreateRMImageValidation (Request $request): array
-//     {
-//         return [
-//             'raw_material_id' => 'required|exists:raw_materials,id',
-//             'image' => 'required|image|max:2048',
-//         ];
-//     }
-// }
-
-
-
-// Please write me a raw material service to implement the create function of raw material. This is my flow and please implement as what I suggest:
-
-// 1. Raw Material main data table:
-//             'material_name' => 'required|string|max:255',
-//             'material_sku_code' => 'required|string|unique:raw_materials,material_sku_code|max:255',
-//             'barcode' => 'nullable|string|max:255',
-//             'minimum_stock_level' => 'required|numeric|min:0',
-//             'expiry_date' => 'nullable|date',
-//             'description' => 'nullable|string',
-//             'raw_material_category_id' => 'required|exists:raw_material_categories,id',
-//             'uom_id' => 'required|exists:uoms,id',
-//             'supplier_id' => 'nullable|exists:suppliers,id',
-//             'warehouse_id' => 'required|exists:warehouses,id',
-
-//             allow user to input the following information as needed. The default value fo the status is IN_STOCK since the very begining of the raw mateirial created is PURCHASE.
-
-
-//            2. Raw Material Purchasing Transaction:
-//            - Get the raw material id from the above feature
-//            - Get supplier id from the above feature as well (This will useful for profit/loss that company spent with supplier).
-//            - Use the currency helper to calculate pricing of this purchasing. Please allow user to input the usd currency with exchange from usd to khmer to calculate the khmer pricing. Please be noted that, the total value should be come from unit pricing multiple by quantity.
-
-
-//            3. Stock Movement:
-        //    - get the raw material from above feature
-        //    - get quantity from purchasing transaction as an initail stock movement
-        //    - the direction should be IN since it's is the stock increment
-        //    - movement type should be PURCHASE in create function by default.
-        //    - please added movement date as now.
-
-//            4. Raw Material Image: Please use FileUploadHelper to implement the upload function. The image should be only 4 at max and below 2MB.
+// Based on the raw material creation, Please implement raw material update feature.
+// When update, The raw material stock movement which has the movement type of PURCHASE are not allow to update its type to ensure data consistancy and user can update field such as qty, unit price and exchange rate. For other raw material stock movement type beside PURCHASE can only update its type but has to be ensure that the current movement to update has to have limit of qty update since the qty of current one must not have bigger value than total sum of qty from previous one to ensure qty consistancy. 

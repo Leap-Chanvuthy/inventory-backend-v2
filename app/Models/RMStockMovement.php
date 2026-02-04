@@ -15,7 +15,6 @@ class RMStockMovement extends Model
     protected $casts = [
         'movement_type' => RawMaterialStockMovementTypeEnum::class,
         'raw_material_id' => 'integer',
-        'supplier_id' => 'integer',
         'direction' => 'string',
         'quantity' => 'float',
         'unit_price_in_usd' => 'float',
@@ -30,7 +29,6 @@ class RMStockMovement extends Model
 
     protected $fillable = [
         'raw_material_id',
-        'supplier_id',
         'quantity',
         'direction',
         'movement_type',
@@ -47,11 +45,6 @@ class RMStockMovement extends Model
     public function raw_material()
     {
         return $this->belongsTo(RawMaterial::class, 'raw_material_id');
-    }
-
-    public function supplier()
-    {
-        return $this->belongsTo(Supplier::class, 'supplier_id');
     }
 
 }

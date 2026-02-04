@@ -101,7 +101,6 @@ class RMStockMovementFactory extends Factory
 
         return [
             'raw_material_id' => $rawMaterial->id,
-            'supplier_id' => $rawMaterial->supplier_id,
             'quantity' => $quantity,
             'direction' => $direction,
             'movement_type' => $movementType,

@@ -9,6 +9,7 @@ use App\Models\RawMaterial;
 use App\Models\RawMaterialCategory;
 use App\Models\UOM;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class RMValidation {
 
@@ -76,19 +77,35 @@ class RMValidation {
     }
 
 
+    // Handle the validation for updating a Raw Material
+    public function UpdateRMValidation(Request $request, int $rawMaterialId): array
+    {
+        return [
+            'material_name' => 'required|string|max:255',
+            'barcode' => 'nullable|string|max:255',
+            'minimum_stock_level' => 'required|numeric|min:0',
+            'expiry_date' => 'required|date',
+            'description' => 'nullable|string',
+            'raw_material_category_id' => 'required|exists:raw_material_categories,id',
+            'uom_id' => 'required|exists:unit_of_measurements,id',
+            'supplier_id' => 'nullable|exists:suppliers,id',
+            'warehouse_id' => 'required|exists:warehouses,id',
+        ];
+    }
+
+
 
     public function CreateRMStockMovementValidation (Request $request): array
     {
         return [
             'raw_material_id' => 'required|exists:raw_materials,id',
-            'supplier_id' => 'required|exists:suppliers,id',
             'quantity' => 'required|numeric|min:0',
             'direction' => 'required|in:IN,OUT',
             'movement_type' => (function () use ($request) {
                 if (!$request->filled('movement_type')) {
                     $request->merge(['movement_type' => 'PURCHASE']);
                 }
-                return 'required|in:PURCHASE,RE_ORDER,SALE,PRODUCTION_SCRAP,PRODUCTION_RECEIPT,ADJUSTMENT_IN,ADJUSTMENT_OUT';
+                return 'required|in:PURCHASE,RE_ORDER,PRODUCTION_SCRAP,PRODUCTION_RECEIPT,ADJUSTMENT_IN,ADJUSTMENT_OUT';
             })(),
             'unit_price_in_usd' => 'required|numeric|min:0',
             'total_value_in_usd' => 'nullable|numeric|min:0',
