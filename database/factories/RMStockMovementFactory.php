@@ -40,12 +40,40 @@ class RMStockMovementFactory extends Factory
             }
         }
 
-        $direction = $this->faker->randomElement(['IN', 'OUT']);
-        if ($movementType === RawMaterialStockMovementTypeEnum::PURCHASE->value) {
-            $direction = 'IN';
+        // Direction should follow movement type (keeps data meaningful)
+        $direction = match ($movementType) {
+            RawMaterialStockMovementTypeEnum::PURCHASE->value => 'IN',
+            RawMaterialStockMovementTypeEnum::RE_ORDER->value => 'IN',
+            RawMaterialStockMovementTypeEnum::ADJUSTMENT_IN->value => 'IN',
+            RawMaterialStockMovementTypeEnum::PRODUCTION_SCRAP->value => 'OUT',
+            RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value => 'OUT',
+            RawMaterialStockMovementTypeEnum::ADJUSTMENT_OUT->value => 'OUT',
+            default => 'IN',
+        };
+
+        // Prevent negative stock for seeded data: OUT must not exceed current available stock.
+        $availableQty = (float) RMStockMovement::query()
+            ->where('raw_material_id', $rawMaterial->id)
+            ->selectRaw("COALESCE(SUM(CASE WHEN direction = 'IN' THEN quantity ELSE -quantity END), 0) as qty")
+            ->value('qty');
+
+        if ($availableQty < 0) {
+            $availableQty = 0;
         }
 
-        $quantity = (float) $this->faker->randomFloat(4, 1, 500);
+        if ($direction === 'OUT') {
+            if ($availableQty <= 0) {
+                // If nothing available, switch to an IN movement so seed remains valid.
+                $movementType = RawMaterialStockMovementTypeEnum::RE_ORDER->value;
+                $direction = 'IN';
+                $quantity = (float) $this->faker->randomFloat(4, 1, 200);
+            } else {
+                $maxOut = min($availableQty, 200);
+                $quantity = (float) $this->faker->randomFloat(4, 1, $maxOut);
+            }
+        } else {
+            $quantity = (float) $this->faker->randomFloat(4, 1, 500);
+        }
 
         $zeroPriceTypes = [
             RawMaterialStockMovementTypeEnum::PRODUCTION_SCRAP->value,

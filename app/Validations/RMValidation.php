@@ -91,11 +91,11 @@ class RMValidation {
                 return 'required|in:PURCHASE,RE_ORDER,SALE,PRODUCTION_SCRAP,PRODUCTION_RECEIPT,ADJUSTMENT_IN,ADJUSTMENT_OUT';
             })(),
             'unit_price_in_usd' => 'required|numeric|min:0',
-            'total_value_in_usd' => 'required|numeric|min:0',
+            'total_value_in_usd' => 'nullable|numeric|min:0',
             'exchange_rate_from_usd_to_riel' => 'required|numeric|min:0',
-            'unit_price_in_riel' => 'required|numeric|min:0',
-            'total_value_in_riel' => 'required|numeric|min:0',
-            'exchange_rate_from_riel_to_usd' => 'required|numeric|min:0',
+            'unit_price_in_riel' => 'nullable|numeric|min:0',
+            'total_value_in_riel' => 'nullable|numeric|min:0',
+            'exchange_rate_from_riel_to_usd' => 'nullable|numeric|min:0',
             'note' => 'nullable|string',
             'movement_date' => 'required|date',
         ];

@@ -24,7 +24,7 @@ return new class extends Migration
 
             $table->decimal('quantity', 15, 4);
 
-            $table->enum('direction', [StockDirectionEnum::IN, StockDirectionEnum::OUT]);
+            $table->enum('direction', [StockDirectionEnum::IN -> value, StockDirectionEnum::OUT -> value]);
 
             $table->enum('movement_type', [
                 RawMaterialStockMovementTypeEnum::PURCHASE->value,
