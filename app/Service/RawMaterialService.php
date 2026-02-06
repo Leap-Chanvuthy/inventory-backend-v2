@@ -303,11 +303,38 @@ class RawMaterialService
                 $errors = $mergeErrors($errors, $purchaseValidator->errors()->toArray());
             }
 
+            // 3) Images append validation (optional)
+            $incomingFiles = [];
+            if ($request->hasFile('images')) {
+                $incomingFiles = $request->file('images');
+            } elseif ($request->hasFile('image')) {
+                $incomingFiles = [$request->file('image')];
+            }
+
+            if (!empty($incomingFiles)) {
+                $imageRules = $this->rmValidation->CreateRMImageValidation($request);
+                $imageValidator = Validator::make($request->all(), $imageRules);
+                if ($imageValidator->fails()) {
+                    $errors = $mergeErrors($errors, $imageValidator->errors()->toArray());
+                }
+
+                $existingImageCount = RMImage::query()
+                    ->where('raw_material_id', $rawMaterial->id)
+                    ->count();
+                $incomingCount = is_array($incomingFiles) ? count($incomingFiles) : 1;
+
+                if (($existingImageCount + $incomingCount) > 4) {
+                    $errors = $mergeErrors($errors, [
+                        'images' => ["You can upload at most 4 images total. Existing: {$existingImageCount}, incoming: {$incomingCount}."],
+                    ]);
+                }
+            }
+
             if (!empty($errors)) {
                 return ResponseHelper::validation($errors, 'Validation Error');
             }
 
-            return DB::transaction(function () use ($request, $rawMaterial, $purchaseMovement) {
+            return DB::transaction(function () use ($request, $rawMaterial, $purchaseMovement, $incomingFiles) {
                 $rawMaterialRules = $this->rmValidation->UpdateRMValidation($request, (int) $rawMaterial->id);
                 $rawMaterialData = Validator::make($request->all(), $rawMaterialRules)->validate();
 
@@ -334,6 +361,32 @@ class RawMaterialService
 
                 $purchaseRules = $this->rmValidation->CreateRMStockMovementValidation($request);
                 $purchaseData = Validator::make($request->all(), $purchaseRules)->validate();
+
+                // 3) Append new images (keeps old, uploads new; max 4 total)
+                if (!empty($incomingFiles)) {
+                    $oldUrls = RMImage::query()
+                        ->where('raw_material_id', $rawMaterial->id)
+                        ->orderBy('id')
+                        ->pluck('image')
+                        ->all();
+
+                    $availableSlots = max(0, 4 - count($oldUrls));
+                    $filesToUpload = array_slice($incomingFiles, 0, $availableSlots);
+
+                    if (!empty($filesToUpload)) {
+                        // Append-mode helper returns merged URLs (old + new)
+                        $mergedUrls = FileUploadHelper::uploadMultipleAppend($filesToUpload, 'raw-materials', $oldUrls);
+                        $newUrls = array_slice($mergedUrls, count($oldUrls));
+
+                        foreach ($newUrls as $url) {
+                            RMImage::create([
+                                'raw_material_id' => $rawMaterial->id,
+                                'image' => $url,
+                            ]);
+                        }
+                    }
+                }
+
 
                 $purchaseMovement->update([
                     'quantity' => $purchaseData['quantity'],
