@@ -432,10 +432,6 @@ class RawMaterialService
         try {
             $rawMaterial = RawMaterial::findOrFail($rawMaterialId);
 
-            // For data consistency: supplier_id must always come from the raw material.
-            // Ignore/remove any supplier_id provided by clients.
-            $request->request->remove('supplier_id');
-
             // Enforce reorder flow defaults
             $request->merge([
                 'raw_material_id' => $rawMaterial->id,
@@ -476,6 +472,78 @@ class RawMaterialService
             });
 
             return ResponseHelper::success($movement, 'Raw material reordered successfully', 201);
+
+        }catch (ValidationException $e){
+            return ResponseHelper::validation($e -> errors() , 'Validation Error');
+        }catch (Exception $e){
+            return ResponseHelper::error($e -> getMessage() , 500);
+        }
+    }
+
+
+    // Stock adjustment out service class
+    public function adjustmentOut (Request $request , $rawMaterialId){
+        try {
+            
+        $rawMaterial = RawMaterial::findOrFail($rawMaterialId);
+
+            // Enforce stock adjustment out flow defaults
+            $request->merge([
+                'raw_material_id' => $rawMaterial->id,
+                'direction' => StockDirectionEnum::OUT->value,
+                'movement_type' => RawMaterialStockMovementTypeEnum::ADJUSTMENT_OUT->value,
+                'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
+            ]);
+
+            // No pricing is calculated for adjustment out.
+            // Force all pricing/rates to 0 to avoid requiring pricing inputs.
+            $request->merge([
+                'unit_price_in_usd' => 0,
+                'total_value_in_usd' => 0,
+                'exchange_rate_from_usd_to_riel' => 0,
+                'unit_price_in_riel' => 0,
+                'total_value_in_riel' => 0,
+                'exchange_rate_from_riel_to_usd' => 0,
+            ]);
+
+            $rules = $this->rmValidation->CreateRMStockMovementValidation($request);
+            // Note must be required for adjustment out movements
+            $rules['note'] = 'required|string';
+            $validated = Validator::make($request->all(), $rules)->validate();
+
+            // Check the qty in stock to avoid quantity is duduction over qty
+            // Calculate current quantity in stock
+            $currentQtyInStock = 0;
+            foreach ($rawMaterial->rm_stock_movements as $movement) {
+                $qty = (float) ($movement->quantity ?? 0);
+                $currentQtyInStock += ($movement->direction === 'OUT') ? (-$qty) : $qty;
+            }
+
+            if ($currentQtyInStock < $validated['quantity']) {
+                return ResponseHelper::error('Insuffiecient stock quantity', 401, [
+                    'quantity' => ['Stock deduction qty must not be greater than current stock quantity.']
+                ]);
+            }
+
+            $movement = DB::transaction(function () use ($validated, $rawMaterial) {
+                return RMStockMovement::create([
+                    'raw_material_id' => $rawMaterial->id,
+                    'quantity' => $validated['quantity'],
+                    'direction' => StockDirectionEnum::OUT->value,
+                    'movement_type' => RawMaterialStockMovementTypeEnum::ADJUSTMENT_OUT->value,
+                    'movement_date' => $validated['movement_date'],
+                    'unit_price_in_usd' => 0,
+                    'total_value_in_usd' =>0,
+                    'exchange_rate_from_usd_to_riel' => 0,
+                    'unit_price_in_riel' => 0,
+                    'total_value_in_riel' => 0,
+                    'exchange_rate_from_riel_to_usd' => 0,
+                    'note' => $validated['note'],
+                ]);
+            });
+
+            return ResponseHelper::success($movement, 'Raw material adjustment out successfully', 201);
+
 
         }catch (ValidationException $e){
             return ResponseHelper::validation($e -> errors() , 'Validation Error');

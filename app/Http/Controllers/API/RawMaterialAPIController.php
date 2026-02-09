@@ -43,6 +43,11 @@ class RawMaterialAPIController extends Controller
         return $this->rawMaterialService->reorderRawMaterial($request, $rawMaterialId);
     }
 
+    public function adjustmentOut (Request $request , int $rawMaterialId)
+    {
+        return $this->rawMaterialService->adjustmentOut($request, $rawMaterialId);
+    }
+
     public function update(Request $request, int $id)
     {
         return $this->rawMaterialService->updateRawMaterial($id, $request);
