@@ -69,6 +69,7 @@ class RMValidation {
             'minimum_stock_level' => 'required|numeric|min:0',
             'expiry_date' => 'required|date',
             'description' => 'nullable|string',
+            'production_method' => 'nullable|string|in:FIFO,LIFO',
             'raw_material_category_id' => 'required|exists:raw_material_categories,id',
             'uom_id' => 'required|exists:unit_of_measurements,id',
             'supplier_id' => 'nullable|exists:suppliers,id',
@@ -90,6 +91,7 @@ class RMValidation {
             'uom_id' => 'required|exists:unit_of_measurements,id',
             'supplier_id' => 'nullable|exists:suppliers,id',
             'warehouse_id' => 'required|exists:warehouses,id',
+            'production_method' => 'nullable|string|in:FIFO,LIFO',            
         ];
     }
 

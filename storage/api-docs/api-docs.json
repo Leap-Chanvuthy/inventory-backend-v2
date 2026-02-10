@@ -3170,6 +3170,299 @@
                 ]
             }
         },
+        "/api/raw-materials/{rawMaterialId}/reorder/{movementId}": {
+            "patch": {
+                "tags": [
+                    "Raw Materials"
+                ],
+                "summary": "Update reorder stock movement (RE_ORDER / IN)",
+                "description": "Updates an existing RE_ORDER stock movement. Only accepts quantity, unit_price_in_usd, exchange_rate_from_usd_to_riel, movement_date, and note. Other currency fields are computed server-side. If the movement is already in use, update is blocked.",
+                "operationId": "fbb3959f147ecfd0554f890976ef7eab",
+                "parameters": [
+                    {
+                        "name": "rawMaterialId",
+                        "in": "path",
+                        "description": "Raw material ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    },
+                    {
+                        "name": "movementId",
+                        "in": "path",
+                        "description": "Stock movement ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 100
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "quantity",
+                                    "unit_price_in_usd",
+                                    "exchange_rate_from_usd_to_riel"
+                                ],
+                                "properties": {
+                                    "quantity": {
+                                        "type": "number",
+                                        "example": 10
+                                    },
+                                    "unit_price_in_usd": {
+                                        "type": "number",
+                                        "example": 5
+                                    },
+                                    "exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "example": 4100
+                                    },
+                                    "movement_date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-02-03 10:30:00",
+                                        "nullable": true
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Updated reorder info",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Raw material reordered updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Raw material reordered updated successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Cannot update used stock movement",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Cannot update used stock movement"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "The reordered material has been used. Data cannot be updated to avoid data inconsistency.",
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Validation Error"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/raw-materials/{rawMaterialId}/adjustment-out": {
+            "post": {
+                "tags": [
+                    "Raw Materials"
+                ],
+                "summary": "Stock adjustment out (creates ADJUSTMENT_OUT / OUT movement)",
+                "description": "Creates a stock movement with movement_type=ADJUSTMENT_OUT and direction=OUT. Pricing fields are forced to 0 (not calculated). Note is required. Fails if deduction quantity is greater than current stock quantity.",
+                "operationId": "c4bb9a5aa71f702bcaaacb4b6d358f20",
+                "parameters": [
+                    {
+                        "name": "rawMaterialId",
+                        "in": "path",
+                        "description": "Raw material ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "quantity",
+                                    "note"
+                                ],
+                                "properties": {
+                                    "quantity": {
+                                        "type": "number",
+                                        "example": 2
+                                    },
+                                    "movement_date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-02-10 09:15:00",
+                                        "nullable": true
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Damaged items"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Raw material adjustment out successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Raw material adjustment out successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Insufficient stock quantity",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Insuffiecient stock quantity"
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "quantity": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "Stock deduction qty must not be greater than current stock quantity."
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Validation Error"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/raw-material-categories": {
             "get": {
                 "tags": [

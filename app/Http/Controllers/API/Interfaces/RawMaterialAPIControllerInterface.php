@@ -379,4 +379,147 @@ interface RawMaterialAPIControllerInterface
      * )
      */
     public function reorder();
+
+
+
+    /**
+     * @OA\Patch(
+     *     path="/api/raw-materials/{rawMaterialId}/reorder/{movementId}",
+     *     tags={"Raw Materials"},
+     *     security={{"Bearer":{}}},
+     *     summary="Update reorder stock movement (RE_ORDER / IN)",
+     *     description="Updates an existing RE_ORDER stock movement. Only accepts quantity, unit_price_in_usd, exchange_rate_from_usd_to_riel, movement_date, and note. Other currency fields are computed server-side. If the movement is already in use, update is blocked.",
+     *
+     *     @OA\Parameter(
+     *         name="rawMaterialId",
+     *         in="path",
+     *         required=true,
+     *         description="Raw material ID",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *     @OA\Parameter(
+     *         name="movementId",
+     *         in="path",
+     *         required=true,
+     *         description="Stock movement ID",
+     *         @OA\Schema(type="integer", example=100)
+     *     ),
+     *
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"quantity","unit_price_in_usd","exchange_rate_from_usd_to_riel"},
+     *             @OA\Property(property="quantity", type="number", example=10),
+     *             @OA\Property(property="unit_price_in_usd", type="number", example=5),
+     *             @OA\Property(property="exchange_rate_from_usd_to_riel", type="number", example=4100),
+     *             @OA\Property(property="movement_date", type="string", format="date-time", nullable=true, example="2026-02-03 10:30:00"),
+     *             @OA\Property(property="note", type="string", nullable=true, example="Updated reorder info")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=201,
+     *         description="Raw material reordered updated successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Raw material reordered updated successfully"),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Cannot update used stock movement",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Cannot update used stock movement"),
+     *             @OA\Property(property="errors", type="string", nullable=true, example="The reordered material has been used. Data cannot be updated to avoid data inconsistency.")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation Error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Validation Error"),
+     *             @OA\Property(property="errors", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Internal server error"
+     *     )
+     * )
+     */
+    public function updateReorder();
+
+
+
+    /**
+     * @OA\Post(
+     *     path="/api/raw-materials/{rawMaterialId}/adjustment-out",
+     *     tags={"Raw Materials"},
+     *     security={{"Bearer":{}}},
+     *     summary="Stock adjustment out (creates ADJUSTMENT_OUT / OUT movement)",
+     *     description="Creates a stock movement with movement_type=ADJUSTMENT_OUT and direction=OUT. Pricing fields are forced to 0 (not calculated). Note is required. Fails if deduction quantity is greater than current stock quantity.",
+     *
+     *     @OA\Parameter(
+     *         name="rawMaterialId",
+     *         in="path",
+     *         required=true,
+     *         description="Raw material ID",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"quantity","note"},
+     *             @OA\Property(property="quantity", type="number", example=2),
+     *             @OA\Property(property="movement_date", type="string", format="date-time", nullable=true, example="2026-02-10 09:15:00"),
+     *             @OA\Property(property="note", type="string", example="Damaged items")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=201,
+     *         description="Raw material adjustment out successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Raw material adjustment out successfully"),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Insufficient stock quantity",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Insuffiecient stock quantity"),
+     *             @OA\Property(
+     *                 property="errors",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="quantity",
+     *                     type="array",
+     *                     @OA\Items(type="string", example="Stock deduction qty must not be greater than current stock quantity.")
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation Error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Validation Error"),
+     *             @OA\Property(property="errors", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Internal server error"
+     *     )
+     * )
+     */
+    public function adjustmentOut();
 }

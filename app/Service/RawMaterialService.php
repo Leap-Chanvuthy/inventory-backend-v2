@@ -177,6 +177,7 @@ class RawMaterialService
                     'uom_id' => $rawMaterialData['uom_id'],
                     'supplier_id' => $rawMaterialData['supplier_id'] ?? null,
                     'warehouse_id' => $rawMaterialData['warehouse_id'],
+                    'production_method' => $rawMaterialData['production_method'],
                 ]);
 
                 // 2) Create initial Stock Movement (PURCHASE / IN / now)
@@ -348,6 +349,7 @@ class RawMaterialService
                     'uom_id' => $rawMaterialData['uom_id'],
                     'supplier_id' => $rawMaterialData['supplier_id'] ?? null,
                     'warehouse_id' => $rawMaterialData['warehouse_id'],
+                    'production_method' => $rawMaterialData['production_method'],
                 ]);
 
                 // Recompute pricing after any field changes.
@@ -479,6 +481,74 @@ class RawMaterialService
             return ResponseHelper::error($e -> getMessage() , 500);
         }
     }
+
+    // Update Reorder Raw Material
+    public function updateReorderRawMaterial(Request $request , $rawMaterialId , $movementId)
+    {
+        try {
+
+            $rawMaterial = RawMaterial::findOrFail($rawMaterialId);
+            $movement = RMStockMovement::findOrFail($movementId);
+
+
+            // Enforce reorder flow defaults
+            $request->merge([
+                'raw_material_id' => $rawMaterial->id,
+                'direction' => StockDirectionEnum::IN->value,
+                'movement_type' => RawMaterialStockMovementTypeEnum::RE_ORDER->value,
+                'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
+            ]);
+
+            // Only accept USD unit price + USD->Riel exchange rate as inputs;
+            // compute everything else from quantity.
+            $request->merge([
+                'total_value_in_usd' => null,
+                'unit_price_in_riel' => null,
+                'total_value_in_riel' => null,
+                'exchange_rate_from_riel_to_usd' => null,
+            ]);
+
+            // Check if the stock is already in used to avoid data incosistancy
+            if ($movement -> in_used === true){
+                return ResponseHelper::error('Cannot update used stock movement' , 401, 'The reordered material has been used. Data cannot be updated to avoid data inconsistency.');
+            }
+
+
+            CurrencyPricingHelper::fillRMPurchasingCurrencyFields($request);
+
+            $rules = $this->rmValidation->CreateRMStockMovementValidation($request);
+            $validated = Validator::make($request->all(), $rules)->validate();
+
+            $movement = DB::transaction(function () use ($validated, $movement) {
+                $movement->update([
+                    'quantity' => $validated['quantity'],
+                    'direction' => StockDirectionEnum::IN->value,
+                    'movement_type' => RawMaterialStockMovementTypeEnum::RE_ORDER->value,
+                    'movement_date' => $validated['movement_date'],
+                    'unit_price_in_usd' => $validated['unit_price_in_usd'],
+                    'total_value_in_usd' => $validated['total_value_in_usd'],
+                    'exchange_rate_from_usd_to_riel' => $validated['exchange_rate_from_usd_to_riel'],
+                    'unit_price_in_riel' => $validated['unit_price_in_riel'],
+                    'total_value_in_riel' => $validated['total_value_in_riel'],
+                    'exchange_rate_from_riel_to_usd' => $validated['exchange_rate_from_riel_to_usd'],
+                    'note' => $validated['note'] ?? null,
+                ]);
+
+                return $movement->fresh();
+            });
+
+            return ResponseHelper::success($movement, 'Raw material reordered updated successfully', 201);
+
+
+        }catch (ValidationException $e){
+            return ResponseHelper::validation($e -> errors() , 'Validation Error');
+        }catch (Exception $e){
+            return ResponseHelper::error($e -> getMessage() , 500);
+        }
+    }
+
+
+
 
 
     // Stock adjustment out service class

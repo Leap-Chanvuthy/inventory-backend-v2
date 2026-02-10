@@ -31,6 +31,8 @@ return new class extends Migration
                 RawMaterialStockMovementTypeEnum::ADJUSTMENT_OUT->value,
             ]);
 
+            $table->boolean('in_used')->default(false);
+
 
             $table->double('unit_price_in_usd')->min(0);
             $table->double('total_value_in_usd')->min(0);

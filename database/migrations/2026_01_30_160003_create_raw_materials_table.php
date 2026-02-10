@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ProductionMethodEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -21,6 +22,7 @@ return new class extends Migration
 
             $table -> date('expiry_date');
             $table -> text('description') -> nullable();
+            $table -> string('production_method')->default(ProductionMethodEnum::FIFO -> value);
 
             $table -> foreignId('raw_material_category_id') ->constrained('raw_material_categories')  -> restrictOnDelete() -> cascadeOnUpdate();
             $table -> foreignId('uom_id') -> constrained('unit_of_measurements') -> restrictOnDelete() -> cascadeOnUpdate();

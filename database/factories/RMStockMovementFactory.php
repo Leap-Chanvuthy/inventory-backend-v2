@@ -110,6 +110,7 @@ class RMStockMovementFactory extends Factory
             'unit_price_in_riel' => $unitRiel,
             'total_value_in_riel' => $totalRiel,
             'exchange_rate_from_riel_to_usd' => $rielToUsd,
+            'in_used' => $this->faker->randomElement([1,0]),
             'movement_date' => $this->faker->dateTimeBetween('-30 days', 'now'),
             'note' => $this->faker->optional()->sentence(),
         ];

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ProductionMethodEnum;
 use App\Enums\RawMaterialStatusEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +17,7 @@ class RawMaterial extends Model
 
     protected $casts = [
         'status' => RawMaterialStatusEnum::class,
+        'production_method' => ProductionMethodEnum::class,
         'expiry_date' => 'date',
     ];
 
@@ -26,6 +28,7 @@ class RawMaterial extends Model
         'minimum_stock_level',
         'expiry_date',
         'description',
+        'production_method',
         'raw_material_category_id',
         'uom_id',
         'supplier_id',

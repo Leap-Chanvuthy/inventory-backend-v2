@@ -116,7 +116,8 @@ class RawMaterialFactory extends Factory
         ];
 
 
-        $name = $this->faker->unique()->randomElement($rawMaterials);
+    // Do not use Faker unique() here; the pool can be exhausted depending on seed count.
+    $name = $this->faker->randomElement($rawMaterials);
 
         // Prefer existing related records; fall back to creating via factories (more reliable than "?? 1").
         $category = RawMaterialCategory::query()->inRandomOrder()->first() ?? RawMaterialCategory::factory()->create();
@@ -140,6 +141,11 @@ class RawMaterialFactory extends Factory
             format: '{prefix}-{cat}-{uom}-{random}'
         );
 
+        // prod method
+        $method = ['FIFO', 'LIFO'];
+        $productionMethod = $this->faker->randomElement($method);
+
+
         return [
             'material_name' => $name,
             'material_sku_code' => $sku,
@@ -148,6 +154,7 @@ class RawMaterialFactory extends Factory
             'expiry_date' => $this->faker->dateTimeBetween('+1 month', '+2 years')->format('Y-m-d'),
             'description' => $this->faker->optional()->paragraph(),
             'raw_material_category_id' => $category->id,
+            'production_method' => $productionMethod,
             'uom_id' => $uom->id,
             'supplier_id' => $supplier->id,
             'warehouse_id' => $warehouse->id,

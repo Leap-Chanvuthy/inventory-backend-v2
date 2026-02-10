@@ -17,6 +17,7 @@ class RMStockMovement extends Model
         'raw_material_id' => 'integer',
         'direction' => 'string',
         'quantity' => 'float',
+        'in_used' => 'boolean',
         'unit_price_in_usd' => 'float',
         'total_value_in_usd' => 'float',
         'exchange_rate_from_usd_to_riel' => 'float',
@@ -30,6 +31,7 @@ class RMStockMovement extends Model
     protected $fillable = [
         'raw_material_id',
         'quantity',
+        'in_used',
         'direction',
         'movement_type',
         'movement_date',
