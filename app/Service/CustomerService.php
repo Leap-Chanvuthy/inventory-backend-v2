@@ -40,7 +40,7 @@ class CustomerService {
 
     public function getCustomerById($id){
         try {
-            $customer = Customer::findOrFail($id);
+            $customer = Customer::with(['customerCategory' => fn ($q) => $q->withTrashed()])-> findOrFail($id);
             if (!$customer) {
                 return ResponseHelper::error('Customer not found', 404);
             }
