@@ -339,6 +339,32 @@ class RawMaterialService
                 $rawMaterialRules = $this->rmValidation->UpdateRMValidation($request, (int) $rawMaterial->id);
                 $rawMaterialData = Validator::make($request->all(), $rawMaterialRules)->validate();
 
+                // Recompute pricing after any field changes.
+                $request->merge([
+                    'raw_material_id' => $rawMaterial->id,
+                    'movement_type' => RawMaterialStockMovementTypeEnum::PURCHASE->value,
+                    'direction' => StockDirectionEnum::IN->value,
+                ]);
+
+                CurrencyPricingHelper::fillRMPurchasingCurrencyFields($request);
+
+                $purchaseRules = $this->rmValidation->CreateRMStockMovementValidation($request);
+                $purchaseData = Validator::make($request->all(), $purchaseRules)->validate();
+
+                // Only block when user tries to change PURCHASE quantity after it's been used.
+                // Allow updates to other Raw Material fields when quantity stays the same.
+                $isUsed = (bool) $purchaseMovement->in_used;
+                $existingQty = (float) ($purchaseMovement->quantity ?? 0);
+                $incomingQty = (float) ($purchaseData['quantity'] ?? 0);
+                $qtyChanged = abs($existingQty - $incomingQty) > 0.000000001;
+
+                if ($isUsed && $qtyChanged) {
+                    return ResponseHelper::error('Cannot update the purchased stock qty of used stock movement', 403,
+                    [
+                        'quantity' => ['The purchased item has already been used in production or scrap. Data cannot be updated to avoid data inconsistency']
+                    ]);
+                }
+
                 $rawMaterial->update([
                     'material_name' => $rawMaterialData['material_name'],
                     'barcode' => $rawMaterialData['barcode'] ?? null,
@@ -351,18 +377,6 @@ class RawMaterialService
                     'warehouse_id' => $rawMaterialData['warehouse_id'],
                     'production_method' => $rawMaterialData['production_method'],
                 ]);
-
-                // Recompute pricing after any field changes.
-                $request->merge([
-                    'raw_material_id' => $rawMaterial->id,
-                    'movement_type' => RawMaterialStockMovementTypeEnum::PURCHASE->value,
-                    'direction' => StockDirectionEnum::IN->value,
-                ]);
-
-                CurrencyPricingHelper::fillRMPurchasingCurrencyFields($request);
-
-                $purchaseRules = $this->rmValidation->CreateRMStockMovementValidation($request);
-                $purchaseData = Validator::make($request->all(), $purchaseRules)->validate();
 
                 // 3) Append new images (keeps old, uploads new; max 4 total)
                 if (!empty($incomingFiles)) {
@@ -388,7 +402,6 @@ class RawMaterialService
                         }
                     }
                 }
-
 
                 $purchaseMovement->update([
                     'quantity' => $purchaseData['quantity'],
