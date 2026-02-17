@@ -8,6 +8,9 @@ use App\Helpers\ResponseHelper;
 use App\Imports\SuppliersImport;
 use App\Enums\SupplierCategoryEnum;
 use App\Models\Supplier;
+use App\Models\RMStockMovement;
+use App\Models\RawMaterial;
+use App\Enums\RawMaterialStockMovementTypeEnum;
 use App\Models\SupplierImportHistory;
 use App\QueryBuilders\SupplierImportQuery;
 use Illuminate\Support\Facades\Auth;
@@ -63,7 +66,251 @@ class SupplierService
             if (!$supplier) {
                 return ResponseHelper::error("Supplier not found", 404, null);
             }
-            return ResponseHelper::success($supplier, "Supplier retrieved successfully", 200);
+
+            // Gather raw material IDs owned by this supplier
+                $rawMaterialIds = $supplier->raw_materials()->withTrashed()->pluck('id')->toArray();
+
+            // Prepare default statistics
+            $statistics = [
+                'total_raw_materials' => count($rawMaterialIds),
+                'financials' => [
+                    'total_spend_usd' => 0.0,
+                    'total_spend_khr' => 0.0,
+                    'average_unit_price_usd' => 0.0,
+                ],
+                'counts' => [
+                    'purchase_count' => 0,
+                    'reorder_count' => 0,
+                ],
+                'top_raw_materials' => [],
+            ];
+
+            if (!empty($rawMaterialIds)) {
+                // Base query for purchase + reorder movements for this supplier
+                $movementTypes = [
+                    RawMaterialStockMovementTypeEnum::PURCHASE->value,
+                    RawMaterialStockMovementTypeEnum::RE_ORDER->value,
+                ];
+
+                // Totals
+                $totalSpendUsd = (float) RMStockMovement::whereIn('raw_material_id', $rawMaterialIds)
+                    ->whereIn('movement_type', $movementTypes)
+                    ->sum('total_value_in_usd');
+
+                $totalSpendKhr = (float) RMStockMovement::whereIn('raw_material_id', $rawMaterialIds)
+                    ->whereIn('movement_type', $movementTypes)
+                    ->sum('total_value_in_riel');
+
+                $avgExchangeRate = (float) RMStockMovement::whereIn('raw_material_id', $rawMaterialIds)
+                    ->whereIn('movement_type', $movementTypes)
+                    ->avg('exchange_rate_from_usd_to_riel');
+
+                $avgUnitPriceUsd = (float) RMStockMovement::whereIn('raw_material_id', $rawMaterialIds)
+                    ->whereIn('movement_type', $movementTypes)
+                    ->avg('unit_price_in_usd') ?? 0.0;
+
+                // Counts
+                $purchaseCount = (int) RMStockMovement::whereIn('raw_material_id', $rawMaterialIds)
+                    ->where('movement_type', RawMaterialStockMovementTypeEnum::PURCHASE->value)
+                    ->count();
+
+                $reorderCount = (int) RMStockMovement::whereIn('raw_material_id', $rawMaterialIds)
+                    ->where('movement_type', RawMaterialStockMovementTypeEnum::RE_ORDER->value)
+                    ->count();
+
+                // Supply trend: compare this month vs last month for spend and quantity
+                $now = Carbon::now();
+                $startOfThisMonth = $now->copy()->startOfMonth();
+                $endOfThisMonth = $now->copy()->endOfMonth();
+                $startOfLastMonth = $now->copy()->subMonthNoOverflow()->startOfMonth();
+                $endOfLastMonth = $now->copy()->subMonthNoOverflow()->endOfMonth();
+
+                $thisMonthSpend = (float) RMStockMovement::whereIn('raw_material_id', $rawMaterialIds)
+                    ->whereIn('movement_type', $movementTypes)
+                    ->whereBetween('movement_date', [$startOfThisMonth, $endOfThisMonth])
+                    ->sum('total_value_in_usd');
+
+                $lastMonthSpend = (float) RMStockMovement::whereIn('raw_material_id', $rawMaterialIds)
+                    ->whereIn('movement_type', $movementTypes)
+                    ->whereBetween('movement_date', [$startOfLastMonth, $endOfLastMonth])
+                    ->sum('total_value_in_usd');
+
+                $thisMonthQty = (float) RMStockMovement::whereIn('raw_material_id', $rawMaterialIds)
+                    ->whereIn('movement_type', $movementTypes)
+                    ->whereBetween('movement_date', [$startOfThisMonth, $endOfThisMonth])
+                    ->sum('quantity');
+
+                $lastMonthQty = (float) RMStockMovement::whereIn('raw_material_id', $rawMaterialIds)
+                    ->whereIn('movement_type', $movementTypes)
+                    ->whereBetween('movement_date', [$startOfLastMonth, $endOfLastMonth])
+                    ->sum('quantity');
+
+                $spendDelta = $thisMonthSpend - $lastMonthSpend;
+                $qtyDelta = $thisMonthQty - $lastMonthQty;
+
+                $spendPercent = $lastMonthSpend == 0 ? ($thisMonthSpend > 0 ? 100.0 : 0.0) : round(($spendDelta / $lastMonthSpend) * 100, 2);
+                $qtyPercent = $lastMonthQty == 0 ? ($thisMonthQty > 0 ? 100.0 : 0.0) : round(($qtyDelta / $lastMonthQty) * 100, 2);
+
+                $spendDirection = $spendDelta > 0 ? 'up' : ($spendDelta < 0 ? 'down' : 'flat');
+                $qtyDirection = $qtyDelta > 0 ? 'up' : ($qtyDelta < 0 ? 'down' : 'flat');
+
+                $statistics['supply_trend'] = [
+                    'period' => 'month',
+                    'this_period' => [
+                        'start' => $startOfThisMonth->toDateString(),
+                        'end' => $endOfThisMonth->toDateString(),
+                        'total_spend_usd' => $thisMonthSpend,
+                        'total_quantity' => $thisMonthQty,
+                    ],
+                    'previous_period' => [
+                        'start' => $startOfLastMonth->toDateString(),
+                        'end' => $endOfLastMonth->toDateString(),
+                        'total_spend_usd' => $lastMonthSpend,
+                        'total_quantity' => $lastMonthQty,
+                    ],
+                    'delta' => [
+                        'spend_usd' => $spendDelta,
+                        'quantity' => $qtyDelta,
+                    ],
+                    'percent' => [
+                        'spend_usd' => $spendPercent,
+                        'quantity' => $qtyPercent,
+                    ],
+                    'direction' => [
+                        'spend_usd' => $spendDirection,
+                        'quantity' => $qtyDirection,
+                    ],
+                ];
+
+                // Top 5 raw materials by spend (USD), grouped at raw_material level
+                $topBySpend = RMStockMovement::selectRaw('raw_material_id, SUM(COALESCE(total_value_in_usd,0)) as spend_usd, SUM(COALESCE(total_value_in_riel,0)) as spend_khr, SUM(COALESCE(quantity,0)) as total_qty')
+                    ->whereIn('raw_material_id', $rawMaterialIds)
+                    ->whereIn('movement_type', $movementTypes)
+                    ->groupBy('raw_material_id')
+                    ->orderByDesc('spend_usd')
+                    ->limit(5)
+                    ->get();
+
+                $rawIds = $topBySpend->pluck('raw_material_id')->all();
+                    $rawMap = RawMaterial::whereIn('id', $rawIds)->withTrashed()->with('uom')->get()->keyBy('id');
+
+                $topRawMaterials = $topBySpend->map(function ($row) use ($rawMap) {
+                    $rm = $rawMap[$row->raw_material_id] ?? null;
+                    return [
+                        'raw_material_id' => $row->raw_material_id,
+                        'material_name' => $rm ? $rm->material_name : null,
+                        'material_sku_code' => $rm ? $rm->material_sku_code : null,
+                        'spend_usd' => (float) $row->spend_usd,
+                        'spend_khr' => (float) $row->spend_khr,
+                            'total_quantity' => (float) $row->total_qty,
+                        'uom' => $rm && $rm->uom ? $rm->uom->toArray() : null,
+                    ];
+                })->values();
+
+                $statistics['financials'] = [
+                    'total_spend_usd' => $totalSpendUsd,
+                    'total_spend_khr' => $totalSpendKhr,
+                    'avarage_exchange_rate_usd_to_khr' => round($avgExchangeRate, 4),
+                    'average_unit_price_usd' => round($avgUnitPriceUsd, 4),
+                ];
+
+                $statistics['counts'] = [
+                    'purchase_count' => $purchaseCount,
+                    'reorder_count' => $reorderCount,
+                ];
+
+                $statistics['top_raw_materials'] = $topRawMaterials;
+
+                // Supply trend: compare this month vs last month (USD and KHR)
+                $now = Carbon::now();
+                $startOfThisMonth = $now->copy()->startOfMonth();
+                $endOfThisMonth = $now->copy()->endOfMonth();
+                $startOfLastMonth = $now->copy()->subMonthNoOverflow()->startOfMonth();
+                $endOfLastMonth = $now->copy()->subMonthNoOverflow()->endOfMonth();
+
+                $currentUsd = (float) RMStockMovement::whereIn('raw_material_id', $rawMaterialIds)
+                    ->whereIn('movement_type', $movementTypes)
+                    ->whereBetween('movement_date', [$startOfThisMonth, $endOfThisMonth])
+                    ->sum('total_value_in_usd');
+
+                $previousUsd = (float) RMStockMovement::whereIn('raw_material_id', $rawMaterialIds)
+                    ->whereIn('movement_type', $movementTypes)
+                    ->whereBetween('movement_date', [$startOfLastMonth, $endOfLastMonth])
+                    ->sum('total_value_in_usd');
+
+                $deltaUsd = $currentUsd - $previousUsd;
+                $percentUsd = $previousUsd == 0 ? ($currentUsd > 0 ? 100.0 : 0.0) : round(($deltaUsd / $previousUsd) * 100, 2);
+                $directionUsd = $deltaUsd > 0 ? 'up' : ($deltaUsd < 0 ? 'down' : 'flat');
+
+                $currentKhr = (float) RMStockMovement::whereIn('raw_material_id', $rawMaterialIds)
+                    ->whereIn('movement_type', $movementTypes)
+                    ->whereBetween('movement_date', [$startOfThisMonth, $endOfThisMonth])
+                    ->sum('total_value_in_riel');
+
+                $previousKhr = (float) RMStockMovement::whereIn('raw_material_id', $rawMaterialIds)
+                    ->whereIn('movement_type', $movementTypes)
+                    ->whereBetween('movement_date', [$startOfLastMonth, $endOfLastMonth])
+                    ->sum('total_value_in_riel');
+
+                $deltaKhr = $currentKhr - $previousKhr;
+                $percentKhr = $previousKhr == 0 ? ($currentKhr > 0 ? 100.0 : 0.0) : round(($deltaKhr / $previousKhr) * 100, 2);
+                $directionKhr = $deltaKhr > 0 ? 'up' : ($deltaKhr < 0 ? 'down' : 'flat');
+
+                // Distinct raw material counts for current and previous period
+                $currentRawCount = (int) RMStockMovement::whereIn('raw_material_id', $rawMaterialIds)
+                    ->whereIn('movement_type', $movementTypes)
+                    ->whereBetween('movement_date', [$startOfThisMonth, $endOfThisMonth])
+                    ->distinct()
+                    ->count('raw_material_id');
+
+                $previousRawCount = (int) RMStockMovement::whereIn('raw_material_id', $rawMaterialIds)
+                    ->whereIn('movement_type', $movementTypes)
+                    ->whereBetween('movement_date', [$startOfLastMonth, $endOfLastMonth])
+                    ->distinct()
+                    ->count('raw_material_id');
+
+                $deltaRaw = $currentRawCount - $previousRawCount;
+                $percentRaw = $previousRawCount == 0 ? ($currentRawCount > 0 ? 100.0 : 0.0) : round(($deltaRaw / $previousRawCount) * 100, 2);
+                $directionRaw = $deltaRaw > 0 ? 'up' : ($deltaRaw < 0 ? 'down' : 'flat');
+
+                $statistics['supply_trend'] = [
+                    'period' => [
+                        'this_month_start' => $startOfThisMonth->toDateString(),
+                        'this_month_end' => $endOfThisMonth->toDateString(),
+                        'last_month_start' => $startOfLastMonth->toDateString(),
+                        'last_month_end' => $endOfLastMonth->toDateString(),
+                    ],
+                    'usd' => [
+                        'current' => $currentUsd,
+                        'previous' => $previousUsd,
+                        'delta' => $deltaUsd,
+                        'percent' => $percentUsd,
+                        'direction' => $directionUsd,
+                    ],
+                    'khr' => [
+                        'current' => $currentKhr,
+                        'previous' => $previousKhr,
+                        'delta' => $deltaKhr,
+                        'percent' => $percentKhr,
+                        'direction' => $directionKhr,
+                    ],
+                    'raw_materials' => [
+                        'current' => $currentRawCount,
+                        'previous' => $previousRawCount,
+                        'delta' => $deltaRaw,
+                        'percent' => $percentRaw,
+                        'direction' => $directionRaw,
+                    ],
+                ];
+            }
+
+                // Do not include full raw_materials list here as requested; include banks only
+                $result = [
+                    'supplier' => $supplier->load('banks'),
+                    'statistics' => $statistics,
+                ];
+
+            return ResponseHelper::success($result, "Supplier retrieved successfully", 200);
         } catch (Exception $e) {
             return ResponseHelper::error("Failed getting supplier", 500, $e->getMessage());
         }
