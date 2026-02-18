@@ -76,6 +76,8 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
         Route::get('/{id}' , [RawMaterialAPIController::class , 'show'] );
         Route::post('/create' , [RawMaterialAPIController::class , 'store'] );
         Route::patch('/{id}', [RawMaterialAPIController::class, 'update']);
+        Route::delete('/{id}', [RawMaterialAPIController::class, 'delete']);
+        Route::patch('/{id}/recover', [RawMaterialAPIController::class, 'recover']);
         Route::delete('/{rawMaterialId}/images', [RawMaterialAPIController::class, 'deleteImages']);
         Route::post('/{rawMaterialId}/reorder', [RawMaterialAPIController::class, 'reorder']);
         Route::patch('/{rawMaterialId}/reorder/{movementId}', [RawMaterialAPIController::class, 'updateReorder']);

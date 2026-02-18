@@ -268,6 +268,82 @@ interface RawMaterialAPIControllerInterface
      */
     public function update();
 
+    /**
+     * @OA\Delete(
+     *     path="/api/raw-materials/{id}",
+     *     tags={"Raw Materials"},
+     *     security={{"Bearer":{}}},
+     *     summary="Soft-delete a raw material",
+     *     description="Soft-deletes the raw material with the given id. The model must use SoftDeletes for restore to work.",
+     *
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="Raw material ID",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Raw material deleted successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Raw material deleted successfully"),
+     *             @OA\Property(property="data", type="null")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Internal server error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Cannot delete this raw material"),
+     *             @OA\Property(property="errors", type="string", example="Exception message here")
+     *         )
+     *     )
+     * )
+     */
+    public function delete();
+
+    /**
+     * @OA\Patch(
+     *     path="/api/raw-materials/{id}/recover",
+     *     tags={"Raw Materials"},
+     *     security={{"Bearer":{}}},
+     *     summary="Recover (restore) a soft-deleted raw material",
+     *     description="Restores a previously soft-deleted raw material. The RawMaterial model must use SoftDeletes.",
+     *
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="Raw material ID",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Raw material recovered successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Raw material recovered successfully"),
+     *             @OA\Property(property="data", type="null")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Internal server error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Cannot recover this raw material"),
+     *             @OA\Property(property="errors", type="string", example="Exception message here")
+     *         )
+     *     )
+     * )
+     */
+    public function recover();
+
 
 
     /**

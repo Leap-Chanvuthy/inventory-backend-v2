@@ -437,7 +437,27 @@ class RawMaterialService
         }
     }
 
+    // Delete Raw Material
+    public function deleteRawMaterial ($rawMaterialId){
+        try {
+            $rawMaterial = RawMaterial::findOrFail($rawMaterialId);
+            $rawMaterial->delete();
+            return ResponseHelper::success(null , 'Raw material deleted successfully' , 200);
+        }catch (Exception $e) {
+            return ResponseHelper::error('Cannot delete this raw material' , 500 , $e -> getMessage());
+        }
+    }
+
     
+    public function recoverRawMaterial($rawMaterialId){
+        try {
+            $rawMaterial = RawMaterial::withTrashed()->findOrFail($rawMaterialId);
+            $rawMaterial->restore();
+            return ResponseHelper::success(null , 'Raw material recovered successfully' , 200);
+        }catch (Exception $e) {
+            return ResponseHelper::error('Cannot recover this raw material' , 500 , $e -> getMessage());
+        }
+    }
     
 
 

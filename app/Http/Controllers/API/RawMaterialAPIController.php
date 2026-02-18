@@ -48,6 +48,16 @@ class RawMaterialAPIController extends Controller
         return $this->rawMaterialService->updateReorderRawMaterial($request, $rawMaterialId , $movementId);
     }
 
+    public function delete($id)
+    {
+        return $this->rawMaterialService->deleteRawMaterial($id);
+    }
+
+    public function recover($id)
+    {
+        return $this->rawMaterialService->recoverRawMaterial($id);
+    }
+
 
     public function adjustmentOut (Request $request , int $rawMaterialId)
     {
