@@ -33,6 +33,10 @@ class RawMaterialAPIController extends Controller
         return $this->rawMaterialService->getRawMaterialById($id);
     }
 
+    public function allDeleted (Request $request){
+        return $this->rawMaterialService->getAllDeletedRawMaterials($request);
+    }
+
     public function store(Request $request)
     {
         return $this->rawMaterialService->createRawMaterial($request);

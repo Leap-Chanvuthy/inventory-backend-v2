@@ -10,12 +10,12 @@ use Illuminate\Database\Eloquent\Builder;
 
 class RawMaterialQueryBuilder {
 
-    public function rawMaterialBuilder(Request $request)
+    public function rawMaterialBuilder(Request $request, bool $onlyTrashed = false)
     {
         $perPage = (int) $request->query('per_page', 10);
         $perPage = max(1, min($perPage, 100));
 
-        return QueryBuilderHelper::build(
+        $builder = QueryBuilderHelper::build(
             model: RawMaterial::class,
 
             joins: [
@@ -65,6 +65,7 @@ class RawMaterialQueryBuilder {
             allowedSorts: [
                 'created_at',
                 'updated_at',
+                'deleted_at',
                 'material_name',
                 'material_sku_code',
                 'raw_material_category_name',
@@ -87,9 +88,15 @@ class RawMaterialQueryBuilder {
 
             ],
             
-        )
-        ->paginate($perPage)
-        ->appends($request->query());
+        );
+
+        if ($onlyTrashed) {
+            $builder = $builder->onlyTrashed();
+        }
+
+        return $builder
+            ->paginate($perPage)
+            ->appends($request->query());
     }
 
 }

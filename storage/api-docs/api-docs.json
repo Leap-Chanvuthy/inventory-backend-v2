@@ -2872,6 +2872,85 @@
                 ]
             }
         },
+        "/api/raw-materials/deleted": {
+            "get": {
+                "tags": [
+                    "Raw Materials"
+                ],
+                "summary": "Get deleted (soft-deleted) raw materials",
+                "description": "Retrieve a paginated list of soft-deleted raw materials. Useful for restore/review workflows.",
+                "operationId": "3d3c988bc6121605d857658920d3881e",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Number of items per page (default 10, max 100)",
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "description": "Search by material name / SKU / related names",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort fields (e.g. -deleted_at, material_name)",
+                        "schema": {
+                            "type": "string",
+                            "example": "-deleted_at"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted raw materials retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Something went wrong"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "Exception message here"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/raw-materials/create": {
             "post": {
                 "tags": [

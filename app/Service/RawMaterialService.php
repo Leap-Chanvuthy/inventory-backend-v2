@@ -107,6 +107,19 @@ class RawMaterialService
     }
 
 
+    public function getAllDeletedRawMaterials(Request $request)
+    {
+        try {
+            // Use the query builder's onlyTrashed flag so pagination and query builder
+            // behavior remain correct (don't call ->withTrashed() on the paginator)
+            return $this->rawMaterialQueryBuilder->rawMaterialBuilder($request, true);
+
+        }catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+    
+
     // Create a new raw material with initial stock movement (PURCHASE/IN) and optional images.
     public function createRawMaterial(Request $request)
     {

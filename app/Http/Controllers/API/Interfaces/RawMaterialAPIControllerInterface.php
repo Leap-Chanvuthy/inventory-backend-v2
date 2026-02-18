@@ -127,6 +127,51 @@ interface RawMaterialAPIControllerInterface
     public function show();
 
     /**
+     * @OA\Get(
+     *     path="/api/raw-materials/deleted",
+     *     tags={"Raw Materials"},
+     *     security={{"Bearer":{}}},
+     *     summary="Get deleted (soft-deleted) raw materials",
+     *     description="Retrieve a paginated list of soft-deleted raw materials. Useful for restore/review workflows.",
+     *
+     *     @OA\Parameter(
+     *         name="per_page",
+     *         in="query",
+     *         description="Number of items per page (default 10, max 100)",
+     *         @OA\Schema(type="integer", example=10)
+     *     ),
+     *     @OA\Parameter(
+     *         name="filter[search]",
+     *         in="query",
+     *         description="Search by material name / SKU / related names",
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Parameter(
+     *         name="sort",
+     *         in="query",
+     *         description="Sort fields (e.g. -deleted_at, material_name)",
+     *         @OA\Schema(type="string", example="-deleted_at")
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Deleted raw materials retrieved successfully",
+     *         @OA\JsonContent(type="object")
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Internal server error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Something went wrong"),
+     *             @OA\Property(property="errors", type="string", example="Exception message here")
+     *         )
+     *     )
+     * )
+     */
+    public function allDeleted();
+
+    /**
      * @OA\Post(
      *     path="/api/raw-materials/create",
      *     tags={"Raw Materials"},
