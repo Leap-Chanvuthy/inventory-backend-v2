@@ -24,6 +24,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class SupplierService
 {
@@ -433,30 +434,126 @@ public function importSupplier(Request $request)
             'supplier_file' => 'required|file|mimes:xlsx,csv|max:5120',
         ]);
 
+        // Validate header row exists and contains required columns before importing.
+        try {
+            $path = $validated['supplier_file']->getRealPath();
+            $spreadsheet = IOFactory::load($path);
+            $sheet = $spreadsheet->getActiveSheet();
+            $highestColumn = $sheet->getHighestColumn();
+            $rawHeaders = $sheet->rangeToArray('A1:' . $highestColumn . '1', null, true, false)[0] ?? [];
+
+            $normalizedHeaders = array_map(function ($h) {
+                $h = (string) $h;
+                $h = trim($h);
+                $h = strtolower($h);
+                $h = preg_replace('/[^a-z0-9]+/', '_', $h);
+                $h = trim($h, '_');
+                return $h;
+            }, $rawHeaders);
+
+            $requiredColumns = [
+                'official_name',
+                'supplier_category',
+                'address_line1',
+                'village',
+                'commune',
+                'district',
+                'city',
+                'province',
+            ];
+
+            $missing = [];
+            foreach ($requiredColumns as $rc) {
+                if (!in_array($rc, $normalizedHeaders, true)) {
+                    $missing[] = $rc;
+                }
+            }
+
+            if (!empty($missing)) {
+                DB::rollBack();
+                $errors = [];
+                foreach ($missing as $col) {
+                    $label = strtolower(str_replace('_', ' ', $col));
+                    $errors[$col] = ["{$label} column header is required"];
+                }
+
+                return ResponseHelper::validation($errors, 'Import validation failed');
+            }
+        } catch (Exception $e) {
+            // If header parsing fails, return a validation error rather than proceeding.
+            DB::rollBack();
+            return ResponseHelper::validation([
+                'file' => ['Unable to read the uploaded file. Ensure it is a valid Excel/CSV file.'],
+            ], 'Import validation failed');
+        }
+
         $import = new SuppliersImport();
 
         Excel::import($import, $validated['supplier_file']);
+
+        $totalImported = $import->getImportedCount();
+        $requiredColumns = [
+            'official_name',
+            'supplier_category',
+            'address_line1',
+            'village',
+            'commune',
+            'district',
+            'city',
+            'province',
+        ];
+
+        $failures = collect($import->failures())->map(function ($f) use ($requiredColumns) {
+            $values = (array) $f->values();
+
+            // If the row values are empty or the required keys are missing,
+            // only return the required fields (preserve keys, null when absent).
+            $hasRequired = count(array_intersect(array_keys($values), $requiredColumns)) > 0;
+
+            if (empty($values) || !$hasRequired) {
+                $reduced = [];
+                foreach ($requiredColumns as $col) {
+                    $reduced[$col] = array_key_exists($col, $values) ? $values[$col] : null;
+                }
+                $values = $reduced;
+            }
+
+            return [
+                'row' => $f->row(),
+                'attribute' => $f->attribute(),
+                'errors' => $f->errors(),
+                // 'values' => $values,
+            ];
+        })->values();
+
+        // If nothing was imported, treat this as a validation failure and do not save history.
+        if ($totalImported === 0) {
+            DB::rollBack();
+            $errors = [
+                'file' => ['no rows were imported; please check the file and correct any errors.'],
+            ];
+
+            // Include summarized failures under a safe key if present (values already reduced).
+            if ($failures->isNotEmpty()) {
+                $errors['failures'] = $failures->toArray();
+            }
+
+            return ResponseHelper::validation($errors, 'Import validation failed');
+        }
 
         SupplierImportHistory::create([
             'filename'       => $validated['supplier_file']->getClientOriginalName(),
             'size'           => $validated['supplier_file']->getSize(),
             'uploaded_by'    => Auth::id(),
-            'total_uploaded' => $import->getImportedCount(),
+            'total_uploaded' => $totalImported,
             'uploaded_at'    => now(),
         ]);
 
         DB::commit();
 
         return ResponseHelper::success([
-            'total' => $import->getImportedCount(),
-            'failures' => collect($import->failures())->map(function ($f) {
-                return [
-                    'row' => $f->row(),
-                    'attribute' => $f->attribute(),
-                    'errors' => $f->errors(),
-                    'values' => $f->values(),
-                ];
-            })->values(),
+            'total' => $totalImported,
+            'failures' => $failures,
         ], 'Supplier imported successfully', 201);
     } catch (ValidationException $e) {
         DB::rollBack();
