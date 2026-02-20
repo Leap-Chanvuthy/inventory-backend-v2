@@ -40,7 +40,7 @@ class SupplierService
         SupplierBankValidation $supplierBankValidation,
         SupplierBankService $supplierBankService,
         SupplierQueryBuilder $supplierQueryBuilder,
-        SupplierImportQuery $supplierImportQueryBuilder
+        SupplierImportQuery $supplierImportQueryBuilder,
     ) {
         $this->supplierValidation = $supplierValidation;
         $this->supplierBankValidation = $supplierBankValidation;
@@ -749,6 +749,26 @@ public function importSupplier(Request $request)
         } catch (Exception $e) {
             return ResponseHelper::error('Error fetching supplier statistics', 500, $e->getMessage());
         }
+    }
+
+
+    /**
+     * Get paginated stock movements (transactions) related to a supplier.
+     * Includes movements for raw materials owned by the supplier.
+     * Supports optional query params: movement_type, from_date, to_date, page, per_page
+     */
+    public function getSupplierTransactions(Request $request, int $supplierId)
+    {
+        // Use the SupplierTransactionQueryBuilder to fetch raw materials that have PURCHASE/RE_ORDER movements
+        try {
+            $request->merge(['supplier_id' => $supplierId]);
+            $data = $this -> supplierQueryBuilder -> supplierTransactionsBuilder($request , $supplierId);
+
+            return ResponseHelper::success( $data, 'Supplier raw materials with purchase/reorder movements retrieved successfully', 200);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Failed fetching supplier transactions', 500, $e->getMessage());
+        }
+        
     }
 
     

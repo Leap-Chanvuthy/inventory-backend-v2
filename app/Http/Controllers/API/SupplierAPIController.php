@@ -54,4 +54,9 @@ class SupplierAPIController extends Controller
         return $this->supplierService->getSupplierStatistics();
     }
 
+    public function transactions(Request $request, $id)
+    {
+        return $this->supplierService->getSupplierTransactions($request, (int) $id);
+    }
+
 }
