@@ -6,6 +6,7 @@ use App\Enums\RawMaterialStockMovementTypeEnum;
 use App\Enums\StockDirectionEnum;
 use App\Helpers\CurrencyPricingHelper;
 use App\Helpers\FileUploadHelper;
+use App\Helpers\GetCurrentUserHelper;
 use App\Helpers\ResponseHelper;
 use App\Models\RMImage;
 use App\Models\RMStockMovement;
@@ -21,15 +22,18 @@ use Illuminate\Validation\ValidationException;
 class RawMaterialService
 {
     protected RMValidation $rmValidation;
+    protected GetCurrentUserHelper $getCurrentUserHelper;
     protected RawMaterialQueryBuilder $rawMaterialQueryBuilder;
 
     public function __construct(
         RMValidation $rmValidation,
-        RawMaterialQueryBuilder $rawMaterialQueryBuilder
+        RawMaterialQueryBuilder $rawMaterialQueryBuilder,
+        GetCurrentUserHelper $getCurrentUserHelper
         )
     {
         $this -> rmValidation = $rmValidation;
         $this -> rawMaterialQueryBuilder = $rawMaterialQueryBuilder;
+        $this -> getCurrentUserHelper = $getCurrentUserHelper;
     }
 
     // Get all raw materials with filtering, sorting, and pagination
@@ -52,7 +56,8 @@ class RawMaterialService
                 'supplier' => fn ($q) => $q->withTrashed(),
                 'warehouse' => fn ($q) => $q->withTrashed(),
                 'uom' => fn ($q) => $q->withTrashed(),
-                'rm_stock_movements',
+                'rm_stock_movements.created_by',
+                'rm_stock_movements.last_updated_by',
                 'rm_images',
             ])->findOrFail($id);
 
@@ -134,6 +139,13 @@ class RawMaterialService
             if (!$request->filled('movement_date')) {
                 $request->merge(['movement_date' => now()->toDateTimeString()]);
             }
+
+            // Always derive created_by / last_updated_by from the authenticated user
+            $currentUserId = $this->getCurrentUserHelper->getUserId();
+            $request->merge([
+                'created_by'      => $currentUserId,
+                'last_updated_by' => $currentUserId,
+            ]);
 
             // Compute pricing fields (totals + currency conversions) before validation.
             CurrencyPricingHelper::fillRMPurchasingCurrencyFields($request);
@@ -218,6 +230,8 @@ class RawMaterialService
                     'unit_price_in_riel' => $stockMovementData['unit_price_in_riel'],
                     'total_value_in_riel' => $stockMovementData['total_value_in_riel'],
                     'exchange_rate_from_riel_to_usd' => $stockMovementData['exchange_rate_from_riel_to_usd'],
+                    'created_by' => $stockMovementData['created_by'],
+                    'last_updated_by' => $stockMovementData['last_updated_by'],
                     'note' => $stockMovementData['note'] ?? null,
                 ]);
 
@@ -310,6 +324,12 @@ class RawMaterialService
             ]);
 
             CurrencyPricingHelper::fillRMPurchasingCurrencyFields($request);
+
+            // Preserve original created_by; update last_updated_by to the acting user
+            $request->merge([
+                'created_by'      => $purchaseMovement->created_by,
+                'last_updated_by' => $this->getCurrentUserHelper->getUserId(),
+            ]);
 
             $purchaseRules = $this->rmValidation->CreateRMStockMovementValidation($request);
             $purchaseValidator = Validator::make($request->all(), $purchaseRules);
@@ -427,6 +447,7 @@ class RawMaterialService
                     'unit_price_in_riel' => $purchaseData['unit_price_in_riel'],
                     'total_value_in_riel' => $purchaseData['total_value_in_riel'],
                     'exchange_rate_from_riel_to_usd' => $purchaseData['exchange_rate_from_riel_to_usd'],
+                    'last_updated_by' => $purchaseData['last_updated_by'],
                     'note' => $purchaseData['note'] ?? null,
                 ]);
 
@@ -497,6 +518,13 @@ class RawMaterialService
                 'exchange_rate_from_riel_to_usd' => null,
             ]);
 
+            // Always derive created_by / last_updated_by from the authenticated user
+            $currentUserId = $this->getCurrentUserHelper->getUserId();
+            $request->merge([
+                'created_by'      => $currentUserId,
+                'last_updated_by' => $currentUserId,
+            ]);
+
             CurrencyPricingHelper::fillRMPurchasingCurrencyFields($request);
 
             $rules = $this->rmValidation->CreateRMStockMovementValidation($request);
@@ -515,6 +543,8 @@ class RawMaterialService
                     'unit_price_in_riel' => $validated['unit_price_in_riel'],
                     'total_value_in_riel' => $validated['total_value_in_riel'],
                     'exchange_rate_from_riel_to_usd' => $validated['exchange_rate_from_riel_to_usd'],
+                    'created_by' => $validated['created_by'],
+                    'last_updated_by' => $validated['last_updated_by'],
                     'note' => $validated['note'] ?? null,
                 ]);
             });
@@ -554,6 +584,12 @@ class RawMaterialService
                 'exchange_rate_from_riel_to_usd' => null,
             ]);
 
+            // Preserve original created_by; update last_updated_by to the acting user
+            $request->merge([
+                'created_by'      => $movement->created_by,
+                'last_updated_by' => $this->getCurrentUserHelper->getUserId(),
+            ]);
+
             // Check if the stock is already in used to avoid data incosistancy
             if ($movement -> in_used === true){
                 return ResponseHelper::error('Cannot update used stock movement' , 401, 'The reordered material has been used. Data cannot be updated to avoid data inconsistency.');
@@ -577,6 +613,7 @@ class RawMaterialService
                     'unit_price_in_riel' => $validated['unit_price_in_riel'],
                     'total_value_in_riel' => $validated['total_value_in_riel'],
                     'exchange_rate_from_riel_to_usd' => $validated['exchange_rate_from_riel_to_usd'],
+                    'last_updated_by' => $validated['last_updated_by'],
                     'note' => $validated['note'] ?? null,
                 ]);
 
@@ -622,6 +659,13 @@ class RawMaterialService
                 'exchange_rate_from_riel_to_usd' => 0,
             ]);
 
+            // Always derive created_by / last_updated_by from the authenticated user
+            $currentUserId = $this->getCurrentUserHelper->getUserId();
+            $request->merge([
+                'created_by'      => $currentUserId,
+                'last_updated_by' => $currentUserId,
+            ]);
+
             $rules = $this->rmValidation->CreateRMStockMovementValidation($request);
             // Note must be required for adjustment out movements
             $rules['note'] = 'required|string';
@@ -649,11 +693,13 @@ class RawMaterialService
                     'movement_type' => RawMaterialStockMovementTypeEnum::ADJUSTMENT_OUT->value,
                     'movement_date' => $validated['movement_date'],
                     'unit_price_in_usd' => 0,
-                    'total_value_in_usd' =>0,
+                    'total_value_in_usd' => 0,
                     'exchange_rate_from_usd_to_riel' => 0,
                     'unit_price_in_riel' => 0,
                     'total_value_in_riel' => 0,
                     'exchange_rate_from_riel_to_usd' => 0,
+                    'created_by' => $validated['created_by'],
+                    'last_updated_by' => $validated['last_updated_by'],
                     'note' => $validated['note'],
                 ]);
             });

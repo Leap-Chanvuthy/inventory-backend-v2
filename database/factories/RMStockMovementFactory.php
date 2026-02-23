@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Enums\RawMaterialStockMovementTypeEnum;
 use App\Models\RMStockMovement;
 use App\Models\RawMaterial;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -112,6 +113,8 @@ class RMStockMovementFactory extends Factory
             'exchange_rate_from_riel_to_usd' => $rielToUsd,
             'in_used' => $this->faker->randomElement([1,0]),
             'movement_date' => $this->faker->dateTimeBetween('-30 days', 'now'),
+            'created_by' => User::query()->inRandomOrder()->first()->id ?? User::factory()->create()->id,
+            'last_updated_by' => User::query()->inRandomOrder()->first()->id ?? User::factory()->create()->id,
             'note' => $this->faker->optional()->sentence(),
         ];
     }

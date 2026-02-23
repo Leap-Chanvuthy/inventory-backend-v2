@@ -3030,6 +3030,12 @@
                                         "example": "Purchased from supplier A",
                                         "nullable": true
                                     },
+                                    "production_method": {
+                                        "description": "Optional; if not provided, defaults to FIFO. Stored on raw_materials for informational purposes but does not affect stock movement logic.",
+                                        "type": "string",
+                                        "example": "FIFO",
+                                        "nullable": true
+                                    },
                                     "image": {
                                         "description": "Single image (jpeg/png/jpg, <=2MB)",
                                         "type": "string",

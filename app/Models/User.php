@@ -11,7 +11,7 @@ use Tymon\JWTAuth\Contracts\JWTSubject;
 
 class User extends Authenticatable implements JWTSubject
 {
-    use HasFactory, Notifiable; 
+    use HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -76,6 +76,10 @@ class User extends Authenticatable implements JWTSubject
     public function supplierImportHistories()
     {
         return $this->hasMany(SupplierImportHistory::class, 'uploaded_by');
+    }
+
+    public function rm_stock_movements(){
+        return $this -> hasMany(RMStockMovement::class, 'user_id');
     }
 
 

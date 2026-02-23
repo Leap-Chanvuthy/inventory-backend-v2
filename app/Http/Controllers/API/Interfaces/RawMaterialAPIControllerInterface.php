@@ -200,6 +200,8 @@ interface RawMaterialAPIControllerInterface
      *                 @OA\Property(property="unit_price_in_usd", type="number", example=2.5, description="Used to compute totals"),
      *                 @OA\Property(property="exchange_rate_from_usd_to_riel", type="number", example=4100),
      *                 @OA\Property(property="note", type="string", nullable=true, example="Purchased from supplier A"),
+     *                 @OA\Property(property="production_method", type="string", nullable=true, example="FIFO", description="Optional; if not provided, defaults to FIFO. Stored on raw_materials for informational purposes but does not affect stock movement logic."),
+     * 
      *
      *                 @OA\Property(
      *                     description="Single image (jpeg/png/jpg, <=2MB)",

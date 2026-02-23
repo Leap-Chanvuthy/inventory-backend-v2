@@ -40,6 +40,8 @@ return new class extends Migration
             $table->double('unit_price_in_riel')->min(0);
             $table->double('total_value_in_riel')->min(0);
             $table->double('exchange_rate_from_riel_to_usd')->min(0);
+            $table -> foreignId('created_by') -> constrained('users') -> restrictOnDelete() -> cascadeOnUpdate();
+            $table -> foreignId('last_updated_by') -> constrained('users') -> restrictOnDelete() -> cascadeOnUpdate();
 
             $table->timestamp('movement_date');
             $table->text('note')->nullable();

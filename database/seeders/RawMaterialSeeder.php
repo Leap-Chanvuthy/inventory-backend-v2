@@ -6,6 +6,7 @@ use App\Enums\RawMaterialStockMovementTypeEnum;
 use App\Models\RawMaterial;
 use App\Models\RMImage;
 use App\Models\RMStockMovement;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 
@@ -49,6 +50,8 @@ class RawMaterialSeeder extends Seeder
                     'unit_price_in_riel' => $purchaseUnitRiel,
                     'total_value_in_riel' => $purchaseTotalRiel,
                     'exchange_rate_from_riel_to_usd' => $purchaseRielToUsd,
+                    'created_by' => User::query()->inRandomOrder()->first()->id ?? User::factory()->create()->id,
+                    'last_updated_by' => User::query()->inRandomOrder()->first()->id ?? User::factory()->create()->id,
                     'note' => $faker->optional()->sentence(),
                 ]);
 
@@ -112,6 +115,8 @@ class RawMaterialSeeder extends Seeder
                             'unit_price_in_riel' => 0,
                             'total_value_in_riel' => 0,
                             'exchange_rate_from_riel_to_usd' => 0,
+                            'created_by' => User::query()->inRandomOrder()->first()->id ?? User::factory()->create()->id,
+                            'last_updated_by' => User::query()->inRandomOrder()->first()->id ?? User::factory()->create()->id,                            
                             'note' => $faker->optional()->sentence(),
                         ]);
                     } else {
@@ -134,6 +139,8 @@ class RawMaterialSeeder extends Seeder
                             'unit_price_in_riel' => $unitRiel,
                             'total_value_in_riel' => $totalRiel,
                             'exchange_rate_from_riel_to_usd' => $rielToUsd,
+                            'created_by' => User::query()->inRandomOrder()->first()->id ?? User::factory()->create()->id,
+                            'last_updated_by' => User::query()->inRandomOrder()->first()->id ?? User::factory()->create()->id,
                             'note' => $faker->optional()->sentence(),
                         ]);
                     }

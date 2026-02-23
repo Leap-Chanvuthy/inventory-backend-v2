@@ -24,6 +24,8 @@ class RMStockMovement extends Model
         'unit_price_in_riel' => 'float',
         'total_value_in_riel' => 'float',
         'exchange_rate_from_riel_to_usd' => 'float',
+        'created_by' => 'integer',
+        'last_updated_by' => 'integer',
         'movement_date' => 'datetime',
         'note' => 'string',
     ];
@@ -41,12 +43,22 @@ class RMStockMovement extends Model
         'unit_price_in_riel',
         'total_value_in_riel',
         'exchange_rate_from_riel_to_usd',
+        'created_by',
+        'last_updated_by',
         'note',
     ];
 
     public function raw_material()
     {
         return $this->belongsTo(RawMaterial::class, 'raw_material_id');
+    }
+
+    public function created_by(){
+        return $this -> belongsTo(User::class , 'created_by');
+    }
+
+    public function last_updated_by(){
+        return $this -> belongsTo(User::class , 'last_updated_by');
     }
 
 }

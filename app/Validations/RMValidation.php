@@ -115,6 +115,8 @@ class RMValidation {
             'unit_price_in_riel' => 'nullable|numeric|min:0',
             'total_value_in_riel' => 'nullable|numeric|min:0',
             'exchange_rate_from_riel_to_usd' => 'nullable|numeric|min:0',
+            'created_by' => 'required|exists:users,id',
+            'last_updated_by' => 'required|exists:users,id',
             'note' => 'nullable|string',
             'movement_date' => 'required|date',
         ];
