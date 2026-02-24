@@ -27,6 +27,7 @@ class RMStockMovement extends Model
         'created_by' => 'integer',
         'last_updated_by' => 'integer',
         'movement_date' => 'datetime',
+        'expiry_date' => 'date',
         'note' => 'string',
     ];
 
@@ -37,6 +38,7 @@ class RMStockMovement extends Model
         'direction',
         'movement_type',
         'movement_date',
+        'expiry_date',
         'unit_price_in_usd',
         'total_value_in_usd',
         'exchange_rate_from_usd_to_riel',

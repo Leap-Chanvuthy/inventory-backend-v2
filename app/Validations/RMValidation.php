@@ -67,7 +67,7 @@ class RMValidation {
             'material_sku_code' => 'required|string|unique:raw_materials,material_sku_code|max:255',
             'barcode' => 'nullable|string|max:255',
             'minimum_stock_level' => 'required|numeric|min:0',
-            'expiry_date' => 'required|date',
+            // 'expiry_date' => 'required|date',
             'description' => 'nullable|string',
             'production_method' => 'nullable|string|in:FIFO,LIFO',
             'raw_material_category_id' => 'required|exists:raw_material_categories,id',
@@ -85,7 +85,7 @@ class RMValidation {
             'material_name' => 'required|string|max:255',
             'barcode' => 'nullable|string|max:255',
             'minimum_stock_level' => 'required|numeric|min:0',
-            'expiry_date' => 'required|date',
+            // 'expiry_date' => 'required|date',
             'description' => 'nullable|string',
             'raw_material_category_id' => 'required|exists:raw_material_categories,id',
             'uom_id' => 'required|exists:unit_of_measurements,id',
@@ -119,6 +119,7 @@ class RMValidation {
             'last_updated_by' => 'required|exists:users,id',
             'note' => 'nullable|string',
             'movement_date' => 'required|date',
+            'expiry_date' => 'required|date',
         ];
     }
 

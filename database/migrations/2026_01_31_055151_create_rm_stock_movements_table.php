@@ -44,6 +44,7 @@ return new class extends Migration
             $table -> foreignId('last_updated_by') -> constrained('users') -> restrictOnDelete() -> cascadeOnUpdate();
 
             $table->timestamp('movement_date');
+            $table->date('expiry_date')->nullable();
             $table->text('note')->nullable();
             
             $table->timestamps();

@@ -113,6 +113,7 @@ class RMStockMovementFactory extends Factory
             'exchange_rate_from_riel_to_usd' => $rielToUsd,
             'in_used' => $this->faker->randomElement([1,0]),
             'movement_date' => $this->faker->dateTimeBetween('-30 days', 'now'),
+            'expiry_date' => $this->faker->dateTimeBetween('+1 month', '+2 years')->format('Y-m-d'),
             'created_by' => User::query()->inRandomOrder()->first()->id ?? User::factory()->create()->id,
             'last_updated_by' => User::query()->inRandomOrder()->first()->id ?? User::factory()->create()->id,
             'note' => $this->faker->optional()->sentence(),

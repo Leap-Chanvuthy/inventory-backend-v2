@@ -3,6 +3,7 @@
 namespace App\QueryBuilders;
 
 use Spatie\QueryBuilder\AllowedFilter;
+use Spatie\QueryBuilder\AllowedSort;
 use Illuminate\Database\Eloquent\Builder;
 use App\Helpers\QueryBuilderHelper;
 use App\Models\RMStockMovement;
@@ -129,11 +130,11 @@ class SupplierQueryBuilder
             ];
 
             $allowedSorts = [
-                'created_at',
-                'updated_at',
-                'direction',
-                'movement_type',
-                'movement_date',
+                AllowedSort::field('created_at', 'rm_stock_movements.created_at'),
+                AllowedSort::field('updated_at', 'rm_stock_movements.updated_at'),
+                AllowedSort::field('direction', 'rm_stock_movements.direction'),
+                AllowedSort::field('movement_type', 'rm_stock_movements.movement_type'),
+                AllowedSort::field('movement_date', 'rm_stock_movements.movement_date'),
             ];
 
             $builder = QueryBuilderHelper::build(
@@ -142,7 +143,7 @@ class SupplierQueryBuilder
                 selects: $selects,
                 allowedFilters: $allowedFilters,
                 allowedSorts: $allowedSorts,
-                defaultSort: '-created_at',
+                defaultSort: '-rm_stock_movements.created_at',
                 withRelations: ['raw_material'],
                 withCounts: []
             );

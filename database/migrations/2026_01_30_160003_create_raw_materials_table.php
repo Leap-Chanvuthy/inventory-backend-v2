@@ -20,7 +20,7 @@ return new class extends Migration
             $table->  string('barcode')->nullable();
             $table -> double('minimum_stock_level');
 
-            $table -> date('expiry_date');
+            // $table -> date('expiry_date');
             $table -> text('description') -> nullable();
             $table -> string('production_method')->default(ProductionMethodEnum::FIFO -> value);
 

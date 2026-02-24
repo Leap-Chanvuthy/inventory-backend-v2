@@ -151,7 +151,6 @@ class RawMaterialFactory extends Factory
             'material_sku_code' => $sku,
             'barcode' => $this->faker->optional()->ean13(),
             'minimum_stock_level' => $this->faker->numberBetween(10, 100),
-            'expiry_date' => $this->faker->dateTimeBetween('+1 month', '+2 years')->format('Y-m-d'),
             'description' => $this->faker->optional()->paragraph(),
             'raw_material_category_id' => $category->id,
             'production_method' => $productionMethod,

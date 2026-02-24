@@ -13,6 +13,7 @@ use App\Models\RMStockMovement;
 use App\Models\RawMaterial;
 use App\QueryBuilders\RawMaterialQueryBuilder;
 use App\Validations\RMValidation;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -80,9 +81,23 @@ class RawMaterialService
             // Find stock status
             $isExpired = false;
             $rawMaterialStatus = '';
-            if ($rawMaterial->expiry_date) {
-                // Mark as expired when expiry_date is today or earlier.
-                $isExpired = $rawMaterial->expiry_date->startOfDay()->lte(now()->startOfDay());
+            $effectiveExpiryDate = RMStockMovement::query()
+                ->where('raw_material_id', $rawMaterial->id)
+                ->where('movement_type', RawMaterialStockMovementTypeEnum::PURCHASE->value)
+                ->value('expiry_date');
+
+            if (!$effectiveExpiryDate) {
+                $effectiveExpiryDate = RMStockMovement::query()
+                    ->where('raw_material_id', $rawMaterial->id)
+                    ->whereNotNull('expiry_date')
+                    ->orderByDesc('movement_date')
+                    ->value('expiry_date');
+            }
+
+            if ($effectiveExpiryDate) {
+                $isExpired = Carbon::parse($effectiveExpiryDate)
+                    ->startOfDay()
+                    ->lte(now()->startOfDay());
             }
 
             if ($isExpired) {
@@ -196,7 +211,6 @@ class RawMaterialService
                     'material_sku_code' => $rawMaterialData['material_sku_code'],
                     'barcode' => $rawMaterialData['barcode'] ?? null,
                     'minimum_stock_level' => $rawMaterialData['minimum_stock_level'],
-                    'expiry_date' => $rawMaterialData['expiry_date'],
                     'description' => $rawMaterialData['description'] ?? null,
                     'raw_material_category_id' => $rawMaterialData['raw_material_category_id'],
                     'uom_id' => $rawMaterialData['uom_id'],
@@ -224,6 +238,7 @@ class RawMaterialService
                     'direction' => 'IN',
                     'movement_type' => 'PURCHASE',
                     'movement_date' => $stockMovementData['movement_date'],
+                    'expiry_date' => $stockMovementData['expiry_date'],
                     'unit_price_in_usd' => $stockMovementData['unit_price_in_usd'],
                     'total_value_in_usd' => $stockMovementData['total_value_in_usd'],
                     'exchange_rate_from_usd_to_riel' => $stockMovementData['exchange_rate_from_usd_to_riel'],
@@ -321,6 +336,7 @@ class RawMaterialService
                 'movement_type' => RawMaterialStockMovementTypeEnum::PURCHASE->value,
                 'direction' => StockDirectionEnum::IN->value,
                 'movement_date' => $request->input('movement_date', optional($purchaseMovement->movement_date)->toDateTimeString() ?? now()->toDateTimeString()),
+                'expiry_date' => $request->input('expiry_date', optional($purchaseMovement->expiry_date)?->toDateString()),
             ]);
 
             CurrencyPricingHelper::fillRMPurchasingCurrencyFields($request);
@@ -402,7 +418,6 @@ class RawMaterialService
                     'material_name' => $rawMaterialData['material_name'],
                     'barcode' => $rawMaterialData['barcode'] ?? null,
                     'minimum_stock_level' => $rawMaterialData['minimum_stock_level'],
-                    'expiry_date' => $rawMaterialData['expiry_date'],
                     'description' => $rawMaterialData['description'] ?? null,
                     'raw_material_category_id' => $rawMaterialData['raw_material_category_id'],
                     'uom_id' => $rawMaterialData['uom_id'],
@@ -441,6 +456,7 @@ class RawMaterialService
                     'direction' => StockDirectionEnum::IN->value,
                     'movement_type' => RawMaterialStockMovementTypeEnum::PURCHASE->value,
                     'movement_date' => $purchaseData['movement_date'],
+                    'expiry_date' => $purchaseData['expiry_date'],
                     'unit_price_in_usd' => $purchaseData['unit_price_in_usd'],
                     'total_value_in_usd' => $purchaseData['total_value_in_usd'],
                     'exchange_rate_from_usd_to_riel' => $purchaseData['exchange_rate_from_usd_to_riel'],
@@ -507,6 +523,7 @@ class RawMaterialService
                 'direction' => StockDirectionEnum::IN->value,
                 'movement_type' => RawMaterialStockMovementTypeEnum::RE_ORDER->value,
                 'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
+                'expiry_date' => $request->input('expiry_date', null),
             ]);
 
             // Only accept USD unit price + USD->Riel exchange rate as inputs;
@@ -537,6 +554,7 @@ class RawMaterialService
                     'direction' => StockDirectionEnum::IN->value,
                     'movement_type' => RawMaterialStockMovementTypeEnum::RE_ORDER->value,
                     'movement_date' => $validated['movement_date'],
+                    'expiry_date' => $validated['expiry_date'],
                     'unit_price_in_usd' => $validated['unit_price_in_usd'],
                     'total_value_in_usd' => $validated['total_value_in_usd'],
                     'exchange_rate_from_usd_to_riel' => $validated['exchange_rate_from_usd_to_riel'],
@@ -573,6 +591,7 @@ class RawMaterialService
                 'direction' => StockDirectionEnum::IN->value,
                 'movement_type' => RawMaterialStockMovementTypeEnum::RE_ORDER->value,
                 'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
+                'expiry_date' => $request->input('expiry_date', null),
             ]);
 
             // Only accept USD unit price + USD->Riel exchange rate as inputs;
@@ -607,6 +626,7 @@ class RawMaterialService
                     'direction' => StockDirectionEnum::IN->value,
                     'movement_type' => RawMaterialStockMovementTypeEnum::RE_ORDER->value,
                     'movement_date' => $validated['movement_date'],
+                    'expiry_date' => $validated['expiry_date'],
                     'unit_price_in_usd' => $validated['unit_price_in_usd'],
                     'total_value_in_usd' => $validated['total_value_in_usd'],
                     'exchange_rate_from_usd_to_riel' => $validated['exchange_rate_from_usd_to_riel'],

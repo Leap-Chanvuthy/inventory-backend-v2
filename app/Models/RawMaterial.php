@@ -18,7 +18,7 @@ class RawMaterial extends Model
     protected $casts = [
         'status' => RawMaterialStatusEnum::class,
         'production_method' => ProductionMethodEnum::class,
-        'expiry_date' => 'date',
+        // 'expiry_date' => 'date',
     ];
 
     protected $fillable = [
@@ -26,7 +26,7 @@ class RawMaterial extends Model
         'material_sku_code',
         'barcode',
         'minimum_stock_level',
-        'expiry_date',
+        // 'expiry_date',
         'description',
         'production_method',
         'raw_material_category_id',
