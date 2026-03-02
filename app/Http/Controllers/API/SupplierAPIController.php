@@ -22,6 +22,11 @@ class SupplierAPIController extends Controller
         return $this->supplierService->getAllSuppliers($request);
     }
 
+    public function allDeleted(Request $request)
+    {
+        return $this->supplierService->allDeleted($request);
+    }
+
     public function show($id)
     {
         return $this->supplierService->getSupplierById($id);
@@ -37,6 +42,11 @@ class SupplierAPIController extends Controller
 
     public function delete ($id){
         return $this -> supplierService -> deleteSupplier($id);
+    }
+
+    public function recover($id)
+    {
+        return $this->supplierService->recoverSupplier($id);
     }
 
     public function import(Request $request)

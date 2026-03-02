@@ -12,12 +12,12 @@ use Illuminate\Http\Request;
 
 class SupplierQueryBuilder
 {
-    public function supplierBuilder(Request $request)
+    public function supplierBuilder(Request $request, bool $onlyTrashed = false)
     {
         $perPage = (int) $request->query('per_page', 10);
         $perPage = max(1, min($perPage, 100));
 
-        return QueryBuilderHelper::build(
+        $builder = QueryBuilderHelper::build(
             model: Supplier::class,
 
             joins: [],
@@ -51,6 +51,7 @@ class SupplierQueryBuilder
                 
                 'suppliers.created_at',
                 'suppliers.updated_at',
+                'suppliers.deleted_at',
             ],
 
             allowedFilters: [
@@ -73,6 +74,7 @@ class SupplierQueryBuilder
             allowedSorts: [
                 'created_at',
                 'updated_at',
+                'deleted_at',
                 'supplier_category',
                 'supplier_code',
             ],
@@ -80,10 +82,15 @@ class SupplierQueryBuilder
             defaultSort: '-created_at',
             withRelations: ['banks'],
             withCounts: ['banks'],
-        )
-        ->paginate($perPage)
-        ->appends($request->query());
-        ;
+        );
+
+        if ($onlyTrashed) {
+            $builder = $builder->onlyTrashed();
+        }
+
+        return $builder
+            ->paginate($perPage)
+            ->appends($request->query());
     }
 
 

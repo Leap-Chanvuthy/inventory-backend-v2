@@ -91,12 +91,14 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
         Route::post('/import', [SupplierAPIController::class, 'import']);
         Route::get('/import-histories', [SupplierAPIController::class, 'getImportHistories']);
         Route::get('/statistics', [SupplierAPIController::class, 'getSupplierStatistics']);
+        Route::get('/deleted', [SupplierAPIController::class, 'allDeleted']);
         Route::get('/{id}/transactions', [SupplierAPIController::class, 'transactions']);
         Route::get('/', [SupplierAPIController::class, 'index']);
         Route::post('/', [SupplierAPIController::class, 'store']);
         Route::get('/{id}', [SupplierAPIController::class, 'show']);
         Route::patch('/{id}', [SupplierAPIController::class, 'update']);
         Route::delete('/{id}' , [SupplierAPIController::class , 'delete'] );
+        Route::patch('/{id}/recover', [SupplierAPIController::class, 'recover']);
      });
 
 

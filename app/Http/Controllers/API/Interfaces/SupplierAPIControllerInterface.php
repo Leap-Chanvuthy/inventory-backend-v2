@@ -66,7 +66,8 @@ namespace App\Http\Controllers\API\Interfaces;
  *   @OA\Property(property="banks_count", type="integer", example=2),
  *   @OA\Property(property="banks", type="array", @OA\Items(ref="#/components/schemas/SupplierBank")),
  *   @OA\Property(property="created_at", type="string", example="2026-01-01 12:00:00"),
- *   @OA\Property(property="updated_at", type="string", example="2026-01-01 12:00:00")
+ *   @OA\Property(property="updated_at", type="string", example="2026-01-01 12:00:00"),
+ *   @OA\Property(property="deleted_at", type="string", nullable=true, example=null, description="Soft-delete timestamp; null when the supplier is active")
  * )
  *
  * @OA\Schema(
@@ -278,6 +279,79 @@ interface SupplierAPIControllerInterface
 
 
     /**
+     * @OA\Get(
+     *     path="/api/suppliers/deleted",
+     *     tags={"Suppliers"},
+     *     security={{"Bearer":{}}},
+     *     summary="Get deleted (soft-deleted) suppliers",
+     *     description="Retrieve a paginated list of soft-deleted suppliers. Supports search, filter by category, sort by deleted_at, and pagination.",
+     *
+     *     @OA\Parameter(
+     *         name="page",
+     *         in="query",
+     *         description="Page number",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *     @OA\Parameter(
+     *         name="per_page",
+     *         in="query",
+     *         description="Number of items per page (default 10, max 100)",
+     *         @OA\Schema(type="integer", example=10)
+     *     ),
+     *     @OA\Parameter(
+     *         name="filter[search]",
+     *         in="query",
+     *         description="Search by official name, email, supplier code, tax ID, or phone",
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Parameter(
+     *         name="filter[supplier_category]",
+     *         in="query",
+     *         description="Filter by supplier category (e.g. FOOD, PRODUCTS, CLOTHING, LOGISTICS, OTHERS)",
+     *         @OA\Schema(type="string", example="FOOD")
+     *     ),
+     *     @OA\Parameter(
+     *         name="sort",
+     *         in="query",
+     *         description="Sort field (e.g. -deleted_at, deleted_at, -created_at, supplier_code, supplier_category)",
+     *         @OA\Schema(type="string", example="-deleted_at")
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Deleted suppliers retrieved successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Deleted suppliers retrieved successfully"),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="current_page", type="integer", example=1),
+     *                 @OA\Property(property="per_page", type="integer", example=10),
+     *                 @OA\Property(property="total", type="integer", example=5),
+     *                 @OA\Property(
+     *                     property="data",
+     *                     type="array",
+     *                     @OA\Items(ref="#/components/schemas/Supplier")
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Failed getting deleted suppliers",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Failed getting deleted suppliers"),
+     *             @OA\Property(property="errors", type="string", example="Exception message here")
+     *         )
+     *     )
+     * )
+     */
+    public function allDeleted();
+
+
+    /**
      * @OA\Post(
      *   path="/api/suppliers",
      *   tags={"Suppliers"},
@@ -463,8 +537,8 @@ interface SupplierAPIControllerInterface
      *     path="/api/suppliers/{id}",
      *     tags={"Suppliers"},
      *     security={{"Bearer":{}}},
-     *     summary="Delete supplier by ID",
-     *     description="Deletes a supplier by its ID.",
+     *     summary="Soft-delete supplier by ID",
+     *     description="Soft-deletes a supplier by its ID. The record is not permanently removed and can be recovered via PATCH /api/suppliers/{id}/recover.",
      *
      *     @OA\Parameter(
      *         name="id",
@@ -504,6 +578,53 @@ interface SupplierAPIControllerInterface
      * )
      */
     public function delete($id);
+
+    /**
+     * @OA\Patch(
+     *     path="/api/suppliers/{id}/recover",
+     *     tags={"Suppliers"},
+     *     security={{"Bearer":{}}},
+     *     summary="Recover (restore) a soft-deleted supplier",
+     *     description="Restores a previously soft-deleted supplier back to the active suppliers list.",
+     *
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="Supplier ID to recover",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Supplier recovered successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Supplier recovered successfully"),
+     *             @OA\Property(property="data", nullable=true, example=null)
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Supplier not found",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Cannot recover this supplier"),
+     *             @OA\Property(property="errors", type="string", example="No query results for model [Supplier] 99")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Failed to recover supplier",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Cannot recover this supplier"),
+     *             @OA\Property(property="errors", type="string", example="Exception message here")
+     *         )
+     *     )
+     * )
+     */
+    public function recover($id);
 
 
     /**

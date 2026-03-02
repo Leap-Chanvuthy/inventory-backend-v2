@@ -318,6 +318,18 @@ class SupplierService
     }
 
 
+    // Get all Deleted Suppliers
+    public function allDeleted(Request $request)
+    {
+        try {
+            $suppliers = $this->supplierQueryBuilder->supplierBuilder($request, true);
+            return ResponseHelper::success($suppliers, "Deleted suppliers retrieved successfully", 200);
+        } catch (Exception $e) {
+            return ResponseHelper::error("Failed getting deleted suppliers", 500, $e->getMessage());
+        }
+    }
+
+
     public function createSupplier(Request $request)
     {
         DB::beginTransaction();
@@ -579,6 +591,17 @@ public function importSupplier(Request $request)
             return ResponseHelper::success(null, "Supplier deleted successfully", 200);
         } catch (Exception $e) {
             return ResponseHelper::error("Failed deleting supplier", 500, $e->getMessage());
+        }
+    }
+
+    public function recoverSupplier($id)
+    {
+        try {
+            $supplier = Supplier::withTrashed()->findOrFail($id);
+            $supplier->restore();
+            return ResponseHelper::success(null, "Supplier recovered successfully", 200);
+        } catch (Exception $e) {
+            return ResponseHelper::error("Cannot recover this supplier", 500, $e->getMessage());
         }
     }
 

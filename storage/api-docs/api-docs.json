@@ -5020,8 +5020,8 @@
                 "tags": [
                     "Suppliers"
                 ],
-                "summary": "Delete supplier by ID",
-                "description": "Deletes a supplier by its ID.",
+                "summary": "Soft-delete supplier by ID",
+                "description": "Soft-deletes a supplier by its ID. The record is not permanently removed and can be recovered via PATCH /api/suppliers/{id}/recover.",
                 "operationId": "d45dfc2cd80b9b8520bedb8a56b4f076",
                 "parameters": [
                     {
@@ -5089,6 +5089,237 @@
                                         "message": {
                                             "type": "string",
                                             "example": "Failed to delete supplier"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "Exception message here"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/suppliers/deleted": {
+            "get": {
+                "tags": [
+                    "Suppliers"
+                ],
+                "summary": "Get deleted (soft-deleted) suppliers",
+                "description": "Retrieve a paginated list of soft-deleted suppliers. Supports search, filter by category, sort by deleted_at, and pagination.",
+                "operationId": "33ea24e92a798580486dfc4d30f12c62",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number",
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Number of items per page (default 10, max 100)",
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "description": "Search by official name, email, supplier code, tax ID, or phone",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[supplier_category]",
+                        "in": "query",
+                        "description": "Filter by supplier category (e.g. FOOD, PRODUCTS, CLOTHING, LOGISTICS, OTHERS)",
+                        "schema": {
+                            "type": "string",
+                            "example": "FOOD"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort field (e.g. -deleted_at, deleted_at, -created_at, supplier_code, supplier_category)",
+                        "schema": {
+                            "type": "string",
+                            "example": "-deleted_at"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted suppliers retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Deleted suppliers retrieved successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 5
+                                                },
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Supplier"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed getting deleted suppliers",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Failed getting deleted suppliers"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "Exception message here"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/suppliers/{id}/recover": {
+            "patch": {
+                "tags": [
+                    "Suppliers"
+                ],
+                "summary": "Recover (restore) a soft-deleted supplier",
+                "description": "Restores a previously soft-deleted supplier back to the active suppliers list.",
+                "operationId": "f2b6233cf60f935fbea53d7ce2549f4a",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Supplier ID to recover",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Supplier recovered successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Supplier recovered successfully"
+                                        },
+                                        "data": {
+                                            "example": null,
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Supplier not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Cannot recover this supplier"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "No query results for model [Supplier] 99"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to recover supplier",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Cannot recover this supplier"
                                         },
                                         "errors": {
                                             "type": "string",
@@ -7638,6 +7869,12 @@
                     "updated_at": {
                         "type": "string",
                         "example": "2026-01-01 12:00:00"
+                    },
+                    "deleted_at": {
+                        "description": "Soft-delete timestamp; null when the supplier is active",
+                        "type": "string",
+                        "example": null,
+                        "nullable": true
                     }
                 },
                 "type": "object"
