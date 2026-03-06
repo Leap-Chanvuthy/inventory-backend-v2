@@ -42,7 +42,6 @@ class ProductSeeder extends Seeder
         $rawMaterials = RawMaterial::all();
 
         // ── External Purchase ────────────────────────────────────────────────
-        $this->command->info('Seeding External Purchase products...');
 
         for ($i = 0; $i < self::EXTERNAL_PURCHASE_COUNT; $i++) {
             $userId       = $users->random()->id;
@@ -54,8 +53,6 @@ class ProductSeeder extends Seeder
         }
 
         // ── Internal Manufacturing ───────────────────────────────────────────
-        $this->command->info('Seeding Internal Manufacturing products...');
-
         for ($i = 0; $i < self::INTERNAL_MANUFACTURING_COUNT; $i++) {
             $userId       = $users->random()->id;
             $movementDate = Carbon::now()->subDays($faker->numberBetween(1, 180))->toDateTimeString();
@@ -101,7 +98,6 @@ class ProductSeeder extends Seeder
             $this->deductRawMaterialStock($bomItems, $product->id, $userId, $movementDate);
         }
 
-        $this->command->info('ProductSeeder complete.');
     }
 
     // ─────────────────────────────────────────────────────────────────────────
