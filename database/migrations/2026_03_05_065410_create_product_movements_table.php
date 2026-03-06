@@ -51,6 +51,14 @@ return new class extends Migration
             $table->double('selling_exchange_rate_from_usd_to_riel', 10, 4)->min(0);
             $table->double('selling_exchange_rate_from_riel_to_usd', 10, 4)->min(0);
 
+            // audit fields
+            $table->timestamp('movement_date')->nullable();
+            $table->text('note')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('last_updated_by')->nullable();
+            $table->foreign('created_by')->references('id')->on('users')->restrictOnDelete();
+            $table->foreign('last_updated_by')->references('id')->on('users')->restrictOnDelete();
+
             $table->timestamps();
         });
     }

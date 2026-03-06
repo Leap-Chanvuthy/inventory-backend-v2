@@ -4,6 +4,7 @@ use App\Http\Controllers\API\AuthAPIController;
 use App\Http\Controllers\API\CompanyInfoAPIController;
 use App\Http\Controllers\API\CustomerAPIController;
 use App\Http\Controllers\API\CustomerCategoryAPIController;
+use App\Http\Controllers\API\ProductAPIController;
 use App\Http\Controllers\API\ProductCategoryAPIController;
 use App\Http\Controllers\API\RawMaterialAPIController;
 use App\Http\Controllers\API\RMStockMovementAPIController;
@@ -135,6 +136,12 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
         Route::post('/', [ProductCategoryAPIController::class, 'store']);
         Route::patch('/{id}', [ProductCategoryAPIController::class, 'update']);
         Route::delete('/{id}', [ProductCategoryAPIController::class, 'delete'] );
+    });
+
+    Route::prefix('products')->group(function () {
+        Route::get('/', [ProductAPIController::class, 'index']);
+        Route::post('/create/external-purchase',      [ProductAPIController::class, 'storeExternalPurchase']);
+        Route::post('/create/internal-manufacturing', [ProductAPIController::class, 'storeInternalManufacturing']);
     });
 
 });

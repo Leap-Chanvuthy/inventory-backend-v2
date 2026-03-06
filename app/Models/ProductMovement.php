@@ -13,32 +13,28 @@ class ProductMovement extends Model
 {
     use HasFactory;
 
-
     protected $casts = [
+        'product_type'                         => ProductTypeEnum::class,
+        'product_status'                       => ProductStatusEnum::class,
+        'direction'                            => StockDirectionEnum::class,
+        'movement_type'                        => ProductStockMovementTypeEnum::class,
+        'is_sold'                              => 'boolean',
+        'movement_date'                        => 'datetime',
 
-        'product_type' => ProductTypeEnum::class,
-        'product_status' => ProductStatusEnum::class,
-        'direction' => StockDirectionEnum::class,
-        'movement_type' => ProductStockMovementTypeEnum::class,
-        'is_sold' => 'boolean',
+        // purchasing price
+        'purchase_unit_price_in_usd'           => 'float',
+        'purchase_total_price_in_usd'          => 'float',
+        'purchase_unit_price_in_riel'          => 'float',
+        'purchase_total_price_in_riel'         => 'float',
+        'exchange_rate_from_usd_to_riel'       => 'float',
+        'exchange_rate_from_riel_to_usd'       => 'float',
 
-         // purchasing price
-
-        'purchase_unit_price_in_usd' => 'float',
-        'purchase_total_price_in_usd' => 'float',
-        'purchase_unit_price_in_riel' => 'float',
-        'purchase_total_price_in_riel' => 'float',
-        'exchange_rate_from_usd_to_riel' => 'float',
-        'exchange_rate_from_riel_to_usd' => 'float',
-
-        'selling_unit_price_in_usd' => 'float',
-        'selling_total_price_in_usd' => 'float',
-        'selling_unit_price_in_riel' => 'float',
-        'selling_total_price_in_riel' => 'float',
+        // selling price (unit only — no total selling value)
+        'selling_unit_price_in_usd'            => 'float',
+        'selling_unit_price_in_riel'           => 'float',
         'selling_exchange_rate_from_usd_to_riel' => 'float',
         'selling_exchange_rate_from_riel_to_usd' => 'float',
     ];
-
 
     protected $fillable = [
         'product_id',
@@ -48,6 +44,10 @@ class ProductMovement extends Model
         'direction',
         'movement_type',
         'is_sold',
+        'movement_date',
+        'note',
+        'created_by',
+        'last_updated_by',
 
         // purchasing price
         'purchase_unit_price_in_usd',
@@ -57,20 +57,29 @@ class ProductMovement extends Model
         'exchange_rate_from_usd_to_riel',
         'exchange_rate_from_riel_to_usd',
 
-        // selling price
+        // selling price (unit only — no total selling value)
         'selling_unit_price_in_usd',
-        'selling_total_price_in_usd',
         'selling_unit_price_in_riel',
-        'selling_total_price_in_riel',
         'selling_exchange_rate_from_usd_to_riel',
         'selling_exchange_rate_from_riel_to_usd',
     ];
 
+    // ──────────────────────────────────────────────
+    // Relationships
+    // ──────────────────────────────────────────────
 
     public function product()
     {
         return $this->belongsTo(Product::class, 'product_id');
     }
 
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 
+    public function lastUpdatedBy()
+    {
+        return $this->belongsTo(User::class, 'last_updated_by');
+    }
 }

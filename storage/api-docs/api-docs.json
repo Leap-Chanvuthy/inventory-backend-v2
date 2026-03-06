@@ -2073,6 +2073,378 @@
                 ]
             }
         },
+        "/api/products": {
+            "get": {
+                "tags": [
+                    "Products"
+                ],
+                "summary": "Get all products (paginated, filterable, sortable)",
+                "operationId": "c76a1ceb22c0759070047fe6b360a926",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[product_category_id]",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[supplier_id]",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[warehouse_id]",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[uom_id]",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "example": "-created_at"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Products retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/products/create/external-purchase": {
+            "post": {
+                "tags": [
+                    "Products"
+                ],
+                "summary": "Create an externally purchased product with initial stock movement",
+                "description": "Creates a product and an initial EXTERNAL_PURCHASED / IN / COMPLETED movement. product_status is automatically set to COMPLETED and cannot be changed. Supply purchase_unit_price_in_usd + exchange_rate_from_usd_to_riel; totals are derived automatically. Supply selling_unit_price_in_usd + selling_exchange_rate_from_usd_to_riel for selling price. Submitting raw_materials is NOT allowed and will be rejected with a validation error.",
+                "operationId": "d11ac78f89759d0a00aca6ab16ab68f7",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "product_name",
+                                    "product_category_id",
+                                    "uom_id",
+                                    "supplier_id",
+                                    "warehouse_id",
+                                    "quantity",
+                                    "purchase_unit_price_in_usd",
+                                    "exchange_rate_from_usd_to_riel",
+                                    "selling_unit_price_in_usd",
+                                    "selling_exchange_rate_from_usd_to_riel"
+                                ],
+                                "properties": {
+                                    "product_name": {
+                                        "type": "string",
+                                        "example": "Widget A"
+                                    },
+                                    "barcode": {
+                                        "type": "string",
+                                        "example": "1234567890"
+                                    },
+                                    "product_description": {
+                                        "type": "string"
+                                    },
+                                    "product_category_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "uom_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "supplier_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "warehouse_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "quantity": {
+                                        "type": "number",
+                                        "example": 100
+                                    },
+                                    "purchase_unit_price_in_usd": {
+                                        "type": "number",
+                                        "example": 5.5
+                                    },
+                                    "exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "example": 4100
+                                    },
+                                    "selling_unit_price_in_usd": {
+                                        "type": "number",
+                                        "example": 8
+                                    },
+                                    "selling_exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "example": 4100
+                                    },
+                                    "movement_date": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    },
+                                    "note": {
+                                        "type": "string"
+                                    },
+                                    "images": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "binary"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Product created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/products/create/internal-manufacturing": {
+            "post": {
+                "tags": [
+                    "Products"
+                ],
+                "summary": "Create an internally manufactured product with initial stock movement",
+                "description": "Creates a product and an initial INTERNAL_MANUFACTURED / IN movement. Purchase price is automatically set to 0 (produced internally). Supply raw_materials[] BOM to record which raw materials are consumed. Raw material stock is validated (FIFO/LIFO) and deducted automatically via PRODUCTION_RECEIPT OUT movements. Supply selling_unit_price_in_usd + selling_exchange_rate_from_usd_to_riel for selling price.",
+                "operationId": "a330e69f3f61d6f5fe926304638c3d60",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "product_name",
+                                    "product_category_id",
+                                    "uom_id",
+                                    "supplier_id",
+                                    "warehouse_id",
+                                    "quantity",
+                                    "product_status",
+                                    "selling_unit_price_in_usd",
+                                    "selling_exchange_rate_from_usd_to_riel",
+                                    "raw_materials"
+                                ],
+                                "properties": {
+                                    "product_name": {
+                                        "type": "string",
+                                        "example": "Assembled Part B"
+                                    },
+                                    "barcode": {
+                                        "type": "string"
+                                    },
+                                    "product_description": {
+                                        "type": "string"
+                                    },
+                                    "product_category_id": {
+                                        "type": "integer",
+                                        "example": 2
+                                    },
+                                    "uom_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "supplier_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "warehouse_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "product_status": {
+                                        "description": "Current product status. Accepted values: DRAFT, WORK_IN_PROGRESS, PARTIALLY_COMPLETED, COMPLETED, BLOCKED",
+                                        "type": "string",
+                                        "enum": [
+                                            "DRAFT",
+                                            "WORK_IN_PROGRESS",
+                                            "PARTIALLY_COMPLETED",
+                                            "COMPLETED",
+                                            "BLOCKED"
+                                        ],
+                                        "example": "COMPLETED"
+                                    },
+                                    "quantity": {
+                                        "type": "number",
+                                        "example": 50
+                                    },
+                                    "selling_unit_price_in_usd": {
+                                        "type": "number",
+                                        "example": 12
+                                    },
+                                    "selling_exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "example": 4100
+                                    },
+                                    "movement_date": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    },
+                                    "note": {
+                                        "type": "string"
+                                    },
+                                    "raw_materials": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "raw_material_id": {
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
+                                                "quantity": {
+                                                    "type": "number",
+                                                    "example": 2
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "images": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "binary"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Product created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error or insufficient stock",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/product-categories": {
             "get": {
                 "tags": [
@@ -8184,6 +8556,10 @@
         {
             "name": "Customers",
             "description": "API Endpoints for managing customers (ADMIN & VENDER ROLE)"
+        },
+        {
+            "name": "Products",
+            "description": "API Endpoints for managing products (external purchase & internal manufacturing flows)"
         },
         {
             "name": "Product Categories",
