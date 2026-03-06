@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             UOMSeeder::class,
             RawMaterialSeeder::class,
             CustomerSeeder::class,
+            ProductSeeder::class,
         ]);
     }
 }
