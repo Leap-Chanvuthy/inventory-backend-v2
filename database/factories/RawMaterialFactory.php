@@ -127,7 +127,7 @@ class RawMaterialFactory extends Factory
 
         $rm = new RawMaterial();
         $rm->rm_category()->associate($category);
-        $rm->uom()->associate($uom);
+        $rm->baseUom()->associate($uom);
 
         $sku = GenerateUniqueSKU::generate(
             model: $rm,
@@ -136,7 +136,7 @@ class RawMaterialFactory extends Factory
             prefix: 'RM',
             relations: [
                 'cat' => 'rm_category.category_name',
-                'uom' => 'uom.name',
+                'uom' => 'baseUom.name',
             ],
             format: '{prefix}-{cat}-{uom}-{random}'
         );
@@ -154,7 +154,7 @@ class RawMaterialFactory extends Factory
             'description' => $this->faker->optional()->paragraph(),
             'raw_material_category_id' => $category->id,
             'production_method' => $productionMethod,
-            'uom_id' => $uom->id,
+            'base_uom_id' => $uom->id,
             'supplier_id' => $supplier->id,
             'warehouse_id' => $warehouse->id,
         ];

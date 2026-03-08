@@ -22,7 +22,7 @@ class ProductQueryBuilder
                 ['product_categories',    'products.product_category_id', '=', 'product_categories.id'],
                 ['suppliers',             'products.supplier_id',         '=', 'suppliers.id'],
                 ['warehouses',            'products.warehouse_id',        '=', 'warehouses.id'],
-                ['unit_of_measurements',  'products.uom_id',              '=', 'unit_of_measurements.id'],
+                ['unit_of_measurements',  'products.base_uom_id',         '=', 'unit_of_measurements.id'],
             ],
 
             selects: [
@@ -38,7 +38,7 @@ class ProductQueryBuilder
                 AllowedFilter::exact('product_category_id'),
                 AllowedFilter::exact('supplier_id'),
                 AllowedFilter::exact('warehouse_id'),
-                AllowedFilter::exact('uom_id'),
+                AllowedFilter::exact('base_uom_id'),
 
                 AllowedFilter::callback('search', function (Builder $query, $value) {
                     $query->where(function ($q) use ($value) {
@@ -69,7 +69,7 @@ class ProductQueryBuilder
                 'product_category_id',
                 'supplier_id',
                 'warehouse_id',
-                'uom_id',
+                'base_uom_id',
             ],
 
             defaultSort: '-created_at',
@@ -78,7 +78,7 @@ class ProductQueryBuilder
                 'category'  => fn ($q) => $q->withTrashed(),
                 'supplier'  => fn ($q) => $q->withTrashed(),
                 'warehouse' => fn ($q) => $q->withTrashed(),
-                'uom'       => fn ($q) => $q->withTrashed(),
+                'baseUom'   => fn ($q) => $q->withTrashed(),
             ],
 
             withCounts: [],

@@ -24,10 +24,37 @@ return new class extends Migration
             $table -> text('description') -> nullable();
             $table -> string('production_method')->default(ProductionMethodEnum::FIFO -> value);
 
-            $table -> foreignId('raw_material_category_id') ->constrained('raw_material_categories')  -> restrictOnDelete() -> cascadeOnUpdate();
-            $table -> foreignId('uom_id') -> constrained('unit_of_measurements') -> restrictOnDelete() -> cascadeOnUpdate();
-            $table -> foreignId('supplier_id') -> constrained('suppliers') -> restrictOnDelete() -> cascadeOnUpdate();
-            $table -> foreignId('warehouse_id') -> constrained('warehouses') -> restrictOnDelete() -> cascadeOnUpdate();
+            $table->foreignId('raw_material_category_id')
+                ->constrained('raw_material_categories')
+                ->restrictOnDelete()
+                ->cascadeOnUpdate();
+
+            $table->foreignId('supplier_id')
+                ->constrained('suppliers')
+                ->restrictOnDelete()
+                ->cascadeOnUpdate();
+
+            $table->foreignId('warehouse_id')
+                ->constrained('warehouses')
+                ->restrictOnDelete()
+                ->cascadeOnUpdate();
+
+            // UOM columns — stock always stored in base_uom unit
+            $table->foreignId('base_uom_id')
+                ->comment('Base unit used for storing stock quantities.')
+                ->constrained('unit_of_measurements')
+                ->restrictOnDelete()
+                ->cascadeOnUpdate();
+
+            $table->unsignedBigInteger('purchase_uom_id')
+                ->nullable()
+                ->comment('Unit used on purchase orders. Falls back to base_uom if null.');
+
+            $table->foreign('purchase_uom_id', 'fk_raw_materials_purchase_uom_id')
+                ->references('id')
+                ->on('unit_of_measurements')
+                ->nullOnDelete()
+                ->cascadeOnUpdate();
 
             $table->timestamps();
             $table->softDeletes();

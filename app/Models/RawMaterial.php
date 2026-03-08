@@ -30,7 +30,8 @@ class RawMaterial extends Model
         'description',
         'production_method',
         'raw_material_category_id',
-        'uom_id',
+        'base_uom_id',
+        'purchase_uom_id',
         'supplier_id',
         'warehouse_id',
     ];
@@ -48,8 +49,36 @@ class RawMaterial extends Model
         return $this -> belongsTo(Warehouse::class , 'warehouse_id' , 'id');
     }
 
-    public function uom(){
-        return $this -> belongsTo(UOM::class , 'uom_id' , 'id');
+    /**
+     * Base (smallest) unit — stock quantities are always stored in this unit.
+     */
+    public function baseUom()
+    {
+        return $this->belongsTo(UnitOfMeasurement::class, 'base_uom_id');
+    }
+
+    /**
+     * Alias for baseUom() — used by eager-load calls that reference 'uom'.
+     */
+    public function uom()
+    {
+        return $this->belongsTo(UnitOfMeasurement::class, 'base_uom_id');
+    }
+
+    /**
+     * Purchase unit — unit used on purchase orders (optional, falls back to base).
+     */
+    public function purchaseUom()
+    {
+        return $this->belongsTo(UnitOfMeasurement::class, 'purchase_uom_id');
+    }
+
+    /**
+     * Convenience: returns the effective purchase UOM (falls back to base if null).
+     */
+    public function effectivePurchaseUom()
+    {
+        return $this->purchaseUom ?? $this->baseUom;
     }
 
     public function rm_images()

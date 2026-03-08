@@ -207,16 +207,17 @@ class RawMaterialService
                 $rawMaterialData = Validator::make($request->all(), $rawMaterialRules)->validate();
 
                 $rawMaterial = RawMaterial::create([
-                    'material_name' => $rawMaterialData['material_name'],
-                    'material_sku_code' => $rawMaterialData['material_sku_code'],
-                    'barcode' => $rawMaterialData['barcode'] ?? null,
-                    'minimum_stock_level' => $rawMaterialData['minimum_stock_level'],
-                    'description' => $rawMaterialData['description'] ?? null,
+                    'material_name'            => $rawMaterialData['material_name'],
+                    'material_sku_code'        => $rawMaterialData['material_sku_code'],
+                    'barcode'                  => $rawMaterialData['barcode'] ?? null,
+                    'minimum_stock_level'      => $rawMaterialData['minimum_stock_level'],
+                    'description'              => $rawMaterialData['description'] ?? null,
                     'raw_material_category_id' => $rawMaterialData['raw_material_category_id'],
-                    'uom_id' => $rawMaterialData['uom_id'],
-                    'supplier_id' => $rawMaterialData['supplier_id'] ?? null,
-                    'warehouse_id' => $rawMaterialData['warehouse_id'],
-                    'production_method' => $rawMaterialData['production_method'],
+                    'base_uom_id'              => $rawMaterialData['base_uom_id'],
+                    'purchase_uom_id'          => $rawMaterialData['purchase_uom_id'] ?? null,
+                    'supplier_id'              => $rawMaterialData['supplier_id'] ?? null,
+                    'warehouse_id'             => $rawMaterialData['warehouse_id'],
+                    'production_method'        => $rawMaterialData['production_method'],
                 ]);
 
                 // 2) Create initial Stock Movement (PURCHASE / IN / now)
@@ -415,15 +416,16 @@ class RawMaterialService
                 }
 
                 $rawMaterial->update([
-                    'material_name' => $rawMaterialData['material_name'],
-                    'barcode' => $rawMaterialData['barcode'] ?? null,
-                    'minimum_stock_level' => $rawMaterialData['minimum_stock_level'],
-                    'description' => $rawMaterialData['description'] ?? null,
+                    'material_name'            => $rawMaterialData['material_name'],
+                    'barcode'                  => $rawMaterialData['barcode'] ?? null,
+                    'minimum_stock_level'      => $rawMaterialData['minimum_stock_level'],
+                    'description'              => $rawMaterialData['description'] ?? null,
                     'raw_material_category_id' => $rawMaterialData['raw_material_category_id'],
-                    'uom_id' => $rawMaterialData['uom_id'],
-                    'supplier_id' => $rawMaterialData['supplier_id'] ?? null,
-                    'warehouse_id' => $rawMaterialData['warehouse_id'],
-                    'production_method' => $rawMaterialData['production_method'],
+                    'base_uom_id'              => $rawMaterialData['base_uom_id'],
+                    'purchase_uom_id'          => $rawMaterialData['purchase_uom_id'] ?? null,
+                    'supplier_id'              => $rawMaterialData['supplier_id'] ?? null,
+                    'warehouse_id'             => $rawMaterialData['warehouse_id'],
+                    'production_method'        => $rawMaterialData['production_method'] ?? null,
                 ]);
 
                 // 3) Append new images (keeps old, uploads new; max 4 total)

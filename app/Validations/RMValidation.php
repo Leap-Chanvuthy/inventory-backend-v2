@@ -34,12 +34,12 @@ class RMValidation {
         }
 
         // Include UOM in SKU (required by validation)
-        if ($request->filled('uom_id')) {
-            $uom = UOM::find($request->input('uom_id'));
+        if ($request->filled('base_uom_id')) {
+            $uom = UOM::find($request->input('base_uom_id'));
             if ($uom) {
-                $rm->uom()->associate($uom);
+                $rm->baseUom()->associate($uom);
                 // Use name because it's required (symbol can be nullable)
-                $relations['uom'] = 'uom.name';
+                $relations['uom'] = 'baseUom.name';
 
                 // If we already have category, format becomes RM-{CAT}-{UOM}-{RANDOM}
                 // Otherwise fallback to RM-{UOM}-{RANDOM}
@@ -71,9 +71,10 @@ class RMValidation {
             'description' => 'nullable|string',
             'production_method' => 'nullable|string|in:FIFO,LIFO',
             'raw_material_category_id' => 'required|exists:raw_material_categories,id',
-            'uom_id' => 'required|exists:unit_of_measurements,id',
-            'supplier_id' => 'nullable|exists:suppliers,id',
-            'warehouse_id' => 'required|exists:warehouses,id',
+            'base_uom_id'              => 'required|exists:unit_of_measurements,id',
+            'purchase_uom_id'          => 'nullable|exists:unit_of_measurements,id',
+            'supplier_id'              => 'nullable|exists:suppliers,id',
+            'warehouse_id'             => 'required|exists:warehouses,id',
         ];
     }
 
@@ -82,16 +83,17 @@ class RMValidation {
     public function UpdateRMValidation(Request $request, int $rawMaterialId): array
     {
         return [
-            'material_name' => 'required|string|max:255',
-            'barcode' => 'nullable|string|max:255',
-            'minimum_stock_level' => 'required|numeric|min:0',
-            // 'expiry_date' => 'required|date',
-            'description' => 'nullable|string',
+            'material_name'            => 'required|string|max:255',
+            'barcode'                  => 'nullable|string|max:255',
+            'minimum_stock_level'      => 'required|numeric|min:0',
+            // 'expiry_date'           => 'required|date',
+            'description'              => 'nullable|string',
             'raw_material_category_id' => 'required|exists:raw_material_categories,id',
-            'uom_id' => 'required|exists:unit_of_measurements,id',
-            'supplier_id' => 'nullable|exists:suppliers,id',
-            'warehouse_id' => 'required|exists:warehouses,id',
-            'production_method' => 'nullable|string|in:FIFO,LIFO',            
+            'base_uom_id'              => 'required|exists:unit_of_measurements,id',
+            'purchase_uom_id'          => 'nullable|exists:unit_of_measurements,id',
+            'supplier_id'              => 'nullable|exists:suppliers,id',
+            'warehouse_id'             => 'required|exists:warehouses,id',
+            'production_method'        => 'nullable|string|in:FIFO,LIFO',            
         ];
     }
 

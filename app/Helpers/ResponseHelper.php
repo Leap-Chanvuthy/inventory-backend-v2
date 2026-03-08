@@ -29,14 +29,14 @@ class ResponseHelper
     }
 
     /**
-     * Validation error response
+     * Validation error response (always HTTP 422)
      */
-    public static function validation($errors, $message = 'Validation failed')
+    public static function validation($errors, $message = 'Validation failed', $code = 422)
     {
         return response()->json([
             'status' => false,
             'message' => $message,
             'errors' => $errors,
-        ], 422);
+        ], $code);
     }
 }

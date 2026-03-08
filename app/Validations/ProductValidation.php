@@ -49,7 +49,9 @@ class ProductValidation
             'barcode'             => 'nullable|string|max:255',
             'product_description' => 'nullable|string',
             'product_category_id' => 'required|exists:product_categories,id',
-            'uom_id'              => 'required|exists:unit_of_measurements,id',
+            'base_uom_id'         => 'required|exists:unit_of_measurements,id',
+            'sale_uom_id'         => 'required|exists:unit_of_measurements,id',
+            'purchase_uom_id'     => 'nullable|exists:unit_of_measurements,id',
             'supplier_id'         => 'required|exists:suppliers,id',
             'warehouse_id'        => 'required|exists:warehouses,id',
         ];

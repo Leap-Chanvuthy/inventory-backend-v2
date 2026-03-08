@@ -42,4 +42,31 @@ class UOMAPIController extends Controller
         return $this -> UOMService -> deleteUOM($id);
     }
 
+    /**
+     * Return paginated soft-deleted UOMs.
+     * GET /uoms/trashed
+     */
+    public function trashed(Request $request)
+    {
+        return $this->UOMService->getTrashedUOMs($request);
+    }
+
+    /**
+     * Restore a soft-deleted UOM.
+     * PATCH /uoms/{id}/restore
+     */
+    public function restore($id)
+    {
+        return $this->UOMService->restoreUOM((int) $id);
+    }
+
+    /**
+     * Convert a quantity from one UOM to another.
+     * POST /uoms/convert
+     */
+    public function convert(Request $request)
+    {
+        return $this->UOMService->convertQuantity($request);
+    }
+
 }

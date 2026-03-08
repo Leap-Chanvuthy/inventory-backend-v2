@@ -12,6 +12,7 @@ use App\Http\Controllers\API\RawMaterialCategoryAPIController;
 use App\Http\Controllers\API\SupplierAPIController;
 use App\Http\Controllers\API\TwoFactorAPIController;
 use App\Http\Controllers\API\UOMAPIController;
+use App\Http\Controllers\API\UomCategoryAPIController;
 use App\Http\Controllers\API\UserAPIController;
 use App\Http\Controllers\API\WarehouseAPIController;
 use Illuminate\Http\Request;
@@ -104,12 +105,25 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
 
 
     Route::prefix('uoms')->group(function () {
+        Route::get('/trashed', [UOMAPIController::class, 'trashed']);
         Route::get('/', [UOMAPIController::class, 'index']);
+        Route::post('/convert', [UOMAPIController::class, 'convert']);
         Route::get('/{id}', [UOMAPIController::class, 'show']);
         Route::post('/', [UOMAPIController::class, 'create']);
         Route::patch('/{id}', [UOMAPIController::class, 'update']);
         Route::delete('/{id}', [UOMAPIController::class, 'delete']);
+        Route::patch('/{id}/restore', [UOMAPIController::class, 'restore']);
      });
+
+    Route::prefix('uom-categories')->group(function () {
+        Route::get('/trashed', [UomCategoryAPIController::class, 'trashed']);
+        Route::get('/', [UomCategoryAPIController::class, 'index']);
+        Route::get('/{id}', [UomCategoryAPIController::class, 'show']);
+        Route::post('/', [UomCategoryAPIController::class, 'store']);
+        Route::patch('/{id}', [UomCategoryAPIController::class, 'update']);
+        Route::delete('/{id}', [UomCategoryAPIController::class, 'delete']);
+        Route::patch('/{id}/restore', [UomCategoryAPIController::class, 'restore']);
+    });
 
     Route::prefix('warehouses')->group(function () {
         Route::get('/', [WarehouseAPIController::class, 'index']);

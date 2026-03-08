@@ -15,8 +15,8 @@ class FileUploadHelper
 
         // Delete old file
         if (!empty($oldUrl)) {
-            $oldPath = ltrim(parse_url($oldUrl, PHP_URL_PATH), '/');
-            if (Storage::disk('r2')->exists($oldPath)) {
+            $oldPath = ltrim(parse_url($oldUrl, PHP_URL_PATH) ?? '', '/');
+            if ($oldPath !== '' && Storage::disk('r2')->exists($oldPath)) {
                 Storage::disk('r2')->delete($oldPath);
             }
         }
@@ -38,8 +38,8 @@ class FileUploadHelper
         foreach ($oldUrls as $url) {
             if (!$url) continue;
 
-            $oldPath = ltrim(parse_url($url, PHP_URL_PATH), '/');
-            if (Storage::disk('r2')->exists($oldPath)) {
+            $oldPath = ltrim(parse_url($url, PHP_URL_PATH) ?? '', '/');
+            if ($oldPath !== '' && Storage::disk('r2')->exists($oldPath)) {
                 Storage::disk('r2')->delete($oldPath);
             }
         }

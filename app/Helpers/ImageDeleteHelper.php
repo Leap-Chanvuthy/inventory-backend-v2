@@ -11,8 +11,8 @@ class ImageDeleteHelper
     {
         $url = $imageModel->$columnName;
         if ($url) {
-            $path = ltrim(parse_url($url, PHP_URL_PATH), '/');
-            if (Storage::disk('r2')->exists($path)) {
+            $path = ltrim(parse_url($url, PHP_URL_PATH) ?? '', '/');
+            if ($path !== '' && Storage::disk('r2')->exists($path)) {
                 Storage::disk('r2')->delete($path);
             }
         }

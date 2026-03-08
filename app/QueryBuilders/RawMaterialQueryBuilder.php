@@ -23,7 +23,7 @@ class RawMaterialQueryBuilder {
                 ['raw_material_categories', 'raw_materials.raw_material_category_id', '=', 'raw_material_categories.id'],
                 ['suppliers', 'raw_materials.supplier_id', '=', 'suppliers.id'],
                 ['warehouses', 'raw_materials.warehouse_id', '=', 'warehouses.id'],
-                ['unit_of_measurements', 'raw_materials.uom_id', '=', 'unit_of_measurements.id'],
+                ['unit_of_measurements', 'raw_materials.base_uom_id', '=', 'unit_of_measurements.id'],
             ],
 
             selects: [
@@ -41,7 +41,7 @@ class RawMaterialQueryBuilder {
                 AllowedFilter::exact('raw_material_category_id'),
                 AllowedFilter::exact('supplier_id'),
                 AllowedFilter::exact('warehouse_id'),
-                AllowedFilter::exact('uom_id'),
+                AllowedFilter::exact('base_uom_id'),
 
 
                 // Search by fullname / email_address / phone_number / category name
@@ -76,7 +76,7 @@ class RawMaterialQueryBuilder {
                 'raw_material_category_id',
                 'supplier_id',
                 'warehouse_id',
-                'uom_id',
+                'base_uom_id',
             ],
 
             defaultSort: '-created_at',
@@ -84,7 +84,7 @@ class RawMaterialQueryBuilder {
                 'rm_category' => fn ($q) => $q->withTrashed(),
                 'supplier' => fn ($q) => $q->withTrashed(),
                 'warehouse' => fn ($q) => $q->withTrashed(),
-                'uom' => fn ($q) => $q->withTrashed(),
+                'baseUom' => fn ($q) => $q->withTrashed(),
 
             ],
             

@@ -87,16 +87,17 @@ class GenerateUniqueSKU
 
     protected static function sanitizeToken(string $value): string
     {
-        $value = Str::upper(trim($value));
+        $sanitized = preg_replace('/[^A-Z0-9]+/', '', Str::upper(trim($value))) ?? '';
 
-        // Remove spaces and non-alphanumeric characters to keep SKU safe.
-        $value = preg_replace('/[^A-Z0-9]+/', '', $value) ?? '';
-
-        if ($value === '') {
-            throw new InvalidArgumentException('Resolved token is empty after sanitizing.');
+        if ($sanitized !== '') {
+            return $sanitized;
         }
 
-        return $value;
+        // Fallback for non-Latin scripts (e.g. Khmer, Arabic, CJK) whose characters
+        // are entirely stripped by the A-Z0-9 filter.
+        // Use the first 6 uppercase hex characters of the value's MD5 hash so the
+        // token is stable, compact, and always non-empty.
+        return Str::upper(substr(md5($value), 0, 6));
     }
 
     protected static function applyFormat(string $format, array $replacements): string

@@ -2,50 +2,77 @@
 
 namespace Database\Factories;
 
-use App\Models\UOM;
+use App\Models\UnitOfMeasurement;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class UOMFactory extends Factory
 {
-    protected $model = UOM::class;
+    protected $model = UnitOfMeasurement::class;
 
-    // Fixed list of UOMs
-    public static $uoms = [
-        ['name' => 'Kilogram', 'symbol' => 'kg', 'uom_type' => 'Weight'],
-        ['name' => 'Gram', 'symbol' => 'g', 'uom_type' => 'Weight'],
-        ['name' => 'Liter', 'symbol' => 'L', 'uom_type' => 'Volume'],
-        ['name' => 'Milliliter', 'symbol' => 'mL', 'uom_type' => 'Volume'],
-        ['name' => 'Meter', 'symbol' => 'm', 'uom_type' => 'Length'],
-        ['name' => 'Centimeter', 'symbol' => 'cm', 'uom_type' => 'Length'],
-        ['name' => 'Piece', 'symbol' => 'pc', 'uom_type' => 'Count'],
-        ['name' => 'Pack', 'symbol' => 'pack', 'uom_type' => 'Count'],
-        ['name' => 'Box', 'symbol' => 'box', 'uom_type' => 'Count'],
-        ['name' => 'Dozen', 'symbol' => 'doz', 'uom_type' => 'Count'],
-        ['name' => 'Hour', 'symbol' => 'h', 'uom_type' => 'Time'],
-        ['name' => 'Minute', 'symbol' => 'min', 'uom_type' => 'Time'],
-        ['name' => 'Second', 'symbol' => 's', 'uom_type' => 'Time'],
-        ['name' => 'Inch', 'symbol' => 'in', 'uom_type' => 'Length'],
-        ['name' => 'Foot', 'symbol' => 'ft', 'uom_type' => 'Length'],
-        ['name' => 'Yard', 'symbol' => 'yd', 'uom_type' => 'Length'],
-        ['name' => 'Ton', 'symbol' => 't', 'uom_type' => 'Weight'],
-        ['name' => 'Milligram', 'symbol' => 'mg', 'uom_type' => 'Weight'],
-        ['name' => 'Cubic Meter', 'symbol' => 'm³', 'uom_type' => 'Volume'],
-        ['name' => 'Cubic Centimeter', 'symbol' => 'cm³', 'uom_type' => 'Volume'],
-        ['name' => 'Ounce', 'symbol' => 'oz', 'uom_type' => 'Weight'],
-        ['name' => 'Pound', 'symbol' => 'lb', 'uom_type' => 'Weight'],
-        ['name' => 'Gallon', 'symbol' => 'gal', 'uom_type' => 'Volume'],
-        ['name' => 'Quart', 'symbol' => 'qt', 'uom_type' => 'Volume'],
-        ['name' => 'Pint', 'symbol' => 'pt', 'uom_type' => 'Volume'],
-        ['name' => 'Millimeter', 'symbol' => 'mm', 'uom_type' => 'Length'],
-        ['name' => 'Kilometer', 'symbol' => 'km', 'uom_type' => 'Length'],
-        ['name' => 'Packet', 'symbol' => 'pkt', 'uom_type' => 'Count'],
-        ['name' => 'Set', 'symbol' => 'set', 'uom_type' => 'Count'],
-        ['name' => 'Bundle', 'symbol' => 'bundle', 'uom_type' => 'Count'],
+    /**
+     * UOM definitions grouped by category.
+     *
+     * Each entry:
+     *   category     — maps to uom_categories.name
+     *   name         — unit name (unique per category)
+     *   symbol       — short symbol
+     *   is_base_unit — true for the single base unit of the category
+     *   conversion_factor — how many base units equal 1 of this unit
+     *
+     * Base unit always has conversion_factor = 1 and is_base_unit = true.
+     *
+     * Conversion factors reference:
+     *   Weight  base → Gram
+     *   Volume  base → Milliliter
+     *   Length  base → Millimeter
+     *   Count   base → Piece
+     *   Time    base → Second
+     */
+    public static array $uoms = [
+        // ── Weight ──────────────────────────────────────────────────────────
+        ['category' => 'Weight', 'name' => 'Gram',      'symbol' => 'g',   'is_base_unit' => true,  'conversion_factor' => 1.000000],
+        ['category' => 'Weight', 'name' => 'Milligram', 'symbol' => 'mg',  'is_base_unit' => false, 'conversion_factor' => 0.001000],
+        ['category' => 'Weight', 'name' => 'Kilogram',  'symbol' => 'kg',  'is_base_unit' => false, 'conversion_factor' => 1000.000000],
+        ['category' => 'Weight', 'name' => 'Ton',       'symbol' => 't',   'is_base_unit' => false, 'conversion_factor' => 1000000.000000],
+        ['category' => 'Weight', 'name' => 'Ounce',     'symbol' => 'oz',  'is_base_unit' => false, 'conversion_factor' => 28.349523],
+        ['category' => 'Weight', 'name' => 'Pound',     'symbol' => 'lb',  'is_base_unit' => false, 'conversion_factor' => 453.592370],
+
+        // ── Volume ──────────────────────────────────────────────────────────
+        ['category' => 'Volume', 'name' => 'Milliliter',      'symbol' => 'mL',  'is_base_unit' => true,  'conversion_factor' => 1.000000],
+        ['category' => 'Volume', 'name' => 'Liter',           'symbol' => 'L',   'is_base_unit' => false, 'conversion_factor' => 1000.000000],
+        ['category' => 'Volume', 'name' => 'Cubic Centimeter','symbol' => 'cm³', 'is_base_unit' => false, 'conversion_factor' => 1.000000],
+        ['category' => 'Volume', 'name' => 'Cubic Meter',     'symbol' => 'm³',  'is_base_unit' => false, 'conversion_factor' => 1000000.000000],
+        ['category' => 'Volume', 'name' => 'Gallon',          'symbol' => 'gal', 'is_base_unit' => false, 'conversion_factor' => 3785.411784],
+        ['category' => 'Volume', 'name' => 'Quart',           'symbol' => 'qt',  'is_base_unit' => false, 'conversion_factor' => 946.352946],
+        ['category' => 'Volume', 'name' => 'Pint',            'symbol' => 'pt',  'is_base_unit' => false, 'conversion_factor' => 473.176473],
+
+        // ── Length ──────────────────────────────────────────────────────────
+        ['category' => 'Length', 'name' => 'Millimeter', 'symbol' => 'mm', 'is_base_unit' => true,  'conversion_factor' => 1.000000],
+        ['category' => 'Length', 'name' => 'Centimeter', 'symbol' => 'cm', 'is_base_unit' => false, 'conversion_factor' => 10.000000],
+        ['category' => 'Length', 'name' => 'Meter',      'symbol' => 'm',  'is_base_unit' => false, 'conversion_factor' => 1000.000000],
+        ['category' => 'Length', 'name' => 'Kilometer',  'symbol' => 'km', 'is_base_unit' => false, 'conversion_factor' => 1000000.000000],
+        ['category' => 'Length', 'name' => 'Inch',       'symbol' => 'in', 'is_base_unit' => false, 'conversion_factor' => 25.400000],
+        ['category' => 'Length', 'name' => 'Foot',       'symbol' => 'ft', 'is_base_unit' => false, 'conversion_factor' => 304.800000],
+        ['category' => 'Length', 'name' => 'Yard',       'symbol' => 'yd', 'is_base_unit' => false, 'conversion_factor' => 914.400000],
+
+        // ── Count ───────────────────────────────────────────────────────────
+        ['category' => 'Count', 'name' => 'Piece',  'symbol' => 'pc',     'is_base_unit' => true,  'conversion_factor' => 1.000000],
+        ['category' => 'Count', 'name' => 'Pack',   'symbol' => 'pack',   'is_base_unit' => false, 'conversion_factor' => 10.000000],
+        ['category' => 'Count', 'name' => 'Dozen',  'symbol' => 'doz',    'is_base_unit' => false, 'conversion_factor' => 12.000000],
+        ['category' => 'Count', 'name' => 'Box',    'symbol' => 'box',    'is_base_unit' => false, 'conversion_factor' => 12.000000],
+        ['category' => 'Count', 'name' => 'Packet', 'symbol' => 'pkt',    'is_base_unit' => false, 'conversion_factor' => 10.000000],
+        ['category' => 'Count', 'name' => 'Set',    'symbol' => 'set',    'is_base_unit' => false, 'conversion_factor' => 1.000000],
+        ['category' => 'Count', 'name' => 'Bundle', 'symbol' => 'bundle', 'is_base_unit' => false, 'conversion_factor' => 50.000000],
+
+        // ── Time ────────────────────────────────────────────────────────────
+        ['category' => 'Time', 'name' => 'Second', 'symbol' => 's',   'is_base_unit' => true,  'conversion_factor' => 1.000000],
+        ['category' => 'Time', 'name' => 'Minute', 'symbol' => 'min', 'is_base_unit' => false, 'conversion_factor' => 60.000000],
+        ['category' => 'Time', 'name' => 'Hour',   'symbol' => 'h',   'is_base_unit' => false, 'conversion_factor' => 3600.000000],
     ];
 
-    public function definition()
+    public function definition(): array
     {
-        // We'll return empty array here because actual seeding will use the array directly
+        // Actual seeding is handled by UOMSeeder using the $uoms array directly.
         return [];
     }
 }

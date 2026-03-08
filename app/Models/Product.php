@@ -17,7 +17,9 @@ class Product extends Model
         'barcode',
         'product_description',
         'product_category_id',
-        'uom_id',
+        'base_uom_id',
+        'sale_uom_id',
+        'purchase_uom_id',
         'supplier_id',
         'warehouse_id',
     ];
@@ -28,9 +30,36 @@ class Product extends Model
         return $this->belongsTo(ProductCategory::class, 'product_category_id');
     }
 
-    public function uom()
+    /**
+     * Base (smallest) unit — stock quantities are always stored in this unit.
+     */
+    public function baseUom()
     {
-        return $this->belongsTo(UOM::class, 'uom_id');
+        return $this->belongsTo(UnitOfMeasurement::class, 'base_uom_id');
+    }
+
+    /**
+     * Sale unit — quantities displayed to customers and on sales orders.
+     */
+    public function saleUom()
+    {
+        return $this->belongsTo(UnitOfMeasurement::class, 'sale_uom_id');
+    }
+
+    /**
+     * Purchase unit — unit used on purchase orders (optional, falls back to base).
+     */
+    public function purchaseUom()
+    {
+        return $this->belongsTo(UnitOfMeasurement::class, 'purchase_uom_id');
+    }
+
+    /**
+     * Convenience: returns the effective purchase UOM (falls back to base if null).
+     */
+    public function effectivePurchaseUom()
+    {
+        return $this->purchaseUom ?? $this->baseUom;
     }
 
     public function supplier()
