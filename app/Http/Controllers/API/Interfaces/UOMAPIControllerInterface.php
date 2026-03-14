@@ -93,6 +93,42 @@ use Illuminate\Http\Request;
  *     example={"name":{"The name has already been taken."},"uom_code":{"The uom code field is required."}}
  *   )
  * )
+ *
+ * @OA\Schema(
+ *   schema="UOMConvertRequest",
+ *   type="object",
+ *   required={"quantity", "from_uom_id", "to_uom_id"},
+ *   @OA\Property(property="quantity", type="number", example=100, description="Quantity to convert"),
+ *   @OA\Property(property="from_uom_id", type="integer", example=1, description="Source UOM ID"),
+ *   @OA\Property(property="to_uom_id", type="integer", example=2, description="Target UOM ID")
+ * )
+ *
+ * @OA\Schema(
+ *   schema="UOMConvertResponse",
+ *   type="object",
+ *   @OA\Property(property="status", type="boolean", example=true),
+ *   @OA\Property(property="message", type="string", example="Conversion successful"),
+ *   @OA\Property(
+ *     property="data",
+ *     type="object",
+ *     @OA\Property(property="original_quantity", type="number", example=100),
+ *     @OA\Property(
+ *       property="from_uom",
+ *       type="object",
+ *       @OA\Property(property="id", type="integer", example=1),
+ *       @OA\Property(property="name", type="string", example="Kilogram"),
+ *       @OA\Property(property="symbol", type="string", example="kg")
+ *     ),
+ *     @OA\Property(
+ *       property="to_uom",
+ *       type="object",
+ *       @OA\Property(property="id", type="integer", example=2),
+ *       @OA\Property(property="name", type="string", example="Gram"),
+ *       @OA\Property(property="symbol", type="string", example="g")
+ *     ),
+ *     @OA\Property(property="converted_quantity", type="number", example=100000)
+ *   )
+ * )
  */
 interface UOMAPIControllerInterface
 {
@@ -232,6 +268,99 @@ interface UOMAPIControllerInterface
      */
     public function update(Request $request, $id);
 
+
+    /**
+     * Convert a quantity from one UOM to another.
+     *
+     * @OA\Post(
+     *   path="/api/uoms/convert",
+     *   tags={"UOM"},
+     *   security={{"Bearer":{}}},
+     *   summary="Convert quantity between UOMs",
+     *   description="Convert a quantity from one unit of measurement to another. Both UOMs must be valid and in the same category or directly convertible.",
+     *
+     *   @OA\RequestBody(
+     *     required=true,
+     *     @OA\JsonContent(ref="#/components/schemas/UOMConvertRequest")
+     *   ),
+     *   @OA\Response(
+     *     response=200,
+     *     description="Conversion successful",
+     *     @OA\JsonContent(ref="#/components/schemas/UOMConvertResponse")
+     *   ),
+     *   @OA\Response(response=422, description="Validation error or conversion not possible", @OA\JsonContent(ref="#/components/schemas/ValidationError")),
+     *   @OA\Response(response=401, description="Unauthenticated", @OA\JsonContent(ref="#/components/schemas/ApiError")),
+     *   @OA\Response(response=403, description="Forbidden (ADMIN only)", @OA\JsonContent(ref="#/components/schemas/ApiError")),
+     *   @OA\Response(response=500, description="Server error", @OA\JsonContent(ref="#/components/schemas/ApiError"))
+     * )
+     */
+    public function convert(Request $request);
+
+    /**
+     * Get trashed (soft-deleted) UOMs.
+     *
+     * @OA\Get(
+     *   path="/api/uoms/trashed",
+     *   tags={"UOM"},
+     *   security={{"Bearer":{}}},
+     *   summary="Get trashed UOMs",
+     *   description="Retrieve a paginated list of soft-deleted UOMs. Useful for restore/review workflows.",
+     *
+     *   @OA\Parameter(
+     *     name="per_page",
+     *     in="query",
+     *     required=false,
+     *     description="Items per page (1..100). Default 10.",
+     *     @OA\Schema(type="integer", example=10)
+     *   ),
+     *   @OA\Parameter(
+     *     name="sort",
+     *     in="query",
+     *     required=false,
+     *     description="Sort by fields. Prefix with '-' for desc.",
+     *     @OA\Schema(type="string", example="-deleted_at")
+     *   ),
+     *   @OA\Response(
+     *     response=200,
+     *     description="Paginated list of trashed UOMs",
+     *     @OA\JsonContent(ref="#/components/schemas/UOMPagination")
+     *   ),
+     *   @OA\Response(response=401, description="Unauthenticated", @OA\JsonContent(ref="#/components/schemas/ApiError")),
+     *   @OA\Response(response=403, description="Forbidden (ADMIN only)", @OA\JsonContent(ref="#/components/schemas/ApiError")),
+     *   @OA\Response(response=500, description="Server error", @OA\JsonContent(ref="#/components/schemas/ApiError"))
+     * )
+     */
+    public function trashed(Request $request);
+
+    /**
+     * Restore a soft-deleted UOM.
+     *
+     * @OA\Patch(
+     *   path="/api/uoms/{id}/restore",
+     *   tags={"UOM"},
+     *   security={{"Bearer":{}}},
+     *   summary="Restore soft-deleted UOM",
+     *   description="Restore a soft-deleted UOM back to active state.",
+     *
+     *   @OA\Parameter(
+     *     name="id",
+     *     in="path",
+     *     required=true,
+     *     description="UOM id",
+     *     @OA\Schema(type="integer", example=1)
+     *   ),
+     *   @OA\Response(
+     *     response=200,
+     *     description="UOM restored",
+     *     @OA\JsonContent(ref="#/components/schemas/UOM")
+     *   ),
+     *   @OA\Response(response=404, description="UOM not found or not deleted", @OA\JsonContent(ref="#/components/schemas/ApiError")),
+     *   @OA\Response(response=401, description="Unauthenticated", @OA\JsonContent(ref="#/components/schemas/ApiError")),
+     *   @OA\Response(response=403, description="Forbidden (ADMIN only)", @OA\JsonContent(ref="#/components/schemas/ApiError")),
+     *   @OA\Response(response=500, description="Server error", @OA\JsonContent(ref="#/components/schemas/ApiError"))
+     * )
+     */
+    public function restore($id);
 
     /**
      * Delete a UOM by id.

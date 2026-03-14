@@ -3,11 +3,12 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\API\Interfaces\RawMaterialAPIControllerInterface;
 use App\Service\RMImageService;
 use App\Service\RawMaterialService;
 use Illuminate\Http\Request;
 
-class RawMaterialAPIController extends Controller
+class RawMaterialAPIController extends Controller implements RawMaterialAPIControllerInterface
 {
     
     protected $rawMaterialService;
@@ -79,3 +80,4 @@ class RawMaterialAPIController extends Controller
     }
 
 }
+ 

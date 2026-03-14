@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\API\Interfaces;
 
+use Illuminate\Http\Request;
+
 /**
  * @OA\Tag(
  *     name="Raw Materials",
@@ -77,7 +79,7 @@ interface RawMaterialAPIControllerInterface
      *     )
      * )
      */
-    public function index();
+    public function index(Request $request);
 
     /**
      * @OA\Get(
@@ -124,7 +126,7 @@ interface RawMaterialAPIControllerInterface
      *     )
      * )
      */
-    public function show();
+    public function show(int $id);
 
     /**
      * @OA\Get(
@@ -169,7 +171,7 @@ interface RawMaterialAPIControllerInterface
      *     )
      * )
      */
-    public function allDeleted();
+    public function allDeleted(Request $request);
 
     /**
      * @OA\Post(
@@ -248,7 +250,7 @@ interface RawMaterialAPIControllerInterface
      *     )
      * )
      */
-    public function store();
+    public function store(Request $request);
 
     /**
      * @OA\Patch(
@@ -313,7 +315,7 @@ interface RawMaterialAPIControllerInterface
      *     )
      * )
      */
-    public function update();
+    public function update(Request $request, int $id);
 
     /**
      * @OA\Delete(
@@ -351,7 +353,7 @@ interface RawMaterialAPIControllerInterface
      *     )
      * )
      */
-    public function delete();
+    public function delete(int $id);
 
     /**
      * @OA\Patch(
@@ -389,7 +391,7 @@ interface RawMaterialAPIControllerInterface
      *     )
      * )
      */
-    public function recover();
+    public function recover(int $id);
 
 
 
@@ -450,7 +452,7 @@ interface RawMaterialAPIControllerInterface
      *     )
      * )
      */
-    public function deleteImages();
+    public function deleteImages(Request $request, int $rawMaterialId);
 
 
 
@@ -501,7 +503,7 @@ interface RawMaterialAPIControllerInterface
      *     )
      * )
      */
-    public function reorder();
+    public function reorder(Request $request, int $rawMaterialId);
 
 
 
@@ -573,7 +575,7 @@ interface RawMaterialAPIControllerInterface
      *     )
      * )
      */
-    public function updateReorder();
+    public function updateReorder(Request $request, int $rawMaterialId, int $movementId);
 
 
 
@@ -644,5 +646,5 @@ interface RawMaterialAPIControllerInterface
      *     )
      * )
      */
-    public function adjustmentOut();
+    public function adjustmentOut(Request $request, int $rawMaterialId);
 }

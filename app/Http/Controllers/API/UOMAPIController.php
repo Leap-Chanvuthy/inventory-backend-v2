@@ -3,9 +3,10 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\API\Interfaces\UOMAPIControllerInterface;
 use Illuminate\Http\Request;
 
-class UOMAPIController extends Controller
+class UOMAPIController extends Controller implements UOMAPIControllerInterface
 {
     protected $UOMService;
 
