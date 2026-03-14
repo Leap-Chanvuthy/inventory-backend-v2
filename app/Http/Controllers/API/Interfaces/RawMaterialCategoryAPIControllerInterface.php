@@ -16,7 +16,7 @@ interface RawMaterialCategoryAPIControllerInterface
      *     tags={"Raw Material Categories"},
      *     security={{"Bearer":{}}},
      *     summary="Get all raw material categories",
-     *     description="Retrieve a paginated list of raw material categories.",
+    *     description="Retrieve a paginated list of raw material categories with optional soft-delete filter and linked raw material count.",
      *
      *     @OA\Parameter(
      *         name="per_page",
@@ -29,10 +29,17 @@ interface RawMaterialCategoryAPIControllerInterface
      *     @OA\Parameter(
      *         name="filter[search]",
      *         in="query",
-     *         description="Search raw material categories by category name and description",
+    *         description="Search raw material categories by category name",
      *         required=false,
      *         @OA\Schema(type="string")
      *     ),
+    *     @OA\Parameter(
+    *         name="filter[is_deleted]",
+    *         in="query",
+    *         description="Filter by soft-delete state. true/1 returns deleted categories, false/0 returns active categories.",
+    *         required=false,
+    *         @OA\Schema(type="boolean", example=false)
+    *     ),
      *     @OA\Parameter(
      *         name="sort",
      *         in="query",
@@ -47,7 +54,36 @@ interface RawMaterialCategoryAPIControllerInterface
      *         @OA\JsonContent(
      *             @OA\Property(property="status", type="boolean", example=true),
      *             @OA\Property(property="message", type="string", example="Raw material categories retrieved successfully"),
-     *             @OA\Property(property="data", type="object")
+    *             @OA\Property(
+    *                 property="data",
+    *                 type="object",
+    *                 @OA\Property(property="current_page", type="integer", example=1),
+    *                 @OA\Property(
+    *                     property="data",
+    *                     type="array",
+    *                     @OA\Items(
+    *                         type="object",
+    *                         @OA\Property(property="id", type="integer", example=1),
+    *                         @OA\Property(property="category_name", type="string", example="Metals"),
+    *                         @OA\Property(property="label_color", type="string", example="#4d0507"),
+    *                         @OA\Property(property="description", type="string", example="Raw materials category"),
+    *                         @OA\Property(property="raw_materials_count", type="integer", example=14, description="Total raw materials linked to this category"),
+    *                         @OA\Property(property="deleted_at", type="string", nullable=true, format="date-time", example=null),
+    *                         @OA\Property(property="created_at", type="string", format="date-time", example="2026-03-08T08:09:21.000000Z"),
+    *                         @OA\Property(property="updated_at", type="string", format="date-time", example="2026-03-08T08:09:21.000000Z")
+    *                     )
+    *                 ),
+    *                 @OA\Property(property="first_page_url", type="string", example="http://127.0.0.1:8000/api/raw-material-categories?page=1"),
+    *                 @OA\Property(property="from", type="integer", example=1),
+    *                 @OA\Property(property="last_page", type="integer", example=2),
+    *                 @OA\Property(property="last_page_url", type="string", example="http://127.0.0.1:8000/api/raw-material-categories?page=2"),
+    *                 @OA\Property(property="next_page_url", type="string", nullable=true, example="http://127.0.0.1:8000/api/raw-material-categories?page=2"),
+    *                 @OA\Property(property="path", type="string", example="http://127.0.0.1:8000/api/raw-material-categories"),
+    *                 @OA\Property(property="per_page", type="integer", example=10),
+    *                 @OA\Property(property="prev_page_url", type="string", nullable=true, example=null),
+    *                 @OA\Property(property="to", type="integer", example=10),
+    *                 @OA\Property(property="total", type="integer", example=20)
+    *             )
      *         )
      *     ),
      *
@@ -87,6 +123,7 @@ interface RawMaterialCategoryAPIControllerInterface
      *                 @OA\Property(property="category_name", type="string", example="Metal"),
      *                 @OA\Property(property="label_color", type="string", example="#FF0000"),
      *                 @OA\Property(property="description", type="string", example="Raw materials for metal production"),
+    *                 @OA\Property(property="deleted_at", type="string", nullable=true, format="date-time", example=null),
      *                 @OA\Property(property="created_at", type="string", example="2025-01-01 09:00:00"),
      *                 @OA\Property(property="updated_at", type="string", example="2025-01-05 10:00:00")
      *             )
@@ -246,4 +283,57 @@ interface RawMaterialCategoryAPIControllerInterface
      * )
      */
     public function delete($id);
+
+    /**
+     * @OA\Patch(
+     *     path="/api/raw-material-categories/{id}/restore",
+     *     tags={"Raw Material Categories"},
+     *     security={{"Bearer":{}}},
+     *     summary="Restore a soft-deleted raw material category",
+     *     description="Restore a raw material category that was previously soft-deleted.",
+     *
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="Category ID",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Category restored successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Raw material category restored successfully"),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="id", type="integer", example=1),
+     *                 @OA\Property(property="category_name", type="string", example="Metals"),
+     *                 @OA\Property(property="label_color", type="string", example="#4d0507"),
+     *                 @OA\Property(property="description", type="string", example="Raw materials category"),
+     *                 @OA\Property(property="deleted_at", type="string", nullable=true, format="date-time", example=null),
+     *                 @OA\Property(property="created_at", type="string", format="date-time", example="2026-03-08T08:09:21.000000Z"),
+     *                 @OA\Property(property="updated_at", type="string", format="date-time", example="2026-03-08T08:09:21.000000Z")
+     *             )
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=400,
+     *         description="Category is already active"
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=404,
+     *         description="Category not found"
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=500,
+     *         description="Failed restoring category"
+     *     )
+     * )
+     */
+
+    public function restore($id);
 }

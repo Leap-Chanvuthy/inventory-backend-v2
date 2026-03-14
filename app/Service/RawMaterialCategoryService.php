@@ -22,12 +22,21 @@ class RawMaterialCategoryService {
                 'raw_material_categories.category_name',
                 'raw_material_categories.label_color',
                 'raw_material_categories.description',
+                'raw_material_categories.deleted_at',
                 'raw_material_categories.created_at',
                 'raw_material_categories.updated_at',
             ],
             allowedFilters: [
                 AllowedFilter::exact('id'),
                 AllowedFilter::exact('label_color'),
+                AllowedFilter::callback('is_deleted', function (Builder $query, $value) {
+                    $isDeleted = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                    if ($isDeleted === true || (string) $value === '1') {
+                        $query->onlyTrashed();
+                        return;
+                    }
+                    $query->whereNull('raw_material_categories.deleted_at');
+                }),
 
                 AllowedFilter::callback('search', function (Builder $query, $value) {
                     $query->where(function ($q) use ($value) {
@@ -40,6 +49,9 @@ class RawMaterialCategoryService {
                 'updated_at',
                 'category_name',
             ],
+            withCounts: [
+                'raw_materials',
+            ],
         );
     }
 
@@ -47,7 +59,9 @@ class RawMaterialCategoryService {
     public function getAllRawMaterialCategories(Request $request){
         try {
             $perPage = $request->input('per_page', 10);
-            $categories = $this->rawMaterialBuilder()->paginate($perPage);
+            $categories = $this->rawMaterialBuilder()
+                ->withTrashed()
+                ->paginate($perPage);
             return ResponseHelper::success($categories, 'Raw material categories retrieved successfully', 200);
         }catch (Exception $e){
             return ResponseHelper::error('Failed to fetch raw material categories: ' . $e->getMessage(), 500);
@@ -121,6 +135,22 @@ class RawMaterialCategoryService {
             return ResponseHelper::success(null, 'Raw material category deleted successfully', 200);
         } catch (Exception $e) {
             return ResponseHelper::error('Failed to delete raw material category: ' . $e->getMessage(), 500);
+        }
+    }
+
+    public function restoreRawMaterialCategory($id){
+        try {
+            $category = RawMaterialCategory::withTrashed()->findOrFail($id);
+
+            if (!$category->trashed()) {
+                return ResponseHelper::error('Raw material category is already active', 400);
+            }
+
+            $category->restore();
+
+            return ResponseHelper::success($category, 'Raw material category restored successfully', 200);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Failed to restore raw material category: ' . $e->getMessage(), 500);
         }
     }
 

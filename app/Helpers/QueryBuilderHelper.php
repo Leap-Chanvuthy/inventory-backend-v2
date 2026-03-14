@@ -38,18 +38,19 @@ class QueryBuilderHelper
             $builder->leftJoin($table, $left, $operator, $right);
         }
 
+        $builder->select($selects);
+
         // Load relationships
         if (!empty($withRelations)) {
             $builder->with($withRelations);
         }
 
-        // Load relationship counts
+        // Load relationship counts after select so count columns are preserved
         if (!empty($withCounts)) {
             $builder->withCount($withCounts);
         }
 
         return $builder
-            ->select($selects)
             ->allowedFilters($allowedFilters)
             ->allowedSorts($allowedSorts)
             ->defaultSort($defaultSort);

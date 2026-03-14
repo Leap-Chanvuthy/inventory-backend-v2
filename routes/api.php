@@ -141,6 +141,7 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
         Route::post('/', [RawMaterialCategoryAPIController::class, 'store']);
         Route::patch('/{id}', [RawMaterialCategoryAPIController::class, 'update']);
         Route::delete('/{id}', [RawMaterialCategoryAPIController::class, 'delete'] );
+        Route::patch('/{id}/restore', [RawMaterialCategoryAPIController::class, 'restore']);
     });
 
 
