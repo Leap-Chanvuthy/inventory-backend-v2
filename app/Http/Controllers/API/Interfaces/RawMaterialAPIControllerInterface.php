@@ -39,9 +39,9 @@ interface RawMaterialAPIControllerInterface
      *         @OA\Schema(type="integer")
      *     ),
      *     @OA\Parameter(
-     *         name="filter[uom_id]",
+     *         name="filter[base_uom_id]",
      *         in="query",
-     *         description="Filter by UOM ID",
+     *         description="Filter by base UOM ID (base_uom_id)",
      *         @OA\Schema(type="integer")
      *     ),
      *     @OA\Parameter(
@@ -86,8 +86,8 @@ interface RawMaterialAPIControllerInterface
      *     path="/api/raw-materials/{id}",
      *     tags={"Raw Materials"},
      *     security={{"Bearer":{}}},
-     *     summary="Get a raw material by ID",
-     *     description="Retrieve a single raw material with relations: category, supplier, warehouse, uom, stock movements, images.",
+    *     summary="Get a raw material by ID",
+    *     description="Retrieve a single raw material with relations: category, supplier, warehouse, base UOM (base_uom_id), stock movements, images.",
      *
      *     @OA\Parameter(
      *         name="id",
@@ -186,7 +186,7 @@ interface RawMaterialAPIControllerInterface
      *         @OA\MediaType(
      *             mediaType="multipart/form-data",
      *             @OA\Schema(
-    *                 required={"material_name","minimum_stock_level","expiry_date","raw_material_category_id","uom_id","warehouse_id","quantity","unit_price_in_usd","exchange_rate_from_usd_to_riel"},
+    *                 required={"material_name","minimum_stock_level","expiry_date","raw_material_category_id","base_uom_id","warehouse_id","quantity","unit_price_in_usd","exchange_rate_from_usd_to_riel"},
      *
      *                 @OA\Property(property="material_name", type="string", example="Steel Sheet"),
      *                 @OA\Property(property="minimum_stock_level", type="number", example=10),
@@ -194,7 +194,7 @@ interface RawMaterialAPIControllerInterface
      *                 @OA\Property(property="description", type="string", nullable=true, example="Some note"),
      *
      *                 @OA\Property(property="raw_material_category_id", type="integer", example=1),
-     *                 @OA\Property(property="uom_id", type="integer", example=1),
+    *                 @OA\Property(property="base_uom_id", type="integer", example=1, description="Base unit id used for storing stock (base_uom_id)"),
     *                 @OA\Property(property="supplier_id", type="integer", nullable=true, example=1, description="Optional; stored on raw_materials"),
      *                 @OA\Property(property="warehouse_id", type="integer", example=1),
      *
@@ -268,10 +268,10 @@ interface RawMaterialAPIControllerInterface
      *         @OA\Schema(type="integer", example=1)
      *     ),
      *
-     *     @OA\RequestBody(
-     *         required=true,
-     *         @OA\JsonContent(
-     *             required={"material_name","minimum_stock_level","expiry_date","raw_material_category_id","uom_id","warehouse_id","quantity","unit_price_in_usd","exchange_rate_from_usd_to_riel"},
+    *     @OA\RequestBody(
+    *         required=true,
+    *         @OA\JsonContent(
+    *             required={"material_name","minimum_stock_level","expiry_date","raw_material_category_id","base_uom_id","warehouse_id","quantity","unit_price_in_usd","exchange_rate_from_usd_to_riel"},
      *
      *             @OA\Property(property="material_name", type="string", example="Steel Sheet"),
      *             @OA\Property(property="barcode", type="string", nullable=true, example="123456789"),
@@ -279,8 +279,8 @@ interface RawMaterialAPIControllerInterface
      *             @OA\Property(property="expiry_date", type="string", format="date", example="2026-12-01"),
      *             @OA\Property(property="description", type="string", nullable=true, example="Some note"),
      *
-     *             @OA\Property(property="raw_material_category_id", type="integer", example=1),
-     *             @OA\Property(property="uom_id", type="integer", example=1),
+    *             @OA\Property(property="raw_material_category_id", type="integer", example=1),
+    *             @OA\Property(property="base_uom_id", type="integer", example=1, description="Base unit id used for storing stock (base_uom_id)"),
      *             @OA\Property(property="supplier_id", type="integer", nullable=true, example=1),
      *             @OA\Property(property="warehouse_id", type="integer", example=1),
      *

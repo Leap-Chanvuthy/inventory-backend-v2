@@ -291,8 +291,6 @@ class ProductService
             'product_description' => $validated['product_description'] ?? null,
             'product_category_id' => $validated['product_category_id'],
             'base_uom_id'         => $validated['base_uom_id'],
-            'sale_uom_id'         => $validated['sale_uom_id'],
-            'purchase_uom_id'     => $validated['purchase_uom_id']    ?? null,
             'supplier_id'         => $validated['supplier_id'],
             'warehouse_id'        => $validated['warehouse_id'],
         ]);

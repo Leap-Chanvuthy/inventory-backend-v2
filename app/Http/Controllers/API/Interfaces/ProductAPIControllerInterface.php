@@ -22,7 +22,7 @@ interface ProductAPIControllerInterface
      *     @OA\Parameter(name="filter[product_category_id]", in="query", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="filter[supplier_id]", in="query", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="filter[warehouse_id]",in="query", @OA\Schema(type="integer")),
-     *     @OA\Parameter(name="filter[uom_id]",      in="query", @OA\Schema(type="integer")),
+    *     @OA\Parameter(name="filter[base_uom_id]",      in="query", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="sort",                in="query", @OA\Schema(type="string", example="-created_at")),
      *
      *     @OA\Response(response=200, description="Products retrieved successfully", @OA\JsonContent(type="object")),
@@ -45,14 +45,14 @@ interface ProductAPIControllerInterface
      *             mediaType="multipart/form-data",
      *             @OA\Schema(
      *                 required={"product_name","product_category_id","uom_id","supplier_id","warehouse_id",
-     *                           "quantity","purchase_unit_price_in_usd","exchange_rate_from_usd_to_riel",
-     *                           "selling_unit_price_in_usd","selling_exchange_rate_from_usd_to_riel"},
+    *                           "quantity","purchase_unit_price_in_usd","exchange_rate_from_usd_to_riel",
+    *                           "selling_unit_price_in_usd","selling_exchange_rate_from_usd_to_riel","base_uom_id"},
      *
      *                 @OA\Property(property="product_name",           type="string",  example="Widget A"),
      *                 @OA\Property(property="barcode",                type="string",  example="1234567890"),
      *                 @OA\Property(property="product_description",    type="string"),
      *                 @OA\Property(property="product_category_id",    type="integer", example=1),
-     *                 @OA\Property(property="uom_id",                 type="integer", example=1),
+    *                 @OA\Property(property="base_uom_id",                 type="integer", example=1, description="Base unit id used for storing stock (base_uom_id)"),
      *                 @OA\Property(property="supplier_id",            type="integer", example=1),
      *                 @OA\Property(property="warehouse_id",           type="integer", example=1),
      *
@@ -98,7 +98,7 @@ interface ProductAPIControllerInterface
      *                 @OA\Property(property="barcode",                type="string"),
      *                 @OA\Property(property="product_description",    type="string"),
      *                 @OA\Property(property="product_category_id",    type="integer", example=2),
-     *                 @OA\Property(property="uom_id",                 type="integer", example=1),
+    *                 @OA\Property(property="base_uom_id",                 type="integer", example=1, description="Base unit id used for storing stock (base_uom_id)"),
      *                 @OA\Property(property="supplier_id",            type="integer", example=1),
      *                 @OA\Property(property="warehouse_id",           type="integer", example=1),
      *

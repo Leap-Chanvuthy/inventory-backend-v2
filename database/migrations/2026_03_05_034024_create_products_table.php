@@ -40,22 +40,6 @@ return new class extends Migration
                 ->constrained('unit_of_measurements')
                 ->restrictOnDelete()
                 ->cascadeOnUpdate();
-
-            $table->foreignId('sale_uom_id')
-                ->comment('Unit displayed to customers and used on sales orders.')
-                ->constrained('unit_of_measurements')
-                ->restrictOnDelete()
-                ->cascadeOnUpdate();
-
-            $table->unsignedBigInteger('purchase_uom_id')
-                ->nullable()
-                ->comment('Unit used on purchase orders. Falls back to base_uom if null.');
-
-            $table->foreign('purchase_uom_id', 'fk_products_purchase_uom_id')
-                ->references('id')
-                ->on('unit_of_measurements')
-                ->nullOnDelete()
-                ->cascadeOnUpdate();
             
             // timestamps
             $table->timestamps();
@@ -68,6 +52,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('products');
     }
 };

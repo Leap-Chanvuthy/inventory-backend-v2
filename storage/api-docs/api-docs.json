@@ -2118,7 +2118,7 @@
                         }
                     },
                     {
-                        "name": "filter[uom_id]",
+                        "name": "filter[base_uom_id]",
                         "in": "query",
                         "schema": {
                             "type": "integer"
@@ -2185,7 +2185,8 @@
                                     "purchase_unit_price_in_usd",
                                     "exchange_rate_from_usd_to_riel",
                                     "selling_unit_price_in_usd",
-                                    "selling_exchange_rate_from_usd_to_riel"
+                                    "selling_exchange_rate_from_usd_to_riel",
+                                    "base_uom_id"
                                 ],
                                 "properties": {
                                     "product_name": {
@@ -2203,7 +2204,8 @@
                                         "type": "integer",
                                         "example": 1
                                     },
-                                    "uom_id": {
+                                    "base_uom_id": {
+                                        "description": "Base unit id used for storing stock (base_uom_id)",
                                         "type": "integer",
                                         "example": 1
                                     },
@@ -2334,7 +2336,8 @@
                                         "type": "integer",
                                         "example": 2
                                     },
-                                    "uom_id": {
+                                    "base_uom_id": {
+                                        "description": "Base unit id used for storing stock (base_uom_id)",
                                         "type": "integer",
                                         "example": 1
                                     },
@@ -2846,9 +2849,9 @@
                         }
                     },
                     {
-                        "name": "filter[uom_id]",
+                        "name": "filter[base_uom_id]",
                         "in": "query",
-                        "description": "Filter by UOM ID",
+                        "description": "Filter by base UOM ID (base_uom_id)",
                         "schema": {
                             "type": "integer"
                         }
@@ -2928,7 +2931,7 @@
                     "Raw Materials"
                 ],
                 "summary": "Get a raw material by ID",
-                "description": "Retrieve a single raw material with relations: category, supplier, warehouse, uom, stock movements, images.",
+                "description": "Retrieve a single raw material with relations: category, supplier, warehouse, base UOM (base_uom_id), stock movements, images.",
                 "operationId": "27b008891eab84c39976d67fdd612b7c",
                 "parameters": [
                     {
@@ -3124,7 +3127,7 @@
                                     "minimum_stock_level",
                                     "expiry_date",
                                     "raw_material_category_id",
-                                    "uom_id",
+                                    "base_uom_id",
                                     "warehouse_id",
                                     "quantity",
                                     "unit_price_in_usd",
@@ -3158,7 +3161,8 @@
                                         "type": "integer",
                                         "example": 1
                                     },
-                                    "uom_id": {
+                                    "base_uom_id": {
+                                        "description": "Base unit id used for storing stock (base_uom_id)",
                                         "type": "integer",
                                         "example": 1
                                     },
@@ -3341,7 +3345,7 @@
                                     "minimum_stock_level",
                                     "expiry_date",
                                     "raw_material_category_id",
-                                    "uom_id",
+                                    "base_uom_id",
                                     "warehouse_id",
                                     "quantity",
                                     "unit_price_in_usd",
@@ -3370,7 +3374,8 @@
                                         "type": "integer",
                                         "example": 1
                                     },
-                                    "uom_id": {
+                                    "base_uom_id": {
+                                        "description": "Base unit id used for storing stock (base_uom_id)",
                                         "type": "integer",
                                         "example": 1
                                     },
@@ -4076,7 +4081,7 @@
                     "Raw Material Categories"
                 ],
                 "summary": "Get all raw material categories",
-                "description": "Retrieve a paginated list of raw material categories.",
+                "description": "Retrieve a paginated list of raw material categories with optional soft-delete filter and linked raw material count.",
                 "operationId": "9046a12f53ed67c80e1e9c0b697d3377",
                 "parameters": [
                     {
@@ -4092,10 +4097,20 @@
                     {
                         "name": "filter[search]",
                         "in": "query",
-                        "description": "Search raw material categories by category name and description",
+                        "description": "Search raw material categories by category name",
                         "required": false,
                         "schema": {
                             "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[is_deleted]",
+                        "in": "query",
+                        "description": "Filter by soft-delete state. true/1 returns deleted categories, false/0 returns active categories.",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean",
+                            "example": false
                         }
                     },
                     {
@@ -4125,6 +4140,99 @@
                                             "example": "Raw material categories retrieved successfully"
                                         },
                                         "data": {
+                                            "properties": {
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "category_name": {
+                                                                "type": "string",
+                                                                "example": "Metals"
+                                                            },
+                                                            "label_color": {
+                                                                "type": "string",
+                                                                "example": "#4d0507"
+                                                            },
+                                                            "description": {
+                                                                "type": "string",
+                                                                "example": "Raw materials category"
+                                                            },
+                                                            "raw_materials_count": {
+                                                                "description": "Total raw materials linked to this category",
+                                                                "type": "integer",
+                                                                "example": 14
+                                                            },
+                                                            "deleted_at": {
+                                                                "type": "string",
+                                                                "format": "date-time",
+                                                                "example": null,
+                                                                "nullable": true
+                                                            },
+                                                            "created_at": {
+                                                                "type": "string",
+                                                                "format": "date-time",
+                                                                "example": "2026-03-08T08:09:21.000000Z"
+                                                            },
+                                                            "updated_at": {
+                                                                "type": "string",
+                                                                "format": "date-time",
+                                                                "example": "2026-03-08T08:09:21.000000Z"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "first_page_url": {
+                                                    "type": "string",
+                                                    "example": "http://127.0.0.1:8000/api/raw-material-categories?page=1"
+                                                },
+                                                "from": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "last_page": {
+                                                    "type": "integer",
+                                                    "example": 2
+                                                },
+                                                "last_page_url": {
+                                                    "type": "string",
+                                                    "example": "http://127.0.0.1:8000/api/raw-material-categories?page=2"
+                                                },
+                                                "next_page_url": {
+                                                    "type": "string",
+                                                    "example": "http://127.0.0.1:8000/api/raw-material-categories?page=2",
+                                                    "nullable": true
+                                                },
+                                                "path": {
+                                                    "type": "string",
+                                                    "example": "http://127.0.0.1:8000/api/raw-material-categories"
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "prev_page_url": {
+                                                    "type": "string",
+                                                    "example": null,
+                                                    "nullable": true
+                                                },
+                                                "to": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 20
+                                                }
+                                            },
                                             "type": "object"
                                         }
                                     },
@@ -4267,6 +4375,12 @@
                                                 "description": {
                                                     "type": "string",
                                                     "example": "Raw materials for metal production"
+                                                },
+                                                "deleted_at": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": null,
+                                                    "nullable": true
                                                 },
                                                 "created_at": {
                                                     "type": "string",
@@ -4426,6 +4540,101 @@
                     },
                     "500": {
                         "description": "Failed updating category"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/raw-material-categories/{id}/restore": {
+            "patch": {
+                "tags": [
+                    "Raw Material Categories"
+                ],
+                "summary": "Restore a soft-deleted raw material category",
+                "description": "Restore a raw material category that was previously soft-deleted.",
+                "operationId": "2d0acb2534bea4cc6255e13d6823edb7",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Category ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Category restored successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Raw material category restored successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "category_name": {
+                                                    "type": "string",
+                                                    "example": "Metals"
+                                                },
+                                                "label_color": {
+                                                    "type": "string",
+                                                    "example": "#4d0507"
+                                                },
+                                                "description": {
+                                                    "type": "string",
+                                                    "example": "Raw materials category"
+                                                },
+                                                "deleted_at": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": null,
+                                                    "nullable": true
+                                                },
+                                                "created_at": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2026-03-08T08:09:21.000000Z"
+                                                },
+                                                "updated_at": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2026-03-08T08:09:21.000000Z"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Category is already active"
+                    },
+                    "404": {
+                        "description": "Category not found"
+                    },
+                    "500": {
+                        "description": "Failed restoring category"
                     }
                 },
                 "security": [

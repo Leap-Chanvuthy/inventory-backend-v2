@@ -18,8 +18,6 @@ class Product extends Model
         'product_description',
         'product_category_id',
         'base_uom_id',
-        'sale_uom_id',
-        'purchase_uom_id',
         'supplier_id',
         'warehouse_id',
     ];
@@ -39,11 +37,20 @@ class Product extends Model
     }
 
     /**
+     * Alias for baseUom() — used by eager-load calls that reference 'uom'.
+     */
+    public function uom()
+    {
+        return $this->belongsTo(UnitOfMeasurement::class, 'base_uom_id');
+    }
+
+    /**
      * Sale unit — quantities displayed to customers and on sales orders.
      */
     public function saleUom()
     {
-        return $this->belongsTo(UnitOfMeasurement::class, 'sale_uom_id');
+        // Sale unit no longer stored separately; return base unit for compatibility
+        return $this->belongsTo(UnitOfMeasurement::class, 'base_uom_id');
     }
 
     /**
@@ -51,7 +58,8 @@ class Product extends Model
      */
     public function purchaseUom()
     {
-        return $this->belongsTo(UnitOfMeasurement::class, 'purchase_uom_id');
+        // Purchase unit no longer stored separately; return base unit for compatibility
+        return $this->belongsTo(UnitOfMeasurement::class, 'base_uom_id');
     }
 
     /**
@@ -59,7 +67,8 @@ class Product extends Model
      */
     public function effectivePurchaseUom()
     {
-        return $this->purchaseUom ?? $this->baseUom;
+        // Purchase and sale UOMs are unified to base UOM; return base
+        return $this->baseUom;
     }
 
     public function supplier()
