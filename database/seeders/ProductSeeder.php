@@ -104,14 +104,14 @@ class ProductSeeder extends Seeder
     // Create Product record
     // Mirrors ProductService::createProductRecord():
     //   - Auto-generate SKU using format PRD-{CATEGORY}-{RANDOM}
-    //   - Requires: product_category_id, base_uom_id, sale_uom_id, supplier_id, warehouse_id
+    //   - Requires: product_category_id, base_uom_id, supplier_id, warehouse_id
     // ─────────────────────────────────────────────────────────────────────────
 
     private function createProductRecord(\Faker\Generator $faker, string $type): Product
     {
         // Resolve FK IDs straight from the DB (same tables validated by exists: rules)
         $categoryId  = \App\Models\ProductCategory::inRandomOrder()->first()->id;
-        // Pick a base unit; use the same UOM for sale_uom. purchase_uom left null.
+        // Pick a base unit.
         $baseUom     = \App\Models\UOM::where('is_base_unit', true)->inRandomOrder()->first()
                        ?? \App\Models\UOM::inRandomOrder()->first();
         $supplierId  = \App\Models\Supplier::inRandomOrder()->first()->id;
@@ -141,7 +141,6 @@ class ProductSeeder extends Seeder
             'product_description' => $faker->optional(0.5)->sentence(),
             'product_category_id' => $categoryId,
             'base_uom_id'         => $baseUom->id,
-            'sale_uom_id'         => $baseUom->id,
             'supplier_id'         => $supplierId,
             'warehouse_id'        => $warehouseId,
         ]);
