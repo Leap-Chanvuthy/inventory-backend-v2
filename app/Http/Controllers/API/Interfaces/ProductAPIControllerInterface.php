@@ -5,7 +5,7 @@ namespace App\Http\Controllers\API\Interfaces;
 /**
  * @OA\Tag(
  *     name="Products",
- *     description="API Endpoints for managing products (external purchase & internal manufacturing flows)"
+ *     description="API Endpoints for managing products (external purchase & internal manufacturing flows). Note: `product_type` is stored on the product record and is enforced by the server; movement records do not accept `product_type`."
  * )
  */
 interface ProductAPIControllerInterface
@@ -37,7 +37,7 @@ interface ProductAPIControllerInterface
      *     tags={"Products"},
      *     security={{"Bearer":{}}},
      *     summary="Create an externally purchased product with initial stock movement",
-     *     description="Creates a product and an initial EXTERNAL_PURCHASED / IN / COMPLETED movement. product_status is automatically set to COMPLETED and cannot be changed. Supply purchase_unit_price_in_usd + exchange_rate_from_usd_to_riel; totals are derived automatically. Supply selling_unit_price_in_usd + selling_exchange_rate_from_usd_to_riel for selling price. Submitting raw_materials is NOT allowed and will be rejected with a validation error.",
+        *     description="Creates a product and an initial EXTERNAL_PURCHASED / IN / COMPLETED movement. The server enforces `product_type` = EXTERNAL_PURCHASED; do NOT supply `product_type` in the request. `product_status` is automatically set to COMPLETED and cannot be changed. Supply `purchase_unit_price_in_usd` + `exchange_rate_from_usd_to_riel` (totals are derived); supply `selling_unit_price_in_usd` + `selling_exchange_rate_from_usd_to_riel` for selling price. Submitting `raw_materials` is NOT allowed and will be rejected with a validation error.",
      *
      *     @OA\RequestBody(
      *         required=true,
@@ -83,16 +83,16 @@ interface ProductAPIControllerInterface
      *     tags={"Products"},
      *     security={{"Bearer":{}}},
      *     summary="Create an internally manufactured product with initial stock movement",
-     *     description="Creates a product and an initial INTERNAL_MANUFACTURED / IN movement. Purchase price is automatically set to 0 (produced internally). Supply raw_materials[] BOM to record which raw materials are consumed. Raw material stock is validated (FIFO/LIFO) and deducted automatically via PRODUCTION_RECEIPT OUT movements. Supply selling_unit_price_in_usd + selling_exchange_rate_from_usd_to_riel for selling price.",
+        *     description="Creates a product and an initial INTERNAL_PRODUCED / IN movement. The server enforces `product_type` = INTERNAL_PRODUCED and will ignore any supplied `supplier_id`. Purchase price is automatically set to 0 (produced internally). Supply `raw_materials[]` BOM to record which raw materials are consumed. Raw material stock is validated (FIFO/LIFO) and deducted automatically via PRODUCTION_RECEIPT OUT movements. Supply `selling_unit_price_in_usd` + `selling_exchange_rate_from_usd_to_riel` for selling price.",
      *
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\MediaType(
      *             mediaType="multipart/form-data",
-     *             @OA\Schema(
-     *                 required={"product_name","product_category_id","uom_id","supplier_id","warehouse_id",
-     *                           "quantity","product_status","selling_unit_price_in_usd","selling_exchange_rate_from_usd_to_riel",
-     *                           "raw_materials"},
+   *             @OA\Schema(
+   *                 required={"product_name","product_category_id","uom_id","warehouse_id",
+   *                           "quantity","product_status","selling_unit_price_in_usd","selling_exchange_rate_from_usd_to_riel",
+   *                           "raw_materials"},
      *
      *                 @OA\Property(property="product_name",           type="string",  example="Assembled Part B"),
      *                 @OA\Property(property="barcode",                type="string"),

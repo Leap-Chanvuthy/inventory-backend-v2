@@ -4,10 +4,8 @@ namespace Database\Seeders;
 
 use App\Enums\ProductStatusEnum;
 use App\Enums\ProductStockMovementTypeEnum;
-use App\Enums\ProductTypeEnum;
 use App\Enums\RawMaterialStockMovementTypeEnum;
 use App\Enums\StockDirectionEnum;
-use App\Helpers\GenerateUniqueSKU;
 use App\Models\Product;
 use App\Models\ProductMovement;
 use App\Models\ProductRawMaterial;
@@ -47,7 +45,8 @@ class ProductSeeder extends Seeder
             $userId       = $users->random()->id;
             $movementDate = Carbon::now()->subDays($faker->numberBetween(1, 365));
 
-            $product = $this->createProductRecord($faker, 'EXTERNAL');
+            // Create product via factory (external state)
+            $product = Product::factory()->external()->create();
 
             $this->createExternalPurchaseMovement($faker, $product, $userId, $movementDate);
         }
@@ -57,7 +56,8 @@ class ProductSeeder extends Seeder
             $userId       = $users->random()->id;
             $movementDate = Carbon::now()->subDays($faker->numberBetween(1, 180))->toDateTimeString();
 
-            $product = $this->createProductRecord($faker, 'INTERNAL');
+            // Create product via factory (internal state)
+            $product = Product::factory()->internal()->create();
 
             // BOM: pick 1–MAX_BOM_ITEMS raw materials that have sufficient stock
             $bomItems = $this->buildBomItems($faker, $rawMaterials);
@@ -107,44 +107,7 @@ class ProductSeeder extends Seeder
     //   - Requires: product_category_id, base_uom_id, supplier_id, warehouse_id
     // ─────────────────────────────────────────────────────────────────────────
 
-    private function createProductRecord(\Faker\Generator $faker, string $type): Product
-    {
-        // Resolve FK IDs straight from the DB (same tables validated by exists: rules)
-        $categoryId  = \App\Models\ProductCategory::inRandomOrder()->first()->id;
-        // Pick a base unit.
-        $baseUom     = \App\Models\UOM::where('is_base_unit', true)->inRandomOrder()->first()
-                       ?? \App\Models\UOM::inRandomOrder()->first();
-        $supplierId  = \App\Models\Supplier::inRandomOrder()->first()->id;
-        $warehouseId = \App\Models\Warehouse::inRandomOrder()->first()->id;
-
-        // Build the same SKU format the API uses: PRD-{CATEGORY}-{RANDOM}
-        $product    = new Product();
-        $category   = \App\Models\ProductCategory::find($categoryId);
-        $product->category()->associate($category);
-
-        $sku = GenerateUniqueSKU::generate(
-            model:        $product,
-            field:        'product_sku_code',
-            randomLength: 6,
-            prefix:       'PRD',
-            relations:    ['cat' => 'category.category_name'],
-            format:       '{prefix}-{cat}-{random}',
-        );
-
-        // Prefix makes the product name readable in seed data
-        $namePrefix = $type === 'EXTERNAL' ? 'Purchased' : 'Manufactured';
-
-        return Product::create([
-            'product_name'        => $namePrefix . ' ' . $faker->words(2, true),
-            'product_sku_code'    => $sku,
-            'barcode'             => $faker->optional(0.6)->ean13(),
-            'product_description' => $faker->optional(0.5)->sentence(),
-            'product_category_id' => $categoryId,
-            'base_uom_id'         => $baseUom->id,
-            'supplier_id'         => $supplierId,
-            'warehouse_id'        => $warehouseId,
-        ]);
-    }
+    // Product creation is handled via ProductFactory now.
 
     // ─────────────────────────────────────────────────────────────────────────
     // External Purchase movement
@@ -188,7 +151,6 @@ class ProductSeeder extends Seeder
             'product_id'                             => $product->id,
             'direction'                              => StockDirectionEnum::IN->value,
             'movement_type'                          => ProductStockMovementTypeEnum::EXTERNAL_PURCHASED->value,
-            'product_type'                           => ProductTypeEnum::EXTERNAL_PURCHASED->value,
             'product_status'                         => ProductStatusEnum::COMPLETED->value,
             'quantity'                               => $quantity,
             'is_sold'                                => false,
@@ -214,14 +176,14 @@ class ProductSeeder extends Seeder
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Internal Manufacturing movement
+    // Internal Production movement
     //
     // Rules mirrored from:
-    //   - ProductMovementService::createInternalManufacturingMovement()
+    //   - ProductMovementService::createInternalProductionMovement()
     //   - ProductService::forceZeroPurchasePrices()
     //
     // - direction          = IN
-    // - movement_type      = INTERNAL_MANUFACTURED
+    // - movement_type      = INTERNAL_PRODUCED
     // - product_type       = INTERNAL_PRODUCED
     // - product_status     = user-chosen (any ProductStatusEnum value)
     // - purchase prices    = all 0 (produced internally, no purchase cost)
@@ -246,8 +208,7 @@ class ProductSeeder extends Seeder
         return ProductMovement::create([
             'product_id'                             => $product->id,
             'direction'                              => StockDirectionEnum::IN->value,
-            'movement_type'                          => ProductStockMovementTypeEnum::INTERNAL_MANUFACTURED->value,
-            'product_type'                           => ProductTypeEnum::INTERNAL_PRODUCED->value,
+            'movement_type'                          => ProductStockMovementTypeEnum::INTERNAL_PRODUCED->value,
             'product_status'                         => $productStatus,
             'quantity'                               => $quantity,
             'is_sold'                                => false,

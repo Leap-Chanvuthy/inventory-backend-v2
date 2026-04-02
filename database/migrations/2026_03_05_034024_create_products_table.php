@@ -17,6 +17,8 @@ return new class extends Migration
             $table->string('product_sku_code', 255)->unique();
             $table->string('barcode')->nullable();
             $table->text('product_description')->nullable();
+            $table -> enum('product_type', ['EXTERNAL_PURCHASED', 'INTERNAL_PRODUCED'])
+                ->comment('Defines whether the product is externally purchased or internally produced.');
 
             // Relationships
             $table->foreignId('product_category_id')
@@ -24,7 +26,7 @@ return new class extends Migration
                 ->restrictOnDelete()
                 ->cascadeOnUpdate();
 
-            $table->foreignId('supplier_id')
+            $table->foreignId('supplier_id')->nullable()
                 ->constrained('suppliers')
                 ->restrictOnDelete()
                 ->cascadeOnUpdate();

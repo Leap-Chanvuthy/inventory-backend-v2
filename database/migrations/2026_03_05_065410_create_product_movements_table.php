@@ -30,7 +30,7 @@ return new class extends Migration
 
             $table->enum('movement_type', [
                 ProductStockMovementTypeEnum::EXTERNAL_PURCHASED->value,
-                ProductStockMovementTypeEnum::INTERNAL_MANUFACTURED->value,
+                ProductStockMovementTypeEnum::INTERNAL_PRODUCED->value,
                 ProductStockMovementTypeEnum::RE_ORDER->value,
                 ProductStockMovementTypeEnum::SCRAP->value,
                 ProductStockMovementTypeEnum::ADJUSTMENT_IN->value,

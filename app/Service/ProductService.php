@@ -3,11 +3,10 @@
 namespace App\Service;
 
 use App\Helpers\CurrencyPricingHelper;
-use App\Helpers\FileUploadHelper;
 use App\Helpers\GetCurrentUserHelper;
 use App\Helpers\ResponseHelper;
+use App\Helpers\ProductHelper;
 use App\Models\Product;
-use App\Models\ProductImage;
 use App\Models\ProductRawMaterial;
 use App\QueryBuilders\ProductQueryBuilder;
 use App\Validations\ProductValidation;
@@ -65,12 +64,19 @@ class ProductService
     public function createExternalPurchasedProduct(Request $request)
     {
         try {
-            $this->applyCommonDefaults($request);
+            ProductHelper::applyCommonDefaults($request, $this->getCurrentUserHelper);
+
+            // Force product_type to EXTERNAL_PURCHASED regardless of frontend input
+            $request->merge(['product_type' => \App\Enums\ProductTypeEnum::EXTERNAL_PURCHASED->value]);
 
             CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
 
-            $errors = $this->collectValidationErrors($request, [
-                $this->productValidation->createProductRules($request),
+            // For external purchase flow supplier is required — ensure rule is enforced by validator
+            $productRules = $this->productValidation->createProductRules($request);
+            $productRules['supplier_id'] = 'required|exists:suppliers,id';
+
+            $errors = ProductHelper::collectValidationErrors($request, [
+                $productRules,
                 $this->productValidation->createExternalPurchaseMovementRules(),
                 $this->productValidation->createProductImageRules(),
             ], $this->productValidation->movementValidationMessages());
@@ -99,10 +105,10 @@ class ProductService
                 );
 
                 // 4) Upload and store product images
-                $this->handleImageUpload($request, $product);
+                ProductHelper::handleImageUpload($request, $product);
 
                 return ResponseHelper::success(
-                    ['product' => $this->freshProduct($product)],
+                    ['product' => ProductHelper::freshProduct($product)],
                     'Product created successfully',
                     201
                 );
@@ -131,17 +137,32 @@ class ProductService
     public function createInternalManufacturedProduct(Request $request)
     {
         try {
-            $this->applyCommonDefaults($request);
-            $this->forceZeroPurchasePrices($request);
+            ProductHelper::applyCommonDefaults($request, $this->getCurrentUserHelper);
+            ProductHelper::forceZeroPurchasePrices($request);
+
+            // Force product_type to INTERNAL_PRODUCED and explicitly ignore any supplier provided by frontend
+            $request->merge([
+                'product_type' => \App\Enums\ProductTypeEnum::INTERNAL_PRODUCED->value,
+                'supplier_id' => null,
+            ]);
 
             // Only selling side needs derivation; purchase is already 0
             CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
 
-            $errors = $this->collectValidationErrors($request, [
-                $this->productValidation->createProductRules($request),
+            // Ensure supplier is not required for internal manufacturing
+            $productRules = $this->productValidation->createProductRules($request);
+            $productRules['supplier_id'] = 'nullable|exists:suppliers,id';
+
+            // Provide an explanatory message for supplier being optional in this flow
+            $customMessages = array_merge($this->productValidation->movementValidationMessages(), [
+                'supplier_id.nullable' => 'Supplier is not required for internal manufacturing and will be ignored if provided.',
+            ]);
+
+            $errors = ProductHelper::collectValidationErrors($request, [
+                $productRules,
                 $this->productValidation->createInternalManufacturingMovementRules(),
                 $this->productValidation->createProductImageRules(),
-            ], $this->productValidation->movementValidationMessages());
+            ], $customMessages);
 
             if (!empty($errors)) {
                 return ResponseHelper::validation($errors, 'Validation Error');
@@ -181,8 +202,8 @@ class ProductService
                     $this->productValidation->createInternalManufacturingMovementRules()
                 )->validate();
 
-                // 4) Create initial movement (INTERNAL_MANUFACTURED / IN / COMPLETED)
-                $this->productMovementService->createInternalManufacturingMovement(
+                // 4) Create initial movement (INTERNAL_PRODUCED / IN / COMPLETED)
+                $this->productMovementService->createInternalProductionMovement(
                     $product,
                     $movementValidated,
                     $userId
@@ -197,10 +218,10 @@ class ProductService
                 );
 
                 // 6) Upload and store product images
-                $this->handleImageUpload($request, $product);
+                ProductHelper::handleImageUpload($request, $product);
 
                 return ResponseHelper::success(
-                    ['product' => $this->freshProduct($product)],
+                    ['product' => ProductHelper::freshProduct($product)],
                     'Product created successfully',
                     201
                 );
@@ -212,65 +233,8 @@ class ProductService
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Private helpers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Merge shared request defaults before validation.
-     */
-    private function applyCommonDefaults(Request $request): void
-    {
-        if (!$request->filled('movement_date')) {
-            $request->merge(['movement_date' => now()->toDateTimeString()]);
-        }
-
-        $userId = $this->getCurrentUserHelper->getUserId();
-        $request->merge([
-            'created_by'      => $userId,
-            'last_updated_by' => $userId,
-        ]);
-    }
-
-    /**
-     * Force all purchase price fields to 0 for internally manufactured products.
-     */
-    private function forceZeroPurchasePrices(Request $request): void
-    {
-        $request->merge([
-            'purchase_unit_price_in_usd'     => 0,
-            'purchase_total_price_in_usd'    => 0,
-            'exchange_rate_from_usd_to_riel' => 0,
-            'purchase_unit_price_in_riel'    => 0,
-            'purchase_total_price_in_riel'   => 0,
-            'exchange_rate_from_riel_to_usd' => 0,
-        ]);
-    }
-
-    /**
-     * Run multiple rule sets against the request and merge all errors at once.
-     * Pass $messages to apply custom error message overrides across all rule sets.
-     */
-    private function collectValidationErrors(Request $request, array $ruleSets, array $messages = []): array
-    {
-        $errors = [];
-
-        $mergeErrors = static function (array $base, array $incoming): array {
-            foreach ($incoming as $field => $msgs) {
-                $base[$field] = array_values(array_unique(array_merge($base[$field] ?? [], $msgs)));
-            }
-            return $base;
-        };
-
-        foreach ($ruleSets as $rules) {
-            $validator = Validator::make($request->all(), $rules, $messages);
-            if ($validator->fails()) {
-                $errors = $mergeErrors($errors, $validator->errors()->toArray());
-            }
-        }
-
-        return $errors;
-    }
+    // Helper functions have been moved to App\Helpers\ProductHelper to keep
+    // this service focused on core CRUD orchestration.
 
     /**
      * Create the Product model record using validated data.
@@ -286,6 +250,7 @@ class ProductService
 
         return Product::create([
             'product_name'        => $validated['product_name'],
+            'product_type'        => $validated['product_type'],
             'product_sku_code'    => $validated['product_sku_code'],
             'barcode'             => $validated['barcode']             ?? null,
             'product_description' => $validated['product_description'] ?? null,
@@ -296,48 +261,5 @@ class ProductService
         ]);
     }
 
-    /**
-     * Upload images (if provided) and associate them with the product.
-     */
-    private function handleImageUpload(Request $request, Product $product): void
-    {
-        $files = [];
-
-        if ($request->hasFile('images')) {
-            $files = $request->file('images');
-        } elseif ($request->hasFile('image')) {
-            $files = [$request->file('image')];
-        }
-
-        if (empty($files)) {
-            return;
-        }
-
-        $files = array_slice($files, 0, 4);
-
-        foreach ($files as $file) {
-            $imageUrl = FileUploadHelper::uploadSingle($file, 'products', null);
-            ProductImage::create([
-                'product_id' => $product->id,
-                'image'      => $imageUrl,
-            ]);
-        }
-    }
-
-    /**
-     * Return the product freshly loaded with all relevant relations.
-     */
-    private function freshProduct(Product $product): Product
-    {
-        return $product->fresh([
-            'category'                        => fn ($q) => $q->withTrashed(),
-            'supplier'                        => fn ($q) => $q->withTrashed(),
-            'warehouse'                       => fn ($q) => $q->withTrashed(),
-            'uom'                             => fn ($q) => $q->withTrashed(),
-            'productMovements.createdBy',
-            'productMovements.lastUpdatedBy',
-            'productRawMaterials.rawMaterial',
-            'productImages',
-        ]);
-    }
+    // Image upload and fresh-loading helpers moved to ProductHelper.
 }

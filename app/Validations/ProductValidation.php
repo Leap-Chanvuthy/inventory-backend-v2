@@ -48,9 +48,11 @@ class ProductValidation
             'product_sku_code'    => 'required|string|unique:products,product_sku_code|max:255',
             'barcode'             => 'nullable|string|max:255',
             'product_description' => 'nullable|string',
+            'product_type'        => 'required|string|in:EXTERNAL_PURCHASED,INTERNAL_PRODUCED',
             'product_category_id' => 'required|exists:product_categories,id',
             'base_uom_id'         => 'required|exists:unit_of_measurements,id',
-            'supplier_id'         => 'required|exists:suppliers,id',
+            // supplier is required only for external purchase flow; caller should set rules accordingly
+            'supplier_id'         => 'nullable|exists:suppliers,id',
             'warehouse_id'        => 'required|exists:warehouses,id',
         ];
     }

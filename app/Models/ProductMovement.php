@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\ProductStatusEnum;
 use App\Enums\ProductStockMovementTypeEnum;
-use App\Enums\ProductTypeEnum;
 use App\Enums\StockDirectionEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,7 +13,6 @@ class ProductMovement extends Model
     use HasFactory;
 
     protected $casts = [
-        'product_type'                         => ProductTypeEnum::class,
         'product_status'                       => ProductStatusEnum::class,
         'direction'                            => StockDirectionEnum::class,
         'movement_type'                        => ProductStockMovementTypeEnum::class,
@@ -39,7 +37,6 @@ class ProductMovement extends Model
     protected $fillable = [
         'product_id',
         'quantity',
-        'product_type',
         'product_status',
         'direction',
         'movement_type',

@@ -4,7 +4,6 @@ namespace App\Service;
 
 use App\Enums\ProductStatusEnum;
 use App\Enums\ProductStockMovementTypeEnum;
-use App\Enums\ProductTypeEnum;
 use App\Enums\StockDirectionEnum;
 use App\Models\Product;
 use App\Models\ProductMovement;
@@ -26,7 +25,7 @@ class ProductMovementService
             'product_id'                             => $product->id,
             'direction'                              => StockDirectionEnum::IN->value,
             'movement_type'                          => ProductStockMovementTypeEnum::EXTERNAL_PURCHASED->value,
-            'product_type'                           => ProductTypeEnum::EXTERNAL_PURCHASED->value,
+            // product_type is now stored on the Product model; movements no longer persist it
             'product_status'                         => ProductStatusEnum::COMPLETED->value,
             'quantity'                               => $validated['quantity'],
             'is_sold'                                => false,
@@ -52,17 +51,17 @@ class ProductMovementService
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Internal Manufacturing — direction IN, movement_type INTERNAL_MANUFACTURED
+    // Internal Production — direction IN, movement_type INTERNAL_PRODUCED
     // All purchase price fields are forced to 0 (produced internally).
     // ─────────────────────────────────────────────────────────────────────────
 
-    public function createInternalManufacturingMovement(Product $product, array $validated, int $userId): ProductMovement
+    public function createInternalProductionMovement(Product $product, array $validated, int $userId): ProductMovement
     {
         return ProductMovement::create([
             'product_id'                             => $product->id,
             'direction'                              => StockDirectionEnum::IN->value,
-            'movement_type'                          => ProductStockMovementTypeEnum::INTERNAL_MANUFACTURED->value,
-            'product_type'                           => ProductTypeEnum::INTERNAL_PRODUCED->value,
+            'movement_type'                          => ProductStockMovementTypeEnum::INTERNAL_PRODUCED->value,
+            // product_type is now stored on the Product model; movements no longer persist it
             'product_status'                         => $validated['product_status'],
             'quantity'                               => $validated['quantity'],
             'is_sold'                                => false,

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ProductTypeEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -16,10 +17,15 @@ class Product extends Model
         'product_sku_code',
         'barcode',
         'product_description',
+        'product_type',
         'product_category_id',
         'base_uom_id',
         'supplier_id',
         'warehouse_id',
+    ];
+
+    protected $casts = [
+        'product_type' => ProductTypeEnum::class,
     ];
 
 
