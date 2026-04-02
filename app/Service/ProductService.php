@@ -51,6 +51,59 @@ class ProductService
         }
     }
 
+    // Get Product Detail
+    public function getProductDetail($id)
+    {
+        try {
+            $product = Product::with([
+                'category',
+                'baseUom.category',
+                'baseUom.category.unitOfMeasurements',
+                'supplier',
+                'warehouse',
+                    'productMovements' => function ($query) {
+                        $query->orderBy('movement_date', 'desc')
+                              ->with(['createdBy', 'lastUpdatedBy']);
+                },
+                'productImages',
+                'productRawMaterials.rawMaterial', // Eager load raw material details for BOM
+            ])->findOrFail($id);
+
+            if (!$product) {
+                return ResponseHelper::error('Product not found', 404);
+            }
+
+                // Total count of movements by movement_type
+                $totalCountByMovementType = \App\Models\ProductMovement::where('product_id', $product->id)
+                    ->select('movement_type', DB::raw('COUNT(*) as total'))
+                    ->groupBy('movement_type')
+                    ->pluck('total', 'movement_type');
+
+                // Calculate current quantity in stock from product movements (IN vs OUT)
+                $currentQtyInStock = 0;
+                foreach ($product->productMovements as $movement) {
+                    $qty = (float) ($movement->quantity ?? 0);
+                    $dir = is_object($movement->direction) ? $movement->direction->value : (string) $movement->direction;
+                    $currentQtyInStock += ($dir === 'OUT') ? (-$qty) : $qty;
+                }
+
+                // Determine stock status (simple): OUT_OF_STOCK or IN_STOCK
+                $productStockStatus = $currentQtyInStock <= 0 ? 'OUT_OF_STOCK' : 'IN_STOCK';
+
+                return ResponseHelper::success([
+                    'product' => $product,
+                    'current_qty_in_stock' => $currentQtyInStock,
+                    'product_stock_status' => $productStockStatus,
+                    'total_count_by_movement_type' => $totalCountByMovementType,
+                ]);
+
+            return ResponseHelper::success(['product' => $product]);
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+
     // ─────────────────────────────────────────────────────────────────────────
     // Create: External Purchased Product
     //

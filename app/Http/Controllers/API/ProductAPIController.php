@@ -19,6 +19,10 @@ class ProductAPIController extends Controller
     {
         return $this->productService->getAllProducts($request);
     }
+    
+    public function show($id){
+        return $this->productService->getProductDetail($id);
+    }
 
     public function storeExternalPurchase(Request $request)
     {

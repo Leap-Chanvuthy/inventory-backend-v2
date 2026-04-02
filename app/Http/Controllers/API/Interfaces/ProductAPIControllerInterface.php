@@ -31,6 +31,36 @@ interface ProductAPIControllerInterface
      */
     public function index();
 
+   /**
+    * @OA\Get(
+    *     path="/api/products/{id}",
+    *     tags={"Products"},
+    *     security={{"Bearer":{}}},
+    *     summary="Get product detail",
+    *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer", example=1)),
+    *     @OA\Response(
+    *         response=200,
+    *         description="Product retrieved successfully",
+    *         @OA\JsonContent(
+    *             type="object",
+    *             @OA\Property(property="product", type="object", description="Product resource with related UOMs, movements, images and BOM"),
+    *             @OA\Property(property="current_qty_in_stock", type="number", example=150),
+    *             @OA\Property(property="product_stock_status", type="string", example="IN_STOCK", enum={"IN_STOCK","OUT_OF_STOCK"}),
+    *             @OA\Property(
+    *                 property="total_count_by_movement_type",
+    *                 type="object",
+    *                 description="Map of movement_type => count",
+    *                 @OA\Property(property="EXTERNAL_PURCHASED", type="integer", example=3),
+    *                 @OA\Property(property="INTERNAL_PRODUCED", type="integer", example=1)
+    *             )
+    *         )
+    *     ),
+    *     @OA\Response(response=404, description="Product not found"),
+    *     @OA\Response(response=500, description="Internal server error")
+    * )
+    */
+   public function show($id);
+
     /**
      * @OA\Post(
      *     path="/api/products/create/external-purchase",

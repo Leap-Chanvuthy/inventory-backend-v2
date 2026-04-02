@@ -2162,6 +2162,81 @@
                 ]
             }
         },
+        "/api/products/{id}": {
+            "get": {
+                "tags": [
+                    "Products"
+                ],
+                "summary": "Get product detail",
+                "operationId": "22b526a3b7801a6712c6fbd9fb44df1a",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Product retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "product": {
+                                            "description": "Product resource with related UOMs, movements, images and BOM",
+                                            "type": "object"
+                                        },
+                                        "current_qty_in_stock": {
+                                            "type": "number",
+                                            "example": 150
+                                        },
+                                        "product_stock_status": {
+                                            "type": "string",
+                                            "enum": [
+                                                "IN_STOCK",
+                                                "OUT_OF_STOCK"
+                                            ],
+                                            "example": "IN_STOCK"
+                                        },
+                                        "total_count_by_movement_type": {
+                                            "description": "Map of movement_type => count",
+                                            "properties": {
+                                                "EXTERNAL_PURCHASED": {
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
+                                                "INTERNAL_PRODUCED": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Product not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/products/create/external-purchase": {
             "post": {
                 "tags": [
