@@ -33,6 +33,12 @@ class RawMaterialQueryBuilder {
                 'suppliers.official_name as official_name',
                 'warehouses.warehouse_name as warehouse_name',
                 'unit_of_measurements.name as uom_name',
+                // Current quantity in stock (sum of stock movements: IN as +, OUT as -)
+                \DB::raw("(
+                    SELECT COALESCE(SUM(CASE WHEN rm_stock_movements.direction = 'OUT' THEN -rm_stock_movements.quantity ELSE rm_stock_movements.quantity END), 0)
+                    FROM rm_stock_movements
+                    WHERE rm_stock_movements.raw_material_id = raw_materials.id
+                ) as current_qty_in_stock"),
             ],
 
             allowedFilters: [
