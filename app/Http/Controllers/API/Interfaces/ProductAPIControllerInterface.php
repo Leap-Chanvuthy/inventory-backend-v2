@@ -22,7 +22,8 @@ interface ProductAPIControllerInterface
      *     @OA\Parameter(name="filter[product_category_id]", in="query", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="filter[supplier_id]", in="query", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="filter[warehouse_id]",in="query", @OA\Schema(type="integer")),
-    *     @OA\Parameter(name="filter[base_uom_id]",      in="query", @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="filter[base_uom_id]",      in="query", @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="filter[product_type]",     in="query", @OA\Schema(type="string", example="EXTERNAL_PURCHASED")),
      *     @OA\Parameter(name="sort",                in="query", @OA\Schema(type="string", example="-created_at")),
      *
      *     @OA\Response(response=200, description="Products retrieved successfully", @OA\JsonContent(type="object")),

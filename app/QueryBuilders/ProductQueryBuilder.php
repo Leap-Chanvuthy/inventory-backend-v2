@@ -39,6 +39,7 @@ class ProductQueryBuilder
                 AllowedFilter::exact('supplier_id'),
                 AllowedFilter::exact('warehouse_id'),
                 AllowedFilter::exact('base_uom_id'),
+                AllowedFilter::partial('product_type'),
 
                 AllowedFilter::callback('search', function (Builder $query, $value) {
                     $query->where(function ($q) use ($value) {

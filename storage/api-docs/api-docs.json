@@ -2125,6 +2125,14 @@
                         }
                     },
                     {
+                        "name": "filter[product_type]",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "example": "EXTERNAL_PURCHASED"
+                        }
+                    },
+                    {
                         "name": "sort",
                         "in": "query",
                         "schema": {
