@@ -42,6 +42,9 @@ class ProductCategoryService {
                 'updated_at',
                 'category_name',
             ],
+            withCounts: [
+                'products',
+            ],
         );
 
     }
