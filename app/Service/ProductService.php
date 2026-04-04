@@ -62,9 +62,9 @@ class ProductService
                 'baseUom.category.unitOfMeasurements',
                 'supplier',
                 'warehouse',
-                    'productMovements' => function ($query) {
-                        $query->orderBy('movement_date', 'desc')
-                              ->with(['createdBy', 'lastUpdatedBy']);
+                'productMovements' => function ($query) {
+                    $query->orderBy('movement_date', 'desc')
+                        ->with(['createdBy', 'lastUpdatedBy']);
                 },
                 'productImages',
                 'productRawMaterials.rawMaterial', // Eager load raw material details for BOM
@@ -74,29 +74,29 @@ class ProductService
                 return ResponseHelper::error('Product not found', 404);
             }
 
-                // Total count of movements by movement_type
-                $totalCountByMovementType = \App\Models\ProductMovement::where('product_id', $product->id)
-                    ->select('movement_type', DB::raw('COUNT(*) as total'))
-                    ->groupBy('movement_type')
-                    ->pluck('total', 'movement_type');
+            // Total count of movements by movement_type
+            $totalCountByMovementType = \App\Models\ProductMovement::where('product_id', $product->id)
+                ->select('movement_type', DB::raw('COUNT(*) as total'))
+                ->groupBy('movement_type')
+                ->pluck('total', 'movement_type');
 
-                // Calculate current quantity in stock from product movements (IN vs OUT)
-                $currentQtyInStock = 0;
-                foreach ($product->productMovements as $movement) {
-                    $qty = (float) ($movement->quantity ?? 0);
-                    $dir = is_object($movement->direction) ? $movement->direction->value : (string) $movement->direction;
-                    $currentQtyInStock += ($dir === 'OUT') ? (-$qty) : $qty;
-                }
+            // Calculate current quantity in stock from product movements (IN vs OUT)
+            $currentQtyInStock = 0;
+            foreach ($product->productMovements as $movement) {
+                $qty = (float) ($movement->quantity ?? 0);
+                $dir = is_object($movement->direction) ? $movement->direction->value : (string) $movement->direction;
+                $currentQtyInStock += ($dir === 'OUT') ? (-$qty) : $qty;
+            }
 
-                // Determine stock status (simple): OUT_OF_STOCK or IN_STOCK
-                $productStockStatus = $currentQtyInStock <= 0 ? 'OUT_OF_STOCK' : 'IN_STOCK';
+            // Determine stock status (simple): OUT_OF_STOCK or IN_STOCK
+            $productStockStatus = $currentQtyInStock <= 0 ? 'OUT_OF_STOCK' : 'IN_STOCK';
 
-                return ResponseHelper::success([
-                    'product' => $product,
-                    'current_qty_in_stock' => $currentQtyInStock,
-                    'product_stock_status' => $productStockStatus,
-                    'total_count_by_movement_type' => $totalCountByMovementType,
-                ]);
+            return ResponseHelper::success([
+                'product' => $product,
+                'current_qty_in_stock' => $currentQtyInStock,
+                'product_stock_status' => $productStockStatus,
+                'total_count_by_movement_type' => $totalCountByMovementType,
+            ]);
 
             return ResponseHelper::success(['product' => $product]);
         } catch (Exception $e) {
@@ -293,6 +293,27 @@ class ProductService
         try {
             $product = Product::findOrFail($productId);
 
+
+            // First validate incoming request body for external purchase movement
+            $rules = $this->productValidation->createExternalPurchaseMovementRules();
+            $validator = Validator::make($request->all(), $rules);
+            if ($validator->fails()) {
+                return ResponseHelper::validation($validator->errors()->toArray(), 'Validation Error');
+            }
+
+            // Ensure product is of type EXTERNAL_PURCHASED
+            $productTypeValue = ($product->product_type instanceof \BackedEnum)
+                ? $product->product_type->value
+                : (string) $product->product_type;
+
+            if ($productTypeValue !== \App\Enums\ProductTypeEnum::EXTERNAL_PURCHASED->value) {
+                return ResponseHelper::error(
+                    'Invalid product type for external reorder',
+                    422,
+                    'Product must be an externally purchased product to create an external reorder.'
+                );
+            }
+
             // Enforce reorder flow defaults
             $request->merge([
                 'product_id' => $product->id,
@@ -373,7 +394,6 @@ class ProductService
             });
 
             return ResponseHelper::success($movement, 'Product reordered successfully', 201);
-
         } catch (ValidationException $e) {
             return ResponseHelper::validation($e->errors(), 'Validation Error');
         } catch (Exception $e) {
@@ -387,6 +407,27 @@ class ProductService
         try {
             $product = Product::findOrFail($productId);
             $movement = ProductMovement::findOrFail($movementId);
+
+
+            // First validate incoming request body for external purchase movement update
+            $rules = $this->productValidation->createExternalPurchaseMovementRules();
+            $validator = Validator::make($request->all(), $rules);
+            if ($validator->fails()) {
+                return ResponseHelper::validation($validator->errors()->toArray(), 'Validation Error');
+            }
+
+            // Ensure product is of type EXTERNAL_PURCHASED
+            $productTypeValue = ($product->product_type instanceof \BackedEnum)
+                ? $product->product_type->value
+                : (string) $product->product_type;
+
+            if ($productTypeValue !== \App\Enums\ProductTypeEnum::EXTERNAL_PURCHASED->value) {
+                return ResponseHelper::error(
+                    'Invalid product type for external reorder update',
+                    422,
+                    'Product must be an externally purchased product to update an external reorder.'
+                );
+            }
 
             // Enforce reorder flow defaults
             $request->merge([
@@ -471,7 +512,260 @@ class ProductService
             });
 
             return ResponseHelper::success($movement, 'Product reorder updated successfully', 201);
+        } catch (ValidationException $e) {
+            return ResponseHelper::validation($e->errors(), 'Validation Error');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
 
+    // Reorder Product for Internal Produced Product
+    public function reorderInternalManufacturedProduct(Request $request, $productId) {
+        try {
+            $product = Product::findOrFail($productId);
+
+
+            // First validate incoming request body for internal manufacturing movement
+            $rules = $this->productValidation->createInternalManufacturingMovementRules();
+            $validator = Validator::make($request->all(), $rules);
+            if ($validator->fails()) {
+                return ResponseHelper::validation($validator->errors()->toArray(), 'Validation Error');
+            }
+
+            // Ensure product is of type INTERNAL_PRODUCED
+            $productTypeValue = ($product->product_type instanceof \BackedEnum)
+                ? $product->product_type->value
+                : (string) $product->product_type;
+
+            if ($productTypeValue !== \App\Enums\ProductTypeEnum::INTERNAL_PRODUCED->value) {
+                return ResponseHelper::error(
+                    'Invalid product type for internal manufacturing reorder',
+                    422,
+                    'Product must be an internally produced product to create an internal manufacturing reorder.'
+                );
+            }
+
+            // Enforce reorder flow defaults
+            $request->merge([
+                'product_id' => $product->id,
+                'direction' => \App\Enums\StockDirectionEnum::IN->value,
+                'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
+                'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
+            ]);
+
+            // Internal manufactured reorders carry no purchase cost (purchase=0).
+            $request->merge([
+                'purchase_unit_price_in_usd' => 0,
+                'purchase_total_price_in_usd' => 0,
+                'purchase_unit_price_in_riel' => 0,
+                'purchase_total_price_in_riel' => 0,
+                'exchange_rate_from_usd_to_riel' => 0,
+                'exchange_rate_from_riel_to_usd' => null,
+            ]);
+
+            // Always derive created_by / last_updated_by from the authenticated user
+            $currentUserId = $this->getCurrentUserHelper->getUserId();
+            $request->merge([
+                'created_by' => $currentUserId,
+                'last_updated_by' => $currentUserId,
+            ]);
+
+            // Ensure selling-side fields exist (derive from last movement if present)
+            $lastMovement = ProductMovement::where('product_id', $product->id)
+                ->orderBy('movement_date', 'desc')
+                ->first();
+
+            if ($lastMovement) {
+                $request->merge([
+                    'selling_unit_price_in_usd' => $lastMovement->selling_unit_price_in_usd ?? 0,
+                    'selling_exchange_rate_from_usd_to_riel' => $lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0,
+                ]);
+            } else {
+                $request->merge([
+                    'selling_unit_price_in_usd' => $request->input('selling_unit_price_in_usd', 0),
+                    'selling_exchange_rate_from_usd_to_riel' => $request->input('selling_exchange_rate_from_usd_to_riel', 0),
+                ]);
+            }
+
+            // Reuse existing helper to derive any missing currency fields consistently
+            CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
+
+            // Validate BOM presence and movement fields
+            $bomItems = $request->input('raw_materials', []);
+            $shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems);
+            if (!empty($shortfalls)) {
+                return ResponseHelper::error('Insufficient raw material stock', 422, $shortfalls);
+            }
+
+            $rules = $this->productValidation->createInternalManufacturingMovementRules();
+            $validated = Validator::make($request->all(), $rules)->validate();
+
+            // Ensure user attribution fields exist on the validated payload
+            $validated['created_by'] = $validated['created_by'] ?? $this->getCurrentUserHelper->getUserId();
+            $validated['last_updated_by'] = $validated['last_updated_by'] ?? $this->getCurrentUserHelper->getUserId();
+
+            $movement = DB::transaction(function () use ($validated, $product, $bomItems) {
+                $userId = $this->getCurrentUserHelper->getUserId();
+                $movementDate = $validated['movement_date'] ?? now()->toDateTimeString();
+
+                // 1) Create movement record for internal-produced reorder
+                $movement = ProductMovement::create([
+                    'product_id' => $product->id,
+                    'direction' => \App\Enums\StockDirectionEnum::IN->value,
+                    'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
+                    'product_status' => \App\Enums\ProductStatusEnum::COMPLETED->value,
+                    'quantity' => $validated['quantity'],
+                    'is_sold' => false,
+                    'movement_date' => $movementDate,
+                    'note' => $validated['note'] ?? null,
+                    'created_by' => $validated['created_by'],
+                    'last_updated_by' => $validated['last_updated_by'],
+
+                    // Purchase pricing intentionally zero for internal manufacturing
+                    'purchase_unit_price_in_usd' => 0,
+                    'purchase_total_price_in_usd' => 0,
+                    'exchange_rate_from_usd_to_riel' => 0,
+                    'purchase_unit_price_in_riel' => 0,
+                    'purchase_total_price_in_riel' => 0,
+                    'exchange_rate_from_riel_to_usd' => 0,
+
+                    // Selling pricing (unit only — no totals)
+                    'selling_unit_price_in_usd' => $validated['selling_unit_price_in_usd'] ?? 0,
+                    'selling_unit_price_in_riel' => $validated['selling_unit_price_in_riel'] ?? 0,
+                    'selling_exchange_rate_from_usd_to_riel' => $validated['selling_exchange_rate_from_usd_to_riel'] ?? 0,
+                    'selling_exchange_rate_from_riel_to_usd' => $validated['selling_exchange_rate_from_riel_to_usd'] ?? 0,
+                ]);
+
+                // 2) Deduct raw material stock respecting FIFO/LIFO for this production
+                $this->stockDeductionService->deductStock(
+                    $bomItems,
+                    $product->id,
+                    $userId,
+                    $movementDate
+                );
+
+                return $movement;
+            });
+
+            return ResponseHelper::success($movement, 'Product reordered (internal manufacturing) successfully', 201);
+        } catch (ValidationException $e) {
+            return ResponseHelper::validation($e->errors(), 'Validation Error');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    // Update Reorder Product for Internal Produced Product
+    public function updateReorderInternalManufacturedProduct(Request $request, $productId, $movementId) {
+        try {
+            $product = Product::findOrFail($productId);
+            $movement = ProductMovement::findOrFail($movementId);
+
+
+            // First validate incoming request body for internal manufacturing movement update
+            $rules = $this->productValidation->createInternalManufacturingMovementRules();
+            $validator = Validator::make($request->all(), $rules);
+            if ($validator->fails()) {
+                return ResponseHelper::validation($validator->errors()->toArray(), 'Validation Error');
+            }
+
+            // Ensure product is of type INTERNAL_PRODUCED
+            $productTypeValue = ($product->product_type instanceof \BackedEnum)
+                ? $product->product_type->value
+                : (string) $product->product_type;
+
+            if ($productTypeValue !== \App\Enums\ProductTypeEnum::INTERNAL_PRODUCED->value) {
+                return ResponseHelper::error(
+                    'Invalid product type for internal manufacturing reorder update',
+                    422,
+                    'Product must be an internally produced product to update an internal manufacturing reorder.'
+                );
+            }
+
+            // Enforce reorder flow defaults
+            $request->merge([
+                'product_id' => $product->id,
+                'direction' => \App\Enums\StockDirectionEnum::IN->value,
+                'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
+                'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
+            ]);
+
+            // Purchase side remains zero for internal manufacturing
+            $request->merge([
+                'purchase_unit_price_in_usd' => 0,
+                'purchase_total_price_in_usd' => 0,
+                'purchase_unit_price_in_riel' => 0,
+                'purchase_total_price_in_riel' => 0,
+                'exchange_rate_from_usd_to_riel' => 0,
+                'exchange_rate_from_riel_to_usd' => null,
+            ]);
+
+            // Preserve original created_by; update last_updated_by to the acting user
+            $request->merge([
+                'created_by' => $movement->created_by,
+                'last_updated_by' => $this->getCurrentUserHelper->getUserId(),
+            ]);
+
+            // Check if the stock is already used (sold) to avoid data inconsistency
+            if ($movement->is_sold === true) {
+                return ResponseHelper::error('Cannot update used stock movement', 401, 'The reordered product has been sold. Data cannot be updated to avoid data inconsistency.');
+            }
+
+            // Ensure selling-side fields exist (derive from last movement if present)
+            $lastMovement = ProductMovement::where('product_id', $product->id)
+                ->orderBy('movement_date', 'desc')
+                ->first();
+
+            if ($lastMovement) {
+                $request->merge([
+                    'selling_unit_price_in_usd' => $lastMovement->selling_unit_price_in_usd ?? 0,
+                    'selling_exchange_rate_from_usd_to_riel' => $lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0,
+                ]);
+            } else {
+                $request->merge([
+                    'selling_unit_price_in_usd' => $request->input('selling_unit_price_in_usd', 0),
+                    'selling_exchange_rate_from_usd_to_riel' => $request->input('selling_exchange_rate_from_usd_to_riel', 0),
+                ]);
+            }
+
+            CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
+
+            $rules = $this->productValidation->createInternalManufacturingMovementRules();
+            $validated = Validator::make($request->all(), $rules)->validate();
+
+            // Preserve created_by from original movement if available and ensure last_updated_by exists
+            $validated['created_by'] = $validated['created_by'] ?? $movement->created_by ?? $this->getCurrentUserHelper->getUserId();
+            $validated['last_updated_by'] = $validated['last_updated_by'] ?? $this->getCurrentUserHelper->getUserId();
+
+            $movement = DB::transaction(function () use ($validated, $movement) {
+                $movement->update([
+                    'quantity' => $validated['quantity'],
+                    'direction' => \App\Enums\StockDirectionEnum::IN->value,
+                    'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
+                    'movement_date' => $validated['movement_date'],
+                    'note' => $validated['note'] ?? null,
+
+                    // Purchase pricing remains zero
+                    'purchase_unit_price_in_usd' => 0,
+                    'purchase_total_price_in_usd' => 0,
+                    'exchange_rate_from_usd_to_riel' => 0,
+                    'purchase_unit_price_in_riel' => 0,
+                    'purchase_total_price_in_riel' => 0,
+                    'exchange_rate_from_riel_to_usd' => 0,
+
+                    // Selling pricing
+                    'selling_unit_price_in_usd' => $validated['selling_unit_price_in_usd'] ?? 0,
+                    'selling_unit_price_in_riel' => $validated['selling_unit_price_in_riel'] ?? 0,
+                    'selling_exchange_rate_from_usd_to_riel' => $validated['selling_exchange_rate_from_usd_to_riel'] ?? 0,
+                    'selling_exchange_rate_from_riel_to_usd' => $validated['selling_exchange_rate_from_riel_to_usd'] ?? 0,
+
+                    'last_updated_by' => $validated['last_updated_by'],
+                ]);
+
+                return $movement->fresh();
+            });
+
+            return ResponseHelper::success($movement, 'Product reorder (internal manufacturing) updated successfully', 201);
         } catch (ValidationException $e) {
             return ResponseHelper::validation($e->errors(), 'Validation Error');
         } catch (Exception $e) {
@@ -480,8 +774,6 @@ class ProductService
     }
 
 
-    // Helper functions have been moved to App\Helpers\ProductHelper to keep
-    // this service focused on core CRUD orchestration.
 
     /**
      * Create the Product model record using validated data.

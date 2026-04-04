@@ -44,4 +44,14 @@ class ProductAPIController extends Controller
         return $this->productService->updateReorderExternalPurchasedProduct($request, $productId, $movementId);
     }
 
+
+    public function reorderInternalManufacturing(Request $request, $id){
+        return $this->productService->reorderInternalManufacturedProduct($request, $id);
+    }
+    
+    public function updateReorderInternalManufacturing(Request $request, $productId, $movementId){
+        return $this->productService->updateReorderInternalManufacturedProduct($request, $productId, $movementId);
+    }
+
+
 }

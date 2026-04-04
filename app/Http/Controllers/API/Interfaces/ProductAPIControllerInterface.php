@@ -238,4 +238,78 @@ interface ProductAPIControllerInterface
     * )
     */
    public function updateReorderExternalPurchase($productId, $movementId);
+
+   /**
+    * @OA\Post(
+    *     path="/api/products/{id}/reorder/internal-manufacturing",
+    *     tags={"Products"},
+    *     security={{"Bearer":{}}},
+    *     summary="Create a reorder movement for an internally manufactured product",
+    *     description="Creates a RE_ORDER / IN product movement for an internally manufactured product. Purchase costs are zero and raw materials (BOM) must be supplied; raw material stock will be validated and deducted.",
+    *
+    *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer", example=1)),
+    *
+    *     @OA\RequestBody(
+    *         required=true,
+    *         @OA\MediaType(
+    *             mediaType="application/json",
+    *             @OA\Schema(
+    *                 required={"quantity","selling_unit_price_in_usd","selling_exchange_rate_from_usd_to_riel","raw_materials"},
+    *                 @OA\Property(property="quantity", type="number", example=50),
+    *                 @OA\Property(property="selling_unit_price_in_usd", type="number", example=12.0),
+    *                 @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", example=4100),
+    *                 @OA\Property(property="movement_date", type="string", format="date-time", example="2026-04-04T10:00:00Z"),
+    *                 @OA\Property(property="note", type="string", example="Production run"),
+    *                 @OA\Property(
+    *                     property="raw_materials",
+    *                     type="array",
+    *                     @OA\Items(
+    *                         @OA\Property(property="raw_material_id", type="integer", example=3),
+    *                         @OA\Property(property="quantity", type="number", example=2)
+    *                     )
+    *                 )
+    *             )
+    *         )
+    *     ),
+    *
+    *     @OA\Response(response=201, description="Reorder created successfully", @OA\JsonContent(type="object")),
+    *     @OA\Response(response=422, description="Validation error or insufficient raw material stock", @OA\JsonContent(type="object")),
+    *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(type="object"))
+    * )
+    */
+   public function reorderInternalManufacturing($id);
+
+   /**
+    * @OA\Patch(
+    *     path="/api/products/{productId}/reorder/internal-manufacturing/{movementId}",
+    *     tags={"Products"},
+    *     security={{"Bearer":{}}},
+    *     summary="Update an existing internal-manufacturing reorder movement",
+    *     description="Update a previously created RE_ORDER / IN movement for an internally manufactured product. Updates are blocked if the movement has been used/sold. Raw material adjustments are not performed on update.",
+    *
+    *     @OA\Parameter(name="productId", in="path", required=true, @OA\Schema(type="integer", example=1)),
+    *     @OA\Parameter(name="movementId", in="path", required=true, @OA\Schema(type="integer", example=10)),
+    *
+    *     @OA\RequestBody(
+    *         required=true,
+    *         @OA\MediaType(
+    *             mediaType="application/json",
+    *             @OA\Schema(
+    *                 required={"quantity","selling_unit_price_in_usd","selling_exchange_rate_from_usd_to_riel"},
+    *                 @OA\Property(property="quantity", type="number", example=50),
+    *                 @OA\Property(property="selling_unit_price_in_usd", type="number", example=12.0),
+    *                 @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", example=4100),
+    *                 @OA\Property(property="movement_date", type="string", format="date-time", example="2026-04-04T10:00:00Z"),
+    *                 @OA\Property(property="note", type="string", example="Adjusted production quantity")
+    *             )
+    *         )
+    *     ),
+    *
+    *     @OA\Response(response=201, description="Reorder updated successfully", @OA\JsonContent(type="object")),
+    *     @OA\Response(response=401, description="Cannot update used stock movement", @OA\JsonContent(type="object")),
+    *     @OA\Response(response=422, description="Validation error", @OA\JsonContent(type="object")),
+    *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(type="object"))
+    * )
+    */
+   public function updateReorderInternalManufacturing($productId, $movementId);
 }
