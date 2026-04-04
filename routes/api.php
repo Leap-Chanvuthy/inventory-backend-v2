@@ -158,6 +158,8 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
         Route::get('/{id}', [ProductAPIController::class, 'show']);
         Route::post('/create/external-purchase',      [ProductAPIController::class, 'storeExternalPurchase']);
         Route::post('/create/internal-manufacturing', [ProductAPIController::class, 'storeInternalManufacturing']);
+        Route::post('/{id}/reorder/external-purchase', [ProductAPIController::class, 'reorderExternalPurchase']);
+        Route::patch('/{productId}/reorder/external-purchase/{movementId}', [ProductAPIController::class, 'updateReorderExternalPurchase']);
     });
 
 });

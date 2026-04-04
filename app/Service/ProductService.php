@@ -8,6 +8,7 @@ use App\Helpers\ResponseHelper;
 use App\Helpers\ProductHelper;
 use App\Models\Product;
 use App\Models\ProductRawMaterial;
+use App\Models\ProductMovement;
 use App\QueryBuilders\ProductQueryBuilder;
 use App\Validations\ProductValidation;
 use Exception;
@@ -285,6 +286,199 @@ class ProductService
             return ResponseHelper::error($e->getMessage(), 500);
         }
     }
+
+    // Reorder Product for External Purchased Product
+    public function reorderExternalPurchasedProduct(Request $request, $productId)
+    {
+        try {
+            $product = Product::findOrFail($productId);
+
+            // Enforce reorder flow defaults
+            $request->merge([
+                'product_id' => $product->id,
+                'direction' => \App\Enums\StockDirectionEnum::IN->value,
+                'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
+                'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
+            ]);
+
+            // Only accept USD unit price + USD->Riel exchange rate as inputs;
+            // compute everything else from quantity.
+            $request->merge([
+                'purchase_total_price_in_usd' => null,
+                'purchase_unit_price_in_riel' => null,
+                'purchase_total_price_in_riel' => null,
+                'exchange_rate_from_riel_to_usd' => null,
+            ]);
+
+            // Always derive created_by / last_updated_by from the authenticated user
+            $currentUserId = $this->getCurrentUserHelper->getUserId();
+            $request->merge([
+                'created_by'      => $currentUserId,
+                'last_updated_by' => $currentUserId,
+            ]);
+
+            // Ensure selling-side fields exist (derive from last movement if present)
+            $lastMovement = ProductMovement::where('product_id', $product->id)
+                ->orderBy('movement_date', 'desc')
+                ->first();
+
+            if ($lastMovement) {
+                $request->merge([
+                    'selling_unit_price_in_usd' => $lastMovement->selling_unit_price_in_usd ?? 0,
+                    'selling_exchange_rate_from_usd_to_riel' => $lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0,
+                ]);
+            } else {
+                $request->merge([
+                    'selling_unit_price_in_usd' => $request->input('selling_unit_price_in_usd', 0),
+                    'selling_exchange_rate_from_usd_to_riel' => $request->input('selling_exchange_rate_from_usd_to_riel', 0),
+                ]);
+            }
+
+            CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
+
+            $rules = $this->productValidation->createExternalPurchaseMovementRules();
+            $validated = Validator::make($request->all(), $rules)->validate();
+
+            // Ensure user attribution fields exist on the validated payload
+            $validated['created_by'] = $validated['created_by'] ?? $this->getCurrentUserHelper->getUserId();
+            $validated['last_updated_by'] = $validated['last_updated_by'] ?? $this->getCurrentUserHelper->getUserId();
+
+            $movement = DB::transaction(function () use ($validated, $product) {
+                return ProductMovement::create([
+                    'product_id' => $product->id,
+                    'direction' => \App\Enums\StockDirectionEnum::IN->value,
+                    'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
+                    'product_status' => \App\Enums\ProductStatusEnum::COMPLETED->value,
+                    'quantity' => $validated['quantity'],
+                    'is_sold' => false,
+                    'movement_date' => $validated['movement_date'],
+                    'note' => $validated['note'] ?? null,
+                    'created_by' => $validated['created_by'],
+                    'last_updated_by' => $validated['last_updated_by'],
+
+                    // Purchase pricing (derived by CurrencyPricingHelper)
+                    'purchase_unit_price_in_usd' => $validated['purchase_unit_price_in_usd'],
+                    'purchase_total_price_in_usd' => $validated['purchase_total_price_in_usd'] ?? 0,
+                    'exchange_rate_from_usd_to_riel' => $validated['exchange_rate_from_usd_to_riel'],
+                    'purchase_unit_price_in_riel' => $validated['purchase_unit_price_in_riel'] ?? 0,
+                    'purchase_total_price_in_riel' => $validated['purchase_total_price_in_riel'] ?? 0,
+                    'exchange_rate_from_riel_to_usd' => $validated['exchange_rate_from_riel_to_usd'] ?? 0,
+
+                    // Selling pricing (unit only — no totals)
+                    'selling_unit_price_in_usd' => $validated['selling_unit_price_in_usd'],
+                    'selling_unit_price_in_riel' => $validated['selling_unit_price_in_riel'] ?? 0,
+                    'selling_exchange_rate_from_usd_to_riel' => $validated['selling_exchange_rate_from_usd_to_riel'],
+                    'selling_exchange_rate_from_riel_to_usd' => $validated['selling_exchange_rate_from_riel_to_usd'] ?? 0,
+                ]);
+            });
+
+            return ResponseHelper::success($movement, 'Product reordered successfully', 201);
+
+        } catch (ValidationException $e) {
+            return ResponseHelper::validation($e->errors(), 'Validation Error');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    // Update Reorder Product (External Purchased Product)
+    public function updateReorderExternalPurchasedProduct(Request $request, $productId, $movementId)
+    {
+        try {
+            $product = Product::findOrFail($productId);
+            $movement = ProductMovement::findOrFail($movementId);
+
+            // Enforce reorder flow defaults
+            $request->merge([
+                'product_id' => $product->id,
+                'direction' => \App\Enums\StockDirectionEnum::IN->value,
+                'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
+                'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
+            ]);
+
+            // Only accept USD unit price + USD->Riel exchange rate as inputs;
+            // compute everything else from quantity.
+            $request->merge([
+                'purchase_total_price_in_usd' => null,
+                'purchase_unit_price_in_riel' => null,
+                'purchase_total_price_in_riel' => null,
+                'exchange_rate_from_riel_to_usd' => null,
+            ]);
+
+            // Preserve original created_by; update last_updated_by to the acting user
+            $request->merge([
+                'created_by' => $movement->created_by,
+                'last_updated_by' => $this->getCurrentUserHelper->getUserId(),
+            ]);
+
+            // Check if the stock is already used (sold) to avoid data inconsistency
+            if ($movement->is_sold === true) {
+                return ResponseHelper::error('Cannot update used stock movement', 401, 'The reordered product has been sold. Data cannot be updated to avoid data inconsistency.');
+            }
+
+            // Ensure selling-side fields exist (derive from last movement if present)
+            $lastMovement = ProductMovement::where('product_id', $product->id)
+                ->orderBy('movement_date', 'desc')
+                ->first();
+
+            if ($lastMovement) {
+                $request->merge([
+                    'selling_unit_price_in_usd' => $lastMovement->selling_unit_price_in_usd ?? 0,
+                    'selling_exchange_rate_from_usd_to_riel' => $lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0,
+                ]);
+            } else {
+                $request->merge([
+                    'selling_unit_price_in_usd' => $request->input('selling_unit_price_in_usd', 0),
+                    'selling_exchange_rate_from_usd_to_riel' => $request->input('selling_exchange_rate_from_usd_to_riel', 0),
+                ]);
+            }
+
+            CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
+
+            $rules = $this->productValidation->createExternalPurchaseMovementRules();
+            $validated = Validator::make($request->all(), $rules)->validate();
+
+            // Preserve created_by from original movement if available and ensure last_updated_by exists
+            $validated['created_by'] = $validated['created_by'] ?? $movement->created_by ?? $this->getCurrentUserHelper->getUserId();
+            $validated['last_updated_by'] = $validated['last_updated_by'] ?? $this->getCurrentUserHelper->getUserId();
+
+            $movement = DB::transaction(function () use ($validated, $movement) {
+                $movement->update([
+                    'quantity' => $validated['quantity'],
+                    'direction' => \App\Enums\StockDirectionEnum::IN->value,
+                    'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
+                    'movement_date' => $validated['movement_date'],
+                    'note' => $validated['note'] ?? null,
+
+                    // Purchase pricing
+                    'purchase_unit_price_in_usd' => $validated['purchase_unit_price_in_usd'],
+                    'purchase_total_price_in_usd' => $validated['purchase_total_price_in_usd'] ?? 0,
+                    'exchange_rate_from_usd_to_riel' => $validated['exchange_rate_from_usd_to_riel'],
+                    'purchase_unit_price_in_riel' => $validated['purchase_unit_price_in_riel'] ?? 0,
+                    'purchase_total_price_in_riel' => $validated['purchase_total_price_in_riel'] ?? 0,
+                    'exchange_rate_from_riel_to_usd' => $validated['exchange_rate_from_riel_to_usd'] ?? 0,
+
+                    // Selling pricing
+                    'selling_unit_price_in_usd' => $validated['selling_unit_price_in_usd'],
+                    'selling_unit_price_in_riel' => $validated['selling_unit_price_in_riel'] ?? 0,
+                    'selling_exchange_rate_from_usd_to_riel' => $validated['selling_exchange_rate_from_usd_to_riel'],
+                    'selling_exchange_rate_from_riel_to_usd' => $validated['selling_exchange_rate_from_riel_to_usd'] ?? 0,
+
+                    'last_updated_by' => $validated['last_updated_by'],
+                ]);
+
+                return $movement->fresh();
+            });
+
+            return ResponseHelper::success($movement, 'Product reorder updated successfully', 201);
+
+        } catch (ValidationException $e) {
+            return ResponseHelper::validation($e->errors(), 'Validation Error');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
 
     // Helper functions have been moved to App\Helpers\ProductHelper to keep
     // this service focused on core CRUD orchestration.

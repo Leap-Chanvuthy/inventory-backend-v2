@@ -33,4 +33,15 @@ class ProductAPIController extends Controller
     {
         return $this->productService->createInternalManufacturedProduct($request);
     }
+
+
+    // Reorder product (Create/Update) by external purchase (add stock)
+    public function reorderExternalPurchase(Request $request, $id){
+        return $this->productService->reorderExternalPurchasedProduct($request, $id);
+    }
+    
+    public function updateReorderExternalPurchase(Request $request, $productId, $movementId){
+        return $this->productService->updateReorderExternalPurchasedProduct($request, $productId, $movementId);
+    }
+
 }
