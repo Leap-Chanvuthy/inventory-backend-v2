@@ -2530,6 +2530,237 @@
                 ]
             }
         },
+        "/api/products/{id}/reorder/external-purchase": {
+            "post": {
+                "tags": [
+                    "Products"
+                ],
+                "summary": "Create a reorder movement for an externally purchased product",
+                "description": "Creates a RE_ORDER / IN product movement. Supply purchase and selling unit prices in USD and the USD->Riel exchange rates. Totals and Riel equivalents are derived by the server.",
+                "operationId": "f08be1199f329a434f033b09e81c2b6c",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "quantity",
+                                    "purchase_unit_price_in_usd",
+                                    "exchange_rate_from_usd_to_riel",
+                                    "selling_unit_price_in_usd",
+                                    "selling_exchange_rate_from_usd_to_riel"
+                                ],
+                                "properties": {
+                                    "quantity": {
+                                        "type": "number",
+                                        "example": 100
+                                    },
+                                    "purchase_unit_price_in_usd": {
+                                        "type": "number",
+                                        "example": 12.5
+                                    },
+                                    "exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "example": 4100
+                                    },
+                                    "selling_unit_price_in_usd": {
+                                        "type": "number",
+                                        "example": 15
+                                    },
+                                    "selling_exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "example": 4100
+                                    },
+                                    "movement_date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-04-04T10:00:00Z"
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Reorder due to low stock"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Reorder created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/products/{productId}/reorder/external-purchase/{movementId}": {
+            "patch": {
+                "tags": [
+                    "Products"
+                ],
+                "summary": "Update an existing reorder movement for an externally purchased product",
+                "description": "Update a previously created RE_ORDER / IN movement. Updates are blocked if the movement has been used/sold.",
+                "operationId": "0d5fe5432e991084219f0e869b48e917",
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    },
+                    {
+                        "name": "movementId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "quantity",
+                                    "purchase_unit_price_in_usd",
+                                    "exchange_rate_from_usd_to_riel",
+                                    "selling_unit_price_in_usd",
+                                    "selling_exchange_rate_from_usd_to_riel"
+                                ],
+                                "properties": {
+                                    "quantity": {
+                                        "type": "number",
+                                        "example": 100
+                                    },
+                                    "purchase_unit_price_in_usd": {
+                                        "type": "number",
+                                        "example": 12.5
+                                    },
+                                    "exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "example": 4100
+                                    },
+                                    "selling_unit_price_in_usd": {
+                                        "type": "number",
+                                        "example": 15
+                                    },
+                                    "selling_exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "example": 4100
+                                    },
+                                    "movement_date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-04-04T10:00:00Z"
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Updated reorder note"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Reorder updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Cannot update used stock movement",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/product-categories": {
             "get": {
                 "tags": [

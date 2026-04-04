@@ -168,4 +168,74 @@ interface ProductAPIControllerInterface
      * )
      */
     public function storeInternalManufacturing();
+
+   /**
+    * @OA\Post(
+    *     path="/api/products/{id}/reorder/external-purchase",
+    *     tags={"Products"},
+    *     security={{"Bearer":{}}},
+    *     summary="Create a reorder movement for an externally purchased product",
+    *     description="Creates a RE_ORDER / IN product movement. Supply purchase and selling unit prices in USD and the USD->Riel exchange rates. Totals and Riel equivalents are derived by the server.",
+    *
+    *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer", example=1)),
+    *
+    *     @OA\RequestBody(
+    *         required=true,
+    *         @OA\MediaType(
+    *             mediaType="application/json",
+    *             @OA\Schema(
+    *                 required={"quantity","purchase_unit_price_in_usd","exchange_rate_from_usd_to_riel","selling_unit_price_in_usd","selling_exchange_rate_from_usd_to_riel"},
+    *                 @OA\Property(property="quantity", type="number", example=100),
+    *                 @OA\Property(property="purchase_unit_price_in_usd", type="number", example=12.5),
+    *                 @OA\Property(property="exchange_rate_from_usd_to_riel", type="number", example=4100),
+    *                 @OA\Property(property="selling_unit_price_in_usd", type="number", example=15.0),
+    *                 @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", example=4100),
+    *                 @OA\Property(property="movement_date", type="string", format="date-time", example="2026-04-04T10:00:00Z"),
+    *                 @OA\Property(property="note", type="string", example="Reorder due to low stock")
+    *             )
+    *         )
+    *     ),
+    *
+    *     @OA\Response(response=201, description="Reorder created successfully", @OA\JsonContent(type="object")),
+    *     @OA\Response(response=422, description="Validation error", @OA\JsonContent(type="object")),
+    *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(type="object"))
+    * )
+    */
+   public function reorderExternalPurchase($id);
+
+   /**
+    * @OA\Patch(
+    *     path="/api/products/{productId}/reorder/external-purchase/{movementId}",
+    *     tags={"Products"},
+    *     security={{"Bearer":{}}},
+    *     summary="Update an existing reorder movement for an externally purchased product",
+    *     description="Update a previously created RE_ORDER / IN movement. Updates are blocked if the movement has been used/sold.",
+    *
+    *     @OA\Parameter(name="productId", in="path", required=true, @OA\Schema(type="integer", example=1)),
+    *     @OA\Parameter(name="movementId", in="path", required=true, @OA\Schema(type="integer", example=10)),
+    *
+    *     @OA\RequestBody(
+    *         required=true,
+    *         @OA\MediaType(
+    *             mediaType="application/json",
+    *             @OA\Schema(
+    *                 required={"quantity","purchase_unit_price_in_usd","exchange_rate_from_usd_to_riel","selling_unit_price_in_usd","selling_exchange_rate_from_usd_to_riel"},
+    *                 @OA\Property(property="quantity", type="number", example=100),
+    *                 @OA\Property(property="purchase_unit_price_in_usd", type="number", example=12.5),
+    *                 @OA\Property(property="exchange_rate_from_usd_to_riel", type="number", example=4100),
+    *                 @OA\Property(property="selling_unit_price_in_usd", type="number", example=15.0),
+    *                 @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", example=4100),
+    *                 @OA\Property(property="movement_date", type="string", format="date-time", example="2026-04-04T10:00:00Z"),
+    *                 @OA\Property(property="note", type="string", example="Updated reorder note")
+    *             )
+    *         )
+    *     ),
+    *
+    *     @OA\Response(response=201, description="Reorder updated successfully", @OA\JsonContent(type="object")),
+    *     @OA\Response(response=401, description="Cannot update used stock movement", @OA\JsonContent(type="object")),
+    *     @OA\Response(response=422, description="Validation error", @OA\JsonContent(type="object")),
+    *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(type="object"))
+    * )
+    */
+   public function updateReorderExternalPurchase($productId, $movementId);
 }
