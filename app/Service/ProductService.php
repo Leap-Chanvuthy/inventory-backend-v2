@@ -9,6 +9,8 @@ use App\Helpers\ProductHelper;
 use App\Models\Product;
 use App\Models\ProductRawMaterial;
 use App\Models\ProductMovement;
+use App\Models\ProductReorder;
+use App\Models\ReorderProductRawMaterial;
 use App\QueryBuilders\ProductQueryBuilder;
 use App\Validations\ProductValidation;
 use Exception;
@@ -524,6 +526,14 @@ class ProductService
         try {
             $product = Product::findOrFail($productId);
 
+            // If frontend does not provide BOM for reorder, fallback to product default BOM.
+            $requestBomItems = $request->input('raw_materials', []);
+            if (empty($requestBomItems)) {
+                $request->merge([
+                    'raw_materials' => $this->getDefaultBomFromProduct($product),
+                ]);
+            }
+
 
             // First validate incoming request body for internal manufacturing movement
             $rules = $this->productValidation->createInternalManufacturingMovementRules();
@@ -636,15 +646,42 @@ class ProductService
                     'selling_exchange_rate_from_riel_to_usd' => $validated['selling_exchange_rate_from_riel_to_usd'] ?? 0,
                 ]);
 
+                // Persist reorder snapshot root record.
+                $productReorder = ProductReorder::create([
+                    'product_id' => $product->id,
+                    'product_movement_id' => $movement->id,
+                    'quantity' => $validated['quantity'],
+                    'status' => \App\Enums\ProductStatusEnum::COMPLETED->value,
+                    'is_finalized' => false,
+                    'created_by' => $validated['created_by'],
+                    'last_updated_by' => $validated['last_updated_by'],
+                    'notes' => $validated['note'] ?? null,
+                ]);
+
+                // Persist reorder BOM snapshot rows.
+                foreach ($bomItems as $item) {
+                    ReorderProductRawMaterial::create([
+                        'product_reorder_id' => $productReorder->id,
+                        'raw_material_id' => $item['raw_material_id'],
+                        'quantity' => $item['quantity'],
+                    ]);
+                }
+
+                $referenceToken = $this->buildReorderReferenceToken((int) $movement->id);
+
                 // 2) Deduct raw material stock respecting FIFO/LIFO for this production
                 $this->stockDeductionService->deductStock(
                     $bomItems,
                     $product->id,
                     $userId,
-                    $movementDate
+                    $movementDate,
+                    $referenceToken
                 );
 
-                return $movement;
+                return [
+                    'movement' => $movement,
+                    'product_reorder_id' => $productReorder->id,
+                ];
             });
 
             return ResponseHelper::success($movement, 'Product reordered (internal manufacturing) successfully', 201);
@@ -660,6 +697,37 @@ class ProductService
         try {
             $product = Product::findOrFail($productId);
             $movement = ProductMovement::findOrFail($movementId);
+
+            $productReorder = ProductReorder::where('product_id', $product->id)
+                ->where('product_movement_id', $movement->id)
+                ->first();
+
+            if (!$productReorder) {
+                return ResponseHelper::error(
+                    'Reorder snapshot not found',
+                    404,
+                    'This reorder does not have BOM snapshot data. Only reorders created with the new snapshot flow can be updated.'
+                );
+            }
+
+            if ($productReorder->is_finalized) {
+                return ResponseHelper::error('Cannot update finalized reorder', 401, 'The reorder has been finalized and can no longer be updated.');
+            }
+
+            // Default update payload to existing snapshot if BOM is omitted.
+            $requestBomItems = $request->input('raw_materials', []);
+            if (empty($requestBomItems)) {
+                $request->merge([
+                    'raw_materials' => $productReorder->bomItems()
+                        ->get(['raw_material_id', 'quantity'])
+                        ->map(fn ($item) => [
+                            'raw_material_id' => (int) $item->raw_material_id,
+                            'quantity' => (float) $item->quantity,
+                        ])
+                        ->values()
+                        ->all(),
+                ]);
+            }
 
 
             // First validate incoming request body for internal manufacturing movement update
@@ -737,7 +805,45 @@ class ProductService
             $validated['created_by'] = $validated['created_by'] ?? $movement->created_by ?? $this->getCurrentUserHelper->getUserId();
             $validated['last_updated_by'] = $validated['last_updated_by'] ?? $this->getCurrentUserHelper->getUserId();
 
-            $movement = DB::transaction(function () use ($validated, $movement) {
+            $bomItems = $validated['raw_materials'] ?? [];
+
+            DB::beginTransaction();
+            try {
+                $referenceToken = $this->buildReorderReferenceToken((int) $movement->id);
+                $deletedRawMaterialIds = $this->stockDeductionService->deleteReorderConsumptionMovementsByToken($referenceToken);
+
+                $existingBomRawMaterialIds = $productReorder->bomItems()
+                    ->pluck('raw_material_id')
+                    ->all();
+
+                // Simplified approach: remove all old BOM rows then reinsert from request.
+                $productReorder->bomItems()->delete();
+
+                $rebuildIds = array_values(array_unique(array_merge($deletedRawMaterialIds, $existingBomRawMaterialIds)));
+                $this->stockDeductionService->rebuildInUsedFlags($rebuildIds);
+
+                $shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems);
+                if (!empty($shortfalls)) {
+                    DB::rollBack();
+                    return ResponseHelper::error('Insufficient raw material stock', 422, $shortfalls);
+                }
+
+                foreach ($bomItems as $item) {
+                    ReorderProductRawMaterial::create([
+                        'product_reorder_id' => $productReorder->id,
+                        'raw_material_id' => $item['raw_material_id'],
+                        'quantity' => $item['quantity'],
+                    ]);
+                }
+
+                $this->stockDeductionService->deductStock(
+                    $bomItems,
+                    $product->id,
+                    (int) $validated['last_updated_by'],
+                    $validated['movement_date'],
+                    $referenceToken
+                );
+
                 $movement->update([
                     'quantity' => $validated['quantity'],
                     'direction' => \App\Enums\StockDirectionEnum::IN->value,
@@ -762,8 +868,20 @@ class ProductService
                     'last_updated_by' => $validated['last_updated_by'],
                 ]);
 
-                return $movement->fresh();
-            });
+                $productReorder->update([
+                    'quantity' => $validated['quantity'],
+                    'status' => $validated['product_status'] ?? $productReorder->status,
+                    'last_updated_by' => $validated['last_updated_by'],
+                    'notes' => $validated['note'] ?? null,
+                ]);
+
+                DB::commit();
+
+                $movement = $movement->fresh();
+            } catch (Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
 
             return ResponseHelper::success($movement, 'Product reorder (internal manufacturing) updated successfully', 201);
         } catch (ValidationException $e) {
@@ -929,6 +1047,23 @@ class ProductService
         } catch (Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
         }
+    }
+
+    private function getDefaultBomFromProduct(Product $product): array
+    {
+        return ProductRawMaterial::where('product_id', $product->id)
+            ->get(['raw_material_id', 'quantity'])
+            ->map(fn ($item) => [
+                'raw_material_id' => (int) $item->raw_material_id,
+                'quantity' => (float) $item->quantity,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function buildReorderReferenceToken(int $movementId): string
+    {
+        return "REORDER_MOVEMENT_ID:{$movementId}";
     }
 
 

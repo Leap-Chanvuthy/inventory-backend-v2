@@ -102,4 +102,9 @@ class Product extends Model
         return $this->hasMany(ProductImage::class, 'product_id');
     }
 
+    public function productReorders()
+    {
+        return $this->hasMany(ProductReorder::class, 'product_id');
+    }
+
 }

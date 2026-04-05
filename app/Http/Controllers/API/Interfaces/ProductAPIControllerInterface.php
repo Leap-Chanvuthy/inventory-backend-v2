@@ -342,36 +342,4 @@ interface ProductAPIControllerInterface
     * )
     */
    public function createScrap($id);
-
-   /**
-    * @OA\Patch(
-    *     path="/api/products/{productId}/scrap/{movementId}",
-    *     tags={"Products"},
-    *     security={{"Bearer":{}}},
-    *     summary="Update an existing scrap movement for a product",
-    *     description="Update a previously created SCRAP / OUT movement. Financial fields remain zero. Updates are blocked if the movement has been used/sold.",
-    *
-    *     @OA\Parameter(name="productId", in="path", required=true, @OA\Schema(type="integer", example=1)),
-    *     @OA\Parameter(name="movementId", in="path", required=true, @OA\Schema(type="integer", example=10)),
-    *
-    *     @OA\RequestBody(
-    *         required=true,
-    *         @OA\MediaType(
-    *             mediaType="application/json",
-    *             @OA\Schema(
-    *                 required={"quantity"},
-    *                 @OA\Property(property="quantity", type="number", example=3),
-    *                 @OA\Property(property="movement_date", type="string", format="date-time", example="2026-04-04T10:00:00Z"),
-    *                 @OA\Property(property="note", type="string", example="Adjusted scrapped qty")
-    *             )
-    *         )
-    *     ),
-    *
-    *     @OA\Response(response=201, description="Scrap updated successfully", @OA\JsonContent(type="object")),
-    *     @OA\Response(response=401, description="Cannot update used stock movement", @OA\JsonContent(type="object")),
-    *     @OA\Response(response=422, description="Validation error or insufficient stock", @OA\JsonContent(type="object")),
-    *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(type="object"))
-    * )
-    */
-   public function updateScrap($productId, $movementId);
 }

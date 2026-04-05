@@ -7,6 +7,8 @@ use App\Enums\ProductStockMovementTypeEnum;
 use App\Enums\RawMaterialStockMovementTypeEnum;
 use App\Enums\StockDirectionEnum;
 use App\Models\Product;
+use App\Models\ProductReorder;
+use App\Models\ReorderProductRawMaterial;
 use App\Models\ProductMovement;
 use App\Models\ProductRawMaterial;
 use App\Models\RawMaterial;
@@ -38,6 +40,25 @@ class ProductSeeder extends Seeder
 
         $users        = User::all();
         $rawMaterials = RawMaterial::all();
+
+        // Ensure prerequisite data exists when seeder is run in isolation.
+        if ($users->isEmpty()) {
+            User::factory()->count(5)->create();
+            $users = User::all();
+        }
+
+        if ($rawMaterials->isEmpty()) {
+            // Ensure supporting reference data exists for raw material factories
+            $this->call([
+                UOMSeeder::class,
+                RawMaterialCategorySeeder::class,
+                SupplierSeeder::class,
+                WarehouseSeeder::class,
+            ]);
+
+            RawMaterial::factory()->count(30)->create();
+            $rawMaterials = RawMaterial::all();
+        }
 
         // ── External Purchase ────────────────────────────────────────────────
 
@@ -86,7 +107,7 @@ class ProductSeeder extends Seeder
                 ProductStatusEnum::BLOCKED->value,
             ]);
 
-            $this->createInternalManufacturingMovement(
+            $movement = $this->createInternalManufacturingMovement(
                 $faker,
                 $product,
                 $userId,
@@ -94,8 +115,32 @@ class ProductSeeder extends Seeder
                 $productStatus
             );
 
-            // Deduct raw material stock respecting FIFO / LIFO
-            $this->deductRawMaterialStock($bomItems, $product->id, $userId, $movementDate);
+            // Persist a ProductReorder snapshot linked to this product movement
+            $productReorder = ProductReorder::create([
+                'product_id' => $product->id,
+                'product_movement_id' => $movement->id,
+                'quantity' => (float) $movement->quantity,
+                'status' => 'COMPLETED',
+                'is_finalized' => false,
+                'created_by' => $userId,
+                'last_updated_by' => $userId,
+                'notes' => null,
+            ]);
+
+            // Persist BOM snapshot rows for this reorder
+            foreach ($bomItems as $item) {
+                ReorderProductRawMaterial::create([
+                    'product_reorder_id' => $productReorder->id,
+                    'raw_material_id' => $item['raw_material_id'],
+                    'quantity' => $item['quantity'],
+                ]);
+            }
+
+            // Build reference token used to link RM movements to this reorder
+            $referenceToken = "REORDER_MOVEMENT_ID:{$movement->id}";
+
+            // Deduct raw material stock respecting FIFO / LIFO, tagging movements with the token
+            $this->deductRawMaterialStock($bomItems, $product->id, $userId, $movementDate, $referenceToken);
         }
 
     }
@@ -288,7 +333,8 @@ class ProductSeeder extends Seeder
         array  $bomItems,
         int    $productId,
         int    $userId,
-        string $movementDate
+        string $movementDate,
+        ?string $referenceToken = null
     ): void {
         foreach ($bomItems as $item) {
             $rawMaterialId = (int) $item['raw_material_id'];
@@ -321,7 +367,7 @@ class ProductSeeder extends Seeder
                     'exchange_rate_from_riel_to_usd' => $inMovement->exchange_rate_from_riel_to_usd,
                     'created_by'                     => $userId,
                     'last_updated_by'                => $userId,
-                    'note'                           => "Consumed for product ID {$productId}",
+                    'note'                           => $this->buildConsumptionNote($productId, $referenceToken),
                 ]);
 
                 // Mark the IN batch fully consumed when entire qty is used
@@ -362,5 +408,16 @@ class ProductSeeder extends Seeder
             ->where('in_used', false)
             ->orderBy('movement_date', $order)
             ->get();
+    }
+
+    private function buildConsumptionNote(int $productId, ?string $referenceToken = null): string
+    {
+        $note = "Consumed for product ID {$productId}";
+
+        if (!empty($referenceToken)) {
+            $note .= " | {$referenceToken}";
+        }
+
+        return $note;
     }
 }

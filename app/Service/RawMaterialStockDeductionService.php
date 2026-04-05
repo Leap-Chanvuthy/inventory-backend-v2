@@ -56,7 +56,8 @@ class RawMaterialStockDeductionService
         array  $bomItems,
         int    $productId,
         int    $userId,
-        string $movementDate
+        string $movementDate,
+        ?string $referenceToken = null
     ): void {
         foreach ($bomItems as $item) {
             $rawMaterialId = (int) $item['raw_material_id'];
@@ -90,7 +91,7 @@ class RawMaterialStockDeductionService
                     'exchange_rate_from_riel_to_usd' => $inMovement->exchange_rate_from_riel_to_usd,
                     'created_by'                   => $userId,
                     'last_updated_by'              => $userId,
-                    'note'                         => "Consumed for product ID {$productId}",
+                    'note'                         => $this->buildConsumptionNote($productId, $referenceToken),
                 ]);
 
                 // Mark batch as fully consumed when the entire qty is used
@@ -99,6 +100,78 @@ class RawMaterialStockDeductionService
                 }
 
                 $remaining -= $consume;
+            }
+        }
+    }
+
+    /**
+     * Delete reorder-created OUT movements by token and return affected raw material IDs.
+     */
+    public function deleteReorderConsumptionMovementsByToken(string $referenceToken): array
+    {
+        $movements = RMStockMovement::where('direction', StockDirectionEnum::OUT->value)
+            ->where('movement_type', RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value)
+            ->where('note', 'like', '%' . $referenceToken . '%')
+            ->get(['id', 'raw_material_id']);
+
+        if ($movements->isEmpty()) {
+            return [];
+        }
+
+        $rawMaterialIds = $movements->pluck('raw_material_id')->unique()->values()->all();
+
+        RMStockMovement::whereIn('id', $movements->pluck('id')->all())->delete();
+
+        return $rawMaterialIds;
+    }
+
+    /**
+     * Recalculate in_used flags after movement replacement to keep stock state consistent.
+     */
+    public function rebuildInUsedFlags(array $rawMaterialIds): void
+    {
+        foreach (array_unique(array_map('intval', $rawMaterialIds)) as $rawMaterialId) {
+            if ($rawMaterialId <= 0) {
+                continue;
+            }
+
+            // Reset all IN rows first, then mark fully consumed rows again.
+            RMStockMovement::where('raw_material_id', $rawMaterialId)
+                ->where('direction', StockDirectionEnum::IN->value)
+                ->update(['in_used' => false]);
+
+            $remainingOut = (float) RMStockMovement::where('raw_material_id', $rawMaterialId)
+                ->where('direction', StockDirectionEnum::OUT->value)
+                ->sum('quantity');
+
+            if ($remainingOut <= 0) {
+                continue;
+            }
+
+            $rawMaterial = RawMaterial::find($rawMaterialId);
+            $methodValue = is_object($rawMaterial->production_method) ? $rawMaterial->production_method->value : (string) $rawMaterial->production_method;
+            $order = strtoupper($methodValue) === 'LIFO' ? 'desc' : 'asc';
+
+            $inRows = RMStockMovement::where('raw_material_id', $rawMaterialId)
+                ->where('direction', StockDirectionEnum::IN->value)
+                ->orderBy('movement_date', $order)
+                ->orderBy('id', 'asc')
+                ->get(['id', 'quantity']);
+
+            foreach ($inRows as $inRow) {
+                if ($remainingOut <= 0) {
+                    break;
+                }
+
+                $inQty = (float) $inRow->quantity;
+                if ($remainingOut >= $inQty) {
+                    RMStockMovement::where('id', $inRow->id)->update(['in_used' => true]);
+                    $remainingOut -= $inQty;
+                    continue;
+                }
+
+                // Partially consumed batch stays in_used=false for current stock algorithm.
+                break;
             }
         }
     }
@@ -112,9 +185,11 @@ class RawMaterialStockDeductionService
      */
     private function getAvailableStock(int $rawMaterialId, mixed $productionMethod): float
     {
+        // Compute net available stock as total IN minus total OUT. Using the
+        // net balances ensures partial consumption of IN batches is handled
+        // correctly when updating/rebuilding movements.
         $totalIn = RMStockMovement::where('raw_material_id', $rawMaterialId)
             ->where('direction', StockDirectionEnum::IN->value)
-            ->where('in_used', false)
             ->sum('quantity');
 
         $totalOut = RMStockMovement::where('raw_material_id', $rawMaterialId)
@@ -139,5 +214,16 @@ class RawMaterialStockDeductionService
             ->where('in_used', false)
             ->orderBy('movement_date', $order)
             ->get();
+    }
+
+    private function buildConsumptionNote(int $productId, ?string $referenceToken = null): string
+    {
+        $note = "Consumed for product ID {$productId}";
+
+        if (!empty($referenceToken)) {
+            $note .= " | {$referenceToken}";
+        }
+
+        return $note;
     }
 }
