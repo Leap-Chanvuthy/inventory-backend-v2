@@ -108,6 +108,48 @@ interface ProductAPIControllerInterface
      */
     public function storeExternalPurchase();
 
+   /**
+    * @OA\Patch(
+    *     path="/api/products/{id}/update/external-purchase",
+    *     tags={"Products"},
+    *     security={{"Bearer":{}}},
+    *     summary="Update the initial EXTERNAL_PURCHASED movement for a product",
+    *     description="Updates the initial EXTERNAL_PURCHASED stock movement created when the product was first added. The movement is selected automatically; callers should provide the product id only. Updates are blocked if the movement has been used/sold.",
+    *
+    *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer", example=1)),
+    *
+    *     @OA\RequestBody(
+    *         required=true,
+    *         @OA\MediaType(
+    *             mediaType="application/json",
+    *             @OA\Schema(
+    *                 required={"quantity","purchase_unit_price_in_usd","exchange_rate_from_usd_to_riel","selling_unit_price_in_usd","selling_exchange_rate_from_usd_to_riel"},
+   *                 @OA\Property(property="quantity", type="number", example=100),
+   *                 @OA\Property(property="product_name", type="string", example="Widget A"),
+   *                 @OA\Property(property="barcode", type="string", example="1234567890123"),
+   *                 @OA\Property(property="product_description", type="string", example="Updated description"),
+   *                 @OA\Property(property="product_category_id", type="integer", example=1),
+   *                 @OA\Property(property="base_uom_id", type="integer", example=1),
+   *                 @OA\Property(property="supplier_id", type="integer", example=2),
+   *                 @OA\Property(property="warehouse_id", type="integer", example=1),
+    *                 @OA\Property(property="purchase_unit_price_in_usd", type="number", example=12.5),
+    *                 @OA\Property(property="exchange_rate_from_usd_to_riel", type="number", example=4100),
+    *                 @OA\Property(property="selling_unit_price_in_usd", type="number", example=15.0),
+    *                 @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", example=4100),
+    *                 @OA\Property(property="movement_date", type="string", format="date-time", example="2026-04-04T10:00:00Z"),
+    *                 @OA\Property(property="note", type="string", example="Updated initial purchase info")
+    *             )
+    *         )
+    *     ),
+    *
+    *     @OA\Response(response=201, description="Product movement updated successfully", @OA\JsonContent(type="object")),
+    *     @OA\Response(response=401, description="Cannot update used stock movement", @OA\JsonContent(type="object")),
+    *     @OA\Response(response=422, description="Validation error", @OA\JsonContent(type="object")),
+    *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(type="object"))
+    * )
+    */
+   public function updateExternalPurchase($id);
+
     /**
      * @OA\Post(
      *     path="/api/products/create/internal-manufacturing",
@@ -170,6 +212,54 @@ interface ProductAPIControllerInterface
     public function storeInternalManufacturing();
 
    /**
+    * @OA\Patch(
+    *     path="/api/products/{id}/update/internal-manufacturing",
+    *     tags={"Products"},
+    *     security={{"Bearer":{}}},
+    *     summary="Update the initial INTERNAL_PRODUCED movement for a product",
+    *     description="Updates the initial INTERNAL_PRODUCED stock movement created when the product was first added. The movement is selected automatically; callers should provide the product id only. Updates are blocked if the movement has been used/sold.",
+    *
+    *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer", example=1)),
+    *
+    *     @OA\RequestBody(
+    *         required=true,
+    *         @OA\MediaType(
+    *             mediaType="application/json",
+    *             @OA\Schema(
+    *                 required={"quantity","selling_unit_price_in_usd","selling_exchange_rate_from_usd_to_riel"},
+   *                 @OA\Property(property="quantity", type="number", example=50),
+   *                 @OA\Property(property="product_name", type="string", example="Widget A"),
+   *                 @OA\Property(property="barcode", type="string", example="1234567890123"),
+   *                 @OA\Property(property="product_description", type="string", example="Updated description"),
+   *                 @OA\Property(property="product_category_id", type="integer", example=1),
+   *                 @OA\Property(property="base_uom_id", type="integer", example=1),
+   *                 @OA\Property(property="supplier_id", type="integer", example=2),
+   *                 @OA\Property(property="warehouse_id", type="integer", example=1),
+    *                 @OA\Property(property="selling_unit_price_in_usd", type="number", example=12.0),
+    *                 @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", example=4100),
+    *                 @OA\Property(property="movement_date", type="string", format="date-time", example="2026-04-04T10:00:00Z"),
+    *                 @OA\Property(property="note", type="string", example="Updated production info"),
+    *                 @OA\Property(
+    *                     property="raw_materials",
+    *                     type="array",
+    *                     @OA\Items(
+    *                         @OA\Property(property="raw_material_id", type="integer", example=3),
+    *                         @OA\Property(property="quantity", type="number", example=2)
+    *                     )
+    *                 )
+    *             )
+    *         )
+    *     ),
+    *
+    *     @OA\Response(response=201, description="Product movement updated successfully", @OA\JsonContent(type="object")),
+    *     @OA\Response(response=401, description="Cannot update used stock movement", @OA\JsonContent(type="object")),
+    *     @OA\Response(response=422, description="Validation error or insufficient raw material stock", @OA\JsonContent(type="object")),
+    *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(type="object"))
+    * )
+    */
+   public function updateInternalManufacturing($id);
+
+   /**
     * @OA\Post(
     *     path="/api/products/{id}/reorder/external-purchase",
     *     tags={"Products"},
@@ -205,14 +295,13 @@ interface ProductAPIControllerInterface
 
    /**
     * @OA\Patch(
-    *     path="/api/products/{productId}/reorder/external-purchase/{movementId}",
+    *     path="/api/products/{productId}/reorder/external-purchase",
     *     tags={"Products"},
     *     security={{"Bearer":{}}},
     *     summary="Update an existing reorder movement for an externally purchased product",
     *     description="Update a previously created RE_ORDER / IN movement. Updates are blocked if the movement has been used/sold.",
     *
     *     @OA\Parameter(name="productId", in="path", required=true, @OA\Schema(type="integer", example=1)),
-    *     @OA\Parameter(name="movementId", in="path", required=true, @OA\Schema(type="integer", example=10)),
     *
     *     @OA\RequestBody(
     *         required=true,
@@ -237,7 +326,7 @@ interface ProductAPIControllerInterface
     *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(type="object"))
     * )
     */
-   public function updateReorderExternalPurchase($productId, $movementId);
+   public function updateReorderExternalPurchase($productId);
 
    /**
     * @OA\Post(
@@ -281,14 +370,13 @@ interface ProductAPIControllerInterface
 
    /**
     * @OA\Patch(
-    *     path="/api/products/{productId}/reorder/internal-manufacturing/{movementId}",
+    *     path="/api/products/{productId}/reorder/internal-manufacturing",
     *     tags={"Products"},
     *     security={{"Bearer":{}}},
     *     summary="Update an existing internal-manufacturing reorder movement",
     *     description="Update a previously created RE_ORDER / IN movement for an internally manufactured product. Updates are blocked if the movement has been used/sold. Raw material adjustments are not performed on update.",
     *
     *     @OA\Parameter(name="productId", in="path", required=true, @OA\Schema(type="integer", example=1)),
-    *     @OA\Parameter(name="movementId", in="path", required=true, @OA\Schema(type="integer", example=10)),
     *
     *     @OA\RequestBody(
     *         required=true,
@@ -311,7 +399,7 @@ interface ProductAPIControllerInterface
     *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(type="object"))
     * )
     */
-   public function updateReorderInternalManufacturing($productId, $movementId);
+   public function updateReorderInternalManufacturing($productId);
 
    /**
     * @OA\Post(

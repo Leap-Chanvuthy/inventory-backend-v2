@@ -143,4 +143,19 @@ class ProductValidation
             'images.*' => 'image|mimes:jpeg,png,jpg|max:2048',
         ];
     }
+
+    // Optional product-level rules used when updating a product
+    // Allows callers to validate only the fields they intend to change.
+    public function updateProductRules(Request $request): array
+    {
+        return [
+            'product_name'        => 'sometimes|string|max:255',
+            'barcode'             => 'sometimes|nullable|string|max:255',
+            'product_description' => 'sometimes|nullable|string',
+            'product_category_id' => 'sometimes|nullable|exists:product_categories,id',
+            'base_uom_id'         => 'sometimes|nullable|exists:unit_of_measurements,id',
+            'supplier_id'         => 'sometimes|nullable|exists:suppliers,id',
+            'warehouse_id'        => 'sometimes|nullable|exists:warehouses,id',
+        ];
+    }
 }

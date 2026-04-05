@@ -29,9 +29,19 @@ class ProductAPIController extends Controller
         return $this->productService->createExternalPurchasedProduct($request);
     }
 
+    public function updateExternalPurchase(Request $request, $id)
+    {
+        return $this->productService->updateExternalPurchasedProduct($request, $id);
+    }
+
     public function storeInternalManufacturing(Request $request)
     {
         return $this->productService->createInternalManufacturedProduct($request);
+    }
+
+    public function updateInternalManufacturing(Request $request, $id)
+    {
+        return $this->productService->updateInternalManufacturedProduct($request, $id);
     }
 
 
