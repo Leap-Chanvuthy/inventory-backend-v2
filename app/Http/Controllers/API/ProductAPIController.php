@@ -63,6 +63,17 @@ class ProductAPIController extends Controller
         return $this->productService->updateReorderInternalManufacturedProduct($request, $productId, $movementId);
     }
 
+    // GET reorder details
+    public function getReorderInternalManufacturing($productId, $movementId)
+    {
+        return $this->productService->getReorderInternalDetail((int)$productId, (int)$movementId);
+    }
+
+    public function getReorderExternalPurchase($productId, $movementId)
+    {
+        return $this->productService->getReorderExternalDetail((int)$productId, (int)$movementId);
+    }
+
     public function createScrap(Request $request, $id)
     {
         return $this->productService->createScrapMovement($request, $id);

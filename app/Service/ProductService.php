@@ -11,6 +11,7 @@ use App\Models\ProductRawMaterial;
 use App\Models\ProductMovement;
 use App\Models\ProductReorder;
 use App\Models\ReorderProductRawMaterial;
+use App\Models\RMStockMovement;
 use App\QueryBuilders\ProductQueryBuilder;
 use App\Validations\ProductValidation;
 use Exception;
@@ -607,6 +608,20 @@ class ProductService
             try {
                 $referenceToken = $this->buildReorderReferenceToken((int) $movement->id);
                 $deletedRawMaterialIds = $this->stockDeductionService->deleteReorderConsumptionMovementsByToken($referenceToken);
+
+                // Also delete legacy production consumption movements that were created
+                // without a reorder token (created by initial production flow).
+                $legacyNote = "Consumed for product ID {$product->id}";
+                $legacyMovements = RMStockMovement::where('direction', \App\Enums\StockDirectionEnum::OUT->value)
+                    ->where('movement_type', \App\Enums\RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value)
+                    ->where('note', 'like', '%' . $legacyNote . '%')
+                    ->get(['id', 'raw_material_id']);
+
+                if ($legacyMovements->isNotEmpty()) {
+                    $legacyRawIds = $legacyMovements->pluck('raw_material_id')->unique()->values()->all();
+                    RMStockMovement::whereIn('id', $legacyMovements->pluck('id')->all())->delete();
+                    $deletedRawMaterialIds = array_values(array_unique(array_merge($deletedRawMaterialIds, $legacyRawIds)));
+                }
 
                 $existingBomRawMaterialIds = ProductRawMaterial::where('product_id', $product->id)
                     ->pluck('raw_material_id')
@@ -1455,6 +1470,80 @@ class ProductService
     private function buildReorderReferenceToken(int $movementId): string
     {
         return "REORDER_MOVEMENT_ID:{$movementId}";
+    }
+
+
+    // -------------------------------------------------------------------------
+    // Reorder detail retrieval helpers
+    // -------------------------------------------------------------------------
+    public function getReorderInternalDetail(int $productId, int $movementId)
+    {
+        try {
+            $product = Product::findOrFail($productId);
+
+            $productTypeValue = ($product->product_type instanceof \BackedEnum)
+                ? $product->product_type->value
+                : (string) $product->product_type;
+
+            if ($productTypeValue !== \App\Enums\ProductTypeEnum::INTERNAL_PRODUCED->value) {
+                return ResponseHelper::error('Invalid product type for internal manufacturing reorder', 422, 'Product must be an internally produced product.');
+            }
+
+            $movement = ProductMovement::findOrFail($movementId);
+
+            $movementTypeValue = is_object($movement->movement_type) ? $movement->movement_type->value : (string) $movement->movement_type;
+            if ($movement->product_id !== $product->id || $movementTypeValue !== \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value) {
+                return ResponseHelper::error('Movement not found or not a reorder movement', 404);
+            }
+
+            $productReorder = ProductReorder::where('product_id', $product->id)
+                ->where('product_movement_id', $movement->id)
+                ->with(['bomItems.rawMaterial', 'createdBy', 'lastUpdatedBy'])
+                ->first();
+
+            $referenceToken = $this->buildReorderReferenceToken((int) $movement->id);
+
+            $rmMovements = \App\Models\RMStockMovement::where('note', 'like', '%' . $referenceToken . '%')
+                ->get();
+
+            return ResponseHelper::success([
+                'product' => $product,
+                'movement' => $movement,
+                'product_reorder' => $productReorder,
+                'rm_stock_movements' => $rmMovements,
+            ]);
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    public function getReorderExternalDetail(int $productId, int $movementId)
+    {
+        try {
+            $product = Product::findOrFail($productId);
+
+            $productTypeValue = ($product->product_type instanceof \BackedEnum)
+                ? $product->product_type->value
+                : (string) $product->product_type;
+
+            if ($productTypeValue !== \App\Enums\ProductTypeEnum::EXTERNAL_PURCHASED->value) {
+                return ResponseHelper::error('Invalid product type for external purchase reorder', 422, 'Product must be an externally purchased product.');
+            }
+
+            $movement = ProductMovement::findOrFail($movementId);
+
+            $movementTypeValue = is_object($movement->movement_type) ? $movement->movement_type->value : (string) $movement->movement_type;
+            if ($movement->product_id !== $product->id || $movementTypeValue !== \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value) {
+                return ResponseHelper::error('Movement not found or not a reorder movement', 404);
+            }
+
+            return ResponseHelper::success([
+                'product' => $product,
+                'movement' => $movement,
+            ]);
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
     }
 
 
