@@ -165,16 +165,11 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
         Route::patch('/{productId}/reorder/internal-manufacturing', [ProductAPIController::class, 'updateReorderInternalManufacturing']);
         Route::get('/{productId}/reorder/internal-manufacturing/{movementId}', [ProductAPIController::class, 'getReorderInternalManufacturing']);
 
-        // GET reorder details for internal manufacturing
-        Route::get('/products/{productId}/reorder/internal-manufacturing/{movementId}', [ProductAPIController::class, 'getReorderInternalManufacturing']);
-
-        // GET reorder details for external purchase
-        Route::get('/products/{productId}/reorder/external-purchase/{movementId}', [ProductAPIController::class, 'getReorderExternalPurchase']);
-
         // Product update endpoints for initial movement (no movementId required)
         Route::patch('/{id}/update/external-purchase', [ProductAPIController::class, 'updateExternalPurchase']);
         Route::patch('/{id}/update/internal-manufacturing', [ProductAPIController::class, 'updateInternalManufacturing']);
         Route::post('/{id}/scrap', [ProductAPIController::class, 'createScrap']);
+        Route::get('/{productId}/scrap/{movementId}', [ProductAPIController::class, 'getScrap']);
         Route::patch('/{productId}/scrap/{movementId}', [ProductAPIController::class, 'updateScrap']);
     });
 

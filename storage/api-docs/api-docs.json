@@ -2076,91 +2076,16 @@
         "/api/products": {
             "get": {
                 "tags": [
-                    "Products"
+                    "Products - Core"
                 ],
-                "summary": "Get all products (paginated, filterable, sortable)",
+                "summary": "Get all products",
                 "operationId": "c76a1ceb22c0759070047fe6b360a926",
-                "parameters": [
-                    {
-                        "name": "per_page",
-                        "in": "query",
-                        "schema": {
-                            "type": "integer",
-                            "example": 10
-                        }
-                    },
-                    {
-                        "name": "filter[search]",
-                        "in": "query",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "filter[product_category_id]",
-                        "in": "query",
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
-                    {
-                        "name": "filter[supplier_id]",
-                        "in": "query",
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
-                    {
-                        "name": "filter[warehouse_id]",
-                        "in": "query",
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
-                    {
-                        "name": "filter[base_uom_id]",
-                        "in": "query",
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
-                    {
-                        "name": "filter[product_type]",
-                        "in": "query",
-                        "schema": {
-                            "type": "string",
-                            "example": "EXTERNAL_PURCHASED"
-                        }
-                    },
-                    {
-                        "name": "sort",
-                        "in": "query",
-                        "schema": {
-                            "type": "string",
-                            "example": "-created_at"
-                        }
-                    }
-                ],
                 "responses": {
                     "200": {
-                        "description": "Products retrieved successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Products retrieved successfully"
                     },
                     "500": {
-                        "description": "Internal server error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Internal server error"
                     }
                 },
                 "security": [
@@ -2173,7 +2098,7 @@
         "/api/products/{id}": {
             "get": {
                 "tags": [
-                    "Products"
+                    "Products - Core"
                 ],
                 "summary": "Get product detail",
                 "operationId": "22b526a3b7801a6712c6fbd9fb44df1a",
@@ -2183,53 +2108,13 @@
                         "in": "path",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 1
+                            "type": "integer"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Product retrieved successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "product": {
-                                            "description": "Product resource with related UOMs, movements, images and BOM",
-                                            "type": "object"
-                                        },
-                                        "current_qty_in_stock": {
-                                            "type": "number",
-                                            "example": 150
-                                        },
-                                        "product_stock_status": {
-                                            "type": "string",
-                                            "enum": [
-                                                "IN_STOCK",
-                                                "OUT_OF_STOCK"
-                                            ],
-                                            "example": "IN_STOCK"
-                                        },
-                                        "total_count_by_movement_type": {
-                                            "description": "Map of movement_type => count",
-                                            "properties": {
-                                                "EXTERNAL_PURCHASED": {
-                                                    "type": "integer",
-                                                    "example": 3
-                                                },
-                                                "INTERNAL_PRODUCED": {
-                                                    "type": "integer",
-                                                    "example": 1
-                                                }
-                                            },
-                                            "type": "object"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Product retrieved successfully"
                     },
                     "404": {
                         "description": "Product not found"
@@ -2248,128 +2133,19 @@
         "/api/products/create/external-purchase": {
             "post": {
                 "tags": [
-                    "Products"
+                    "Products - External Purchase"
                 ],
-                "summary": "Create an externally purchased product with initial stock movement",
-                "description": "Creates a product and an initial EXTERNAL_PURCHASED / IN / COMPLETED movement. The server enforces `product_type` = EXTERNAL_PURCHASED; do NOT supply `product_type` in the request. `product_status` is automatically set to COMPLETED and cannot be changed. Supply `purchase_unit_price_in_usd` + `exchange_rate_from_usd_to_riel` (totals are derived); supply `selling_unit_price_in_usd` + `selling_exchange_rate_from_usd_to_riel` for selling price. Submitting `raw_materials` is NOT allowed and will be rejected with a validation error.",
+                "summary": "Create externally purchased product",
                 "operationId": "d11ac78f89759d0a00aca6ab16ab68f7",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "multipart/form-data": {
-                            "schema": {
-                                "required": [
-                                    "product_name",
-                                    "product_category_id",
-                                    "uom_id",
-                                    "supplier_id",
-                                    "warehouse_id",
-                                    "quantity",
-                                    "purchase_unit_price_in_usd",
-                                    "exchange_rate_from_usd_to_riel",
-                                    "selling_unit_price_in_usd",
-                                    "selling_exchange_rate_from_usd_to_riel",
-                                    "base_uom_id"
-                                ],
-                                "properties": {
-                                    "product_name": {
-                                        "type": "string",
-                                        "example": "Widget A"
-                                    },
-                                    "barcode": {
-                                        "type": "string",
-                                        "example": "1234567890"
-                                    },
-                                    "product_description": {
-                                        "type": "string"
-                                    },
-                                    "product_category_id": {
-                                        "type": "integer",
-                                        "example": 1
-                                    },
-                                    "base_uom_id": {
-                                        "description": "Base unit id used for storing stock (base_uom_id)",
-                                        "type": "integer",
-                                        "example": 1
-                                    },
-                                    "supplier_id": {
-                                        "type": "integer",
-                                        "example": 1
-                                    },
-                                    "warehouse_id": {
-                                        "type": "integer",
-                                        "example": 1
-                                    },
-                                    "quantity": {
-                                        "type": "number",
-                                        "example": 100
-                                    },
-                                    "purchase_unit_price_in_usd": {
-                                        "type": "number",
-                                        "example": 5.5
-                                    },
-                                    "exchange_rate_from_usd_to_riel": {
-                                        "type": "number",
-                                        "example": 4100
-                                    },
-                                    "selling_unit_price_in_usd": {
-                                        "type": "number",
-                                        "example": 8
-                                    },
-                                    "selling_exchange_rate_from_usd_to_riel": {
-                                        "type": "number",
-                                        "example": 4100
-                                    },
-                                    "movement_date": {
-                                        "type": "string",
-                                        "format": "date-time"
-                                    },
-                                    "note": {
-                                        "type": "string"
-                                    },
-                                    "images": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "string",
-                                            "format": "binary"
-                                        }
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
                 "responses": {
                     "201": {
-                        "description": "Product created successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Created successfully"
                     },
                     "422": {
-                        "description": "Validation error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Validation error"
                     },
                     "500": {
-                        "description": "Internal server error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Internal server error"
                     }
                 },
                 "security": [
@@ -2382,10 +2158,9 @@
         "/api/products/{id}/update/external-purchase": {
             "patch": {
                 "tags": [
-                    "Products"
+                    "Products - External Purchase"
                 ],
-                "summary": "Update the initial EXTERNAL_PURCHASED movement for a product",
-                "description": "Updates the initial EXTERNAL_PURCHASED stock movement created when the product was first added. The movement is selected automatically; callers should provide the product id only. Updates are blocked if the movement has been used/sold.",
+                "summary": "Update initial external purchased movement",
                 "operationId": "49c24ea8a974b3191ac62c16ce6bc1c4",
                 "parameters": [
                     {
@@ -2393,127 +2168,22 @@
                         "in": "path",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 1
+                            "type": "integer"
                         }
                     }
                 ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "quantity",
-                                    "purchase_unit_price_in_usd",
-                                    "exchange_rate_from_usd_to_riel",
-                                    "selling_unit_price_in_usd",
-                                    "selling_exchange_rate_from_usd_to_riel"
-                                ],
-                                "properties": {
-                                    "quantity": {
-                                        "type": "number",
-                                        "example": 100
-                                    },
-                                    "product_name": {
-                                        "type": "string",
-                                        "example": "Widget A"
-                                    },
-                                    "barcode": {
-                                        "type": "string",
-                                        "example": "1234567890123"
-                                    },
-                                    "product_description": {
-                                        "type": "string",
-                                        "example": "Updated description"
-                                    },
-                                    "product_category_id": {
-                                        "type": "integer",
-                                        "example": 1
-                                    },
-                                    "base_uom_id": {
-                                        "type": "integer",
-                                        "example": 1
-                                    },
-                                    "supplier_id": {
-                                        "type": "integer",
-                                        "example": 2
-                                    },
-                                    "warehouse_id": {
-                                        "type": "integer",
-                                        "example": 1
-                                    },
-                                    "purchase_unit_price_in_usd": {
-                                        "type": "number",
-                                        "example": 12.5
-                                    },
-                                    "exchange_rate_from_usd_to_riel": {
-                                        "type": "number",
-                                        "example": 4100
-                                    },
-                                    "selling_unit_price_in_usd": {
-                                        "type": "number",
-                                        "example": 15
-                                    },
-                                    "selling_exchange_rate_from_usd_to_riel": {
-                                        "type": "number",
-                                        "example": 4100
-                                    },
-                                    "movement_date": {
-                                        "type": "string",
-                                        "format": "date-time",
-                                        "example": "2026-04-04T10:00:00Z"
-                                    },
-                                    "note": {
-                                        "type": "string",
-                                        "example": "Updated initial purchase info"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
                 "responses": {
                     "201": {
-                        "description": "Product movement updated successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Updated successfully"
                     },
                     "401": {
-                        "description": "Cannot update used stock movement",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Cannot update used stock movement"
                     },
                     "422": {
-                        "description": "Validation error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Validation error"
                     },
                     "500": {
-                        "description": "Internal server error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Internal server error"
                     }
                 },
                 "security": [
@@ -2526,145 +2196,19 @@
         "/api/products/create/internal-manufacturing": {
             "post": {
                 "tags": [
-                    "Products"
+                    "Products - Internal Manufacturing"
                 ],
-                "summary": "Create an internally manufactured product with initial stock movement",
-                "description": "Creates a product and an initial INTERNAL_PRODUCED / IN movement. The server enforces `product_type` = INTERNAL_PRODUCED and will ignore any supplied `supplier_id`. Purchase price is automatically set to 0 (produced internally). Supply `raw_materials[]` BOM to record which raw materials are consumed. Raw material stock is validated (FIFO/LIFO) and deducted automatically via PRODUCTION_RECEIPT OUT movements. Supply `selling_unit_price_in_usd` + `selling_exchange_rate_from_usd_to_riel` for selling price.",
+                "summary": "Create internally manufactured product",
                 "operationId": "a330e69f3f61d6f5fe926304638c3d60",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "multipart/form-data": {
-                            "schema": {
-                                "required": [
-                                    "product_name",
-                                    "product_category_id",
-                                    "uom_id",
-                                    "warehouse_id",
-                                    "quantity",
-                                    "product_status",
-                                    "selling_unit_price_in_usd",
-                                    "selling_exchange_rate_from_usd_to_riel",
-                                    "raw_materials"
-                                ],
-                                "properties": {
-                                    "product_name": {
-                                        "type": "string",
-                                        "example": "Assembled Part B"
-                                    },
-                                    "barcode": {
-                                        "type": "string"
-                                    },
-                                    "product_description": {
-                                        "type": "string"
-                                    },
-                                    "product_category_id": {
-                                        "type": "integer",
-                                        "example": 2
-                                    },
-                                    "base_uom_id": {
-                                        "description": "Base unit id used for storing stock (base_uom_id)",
-                                        "type": "integer",
-                                        "example": 1
-                                    },
-                                    "supplier_id": {
-                                        "type": "integer",
-                                        "example": 1
-                                    },
-                                    "warehouse_id": {
-                                        "type": "integer",
-                                        "example": 1
-                                    },
-                                    "product_status": {
-                                        "description": "Current product status. Accepted values: DRAFT, WORK_IN_PROGRESS, PARTIALLY_COMPLETED, COMPLETED, BLOCKED",
-                                        "type": "string",
-                                        "enum": [
-                                            "DRAFT",
-                                            "WORK_IN_PROGRESS",
-                                            "PARTIALLY_COMPLETED",
-                                            "COMPLETED",
-                                            "BLOCKED"
-                                        ],
-                                        "example": "COMPLETED"
-                                    },
-                                    "quantity": {
-                                        "type": "number",
-                                        "example": 50
-                                    },
-                                    "selling_unit_price_in_usd": {
-                                        "type": "number",
-                                        "example": 12
-                                    },
-                                    "selling_exchange_rate_from_usd_to_riel": {
-                                        "type": "number",
-                                        "example": 4100
-                                    },
-                                    "movement_date": {
-                                        "type": "string",
-                                        "format": "date-time"
-                                    },
-                                    "note": {
-                                        "type": "string"
-                                    },
-                                    "raw_materials": {
-                                        "type": "array",
-                                        "items": {
-                                            "properties": {
-                                                "raw_material_id": {
-                                                    "type": "integer",
-                                                    "example": 3
-                                                },
-                                                "quantity": {
-                                                    "type": "number",
-                                                    "example": 2
-                                                }
-                                            },
-                                            "type": "object"
-                                        }
-                                    },
-                                    "images": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "string",
-                                            "format": "binary"
-                                        }
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
                 "responses": {
                     "201": {
-                        "description": "Product created successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Created successfully"
                     },
                     "422": {
-                        "description": "Validation error or insufficient stock",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Validation error or insufficient stock"
                     },
                     "500": {
-                        "description": "Internal server error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Internal server error"
                     }
                 },
                 "security": [
@@ -2677,10 +2221,9 @@
         "/api/products/{id}/update/internal-manufacturing": {
             "patch": {
                 "tags": [
-                    "Products"
+                    "Products - Internal Manufacturing"
                 ],
-                "summary": "Update the initial INTERNAL_PRODUCED movement for a product",
-                "description": "Updates the initial INTERNAL_PRODUCED stock movement created when the product was first added. The movement is selected automatically; callers should provide the product id only. Updates are blocked if the movement has been used/sold.",
+                "summary": "Update initial internally manufactured movement",
                 "operationId": "b57a6cd31d0c45cb37ed00deeb55165e",
                 "parameters": [
                     {
@@ -2688,133 +2231,22 @@
                         "in": "path",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 1
+                            "type": "integer"
                         }
                     }
                 ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "quantity",
-                                    "selling_unit_price_in_usd",
-                                    "selling_exchange_rate_from_usd_to_riel"
-                                ],
-                                "properties": {
-                                    "quantity": {
-                                        "type": "number",
-                                        "example": 50
-                                    },
-                                    "product_name": {
-                                        "type": "string",
-                                        "example": "Widget A"
-                                    },
-                                    "barcode": {
-                                        "type": "string",
-                                        "example": "1234567890123"
-                                    },
-                                    "product_description": {
-                                        "type": "string",
-                                        "example": "Updated description"
-                                    },
-                                    "product_category_id": {
-                                        "type": "integer",
-                                        "example": 1
-                                    },
-                                    "base_uom_id": {
-                                        "type": "integer",
-                                        "example": 1
-                                    },
-                                    "supplier_id": {
-                                        "type": "integer",
-                                        "example": 2
-                                    },
-                                    "warehouse_id": {
-                                        "type": "integer",
-                                        "example": 1
-                                    },
-                                    "selling_unit_price_in_usd": {
-                                        "type": "number",
-                                        "example": 12
-                                    },
-                                    "selling_exchange_rate_from_usd_to_riel": {
-                                        "type": "number",
-                                        "example": 4100
-                                    },
-                                    "movement_date": {
-                                        "type": "string",
-                                        "format": "date-time",
-                                        "example": "2026-04-04T10:00:00Z"
-                                    },
-                                    "note": {
-                                        "type": "string",
-                                        "example": "Updated production info"
-                                    },
-                                    "raw_materials": {
-                                        "type": "array",
-                                        "items": {
-                                            "properties": {
-                                                "raw_material_id": {
-                                                    "type": "integer",
-                                                    "example": 3
-                                                },
-                                                "quantity": {
-                                                    "type": "number",
-                                                    "example": 2
-                                                }
-                                            },
-                                            "type": "object"
-                                        }
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
                 "responses": {
                     "201": {
-                        "description": "Product movement updated successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Updated successfully"
                     },
                     "401": {
-                        "description": "Cannot update used stock movement",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Cannot update used stock movement"
                     },
                     "422": {
-                        "description": "Validation error or insufficient raw material stock",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Validation error or insufficient stock"
                     },
                     "500": {
-                        "description": "Internal server error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Internal server error"
                     }
                 },
                 "security": [
@@ -2827,10 +2259,9 @@
         "/api/products/{id}/reorder/external-purchase": {
             "post": {
                 "tags": [
-                    "Products"
+                    "Products - Reorder External"
                 ],
-                "summary": "Create a reorder movement for an externally purchased product",
-                "description": "Creates a RE_ORDER / IN product movement. Supply purchase and selling unit prices in USD and the USD->Riel exchange rates. Totals and Riel equivalents are derived by the server.",
+                "summary": "Create external purchase reorder",
                 "operationId": "f08be1199f329a434f033b09e81c2b6c",
                 "parameters": [
                     {
@@ -2838,89 +2269,19 @@
                         "in": "path",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 1
+                            "type": "integer"
                         }
                     }
                 ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "quantity",
-                                    "purchase_unit_price_in_usd",
-                                    "exchange_rate_from_usd_to_riel",
-                                    "selling_unit_price_in_usd",
-                                    "selling_exchange_rate_from_usd_to_riel"
-                                ],
-                                "properties": {
-                                    "quantity": {
-                                        "type": "number",
-                                        "example": 100
-                                    },
-                                    "purchase_unit_price_in_usd": {
-                                        "type": "number",
-                                        "example": 12.5
-                                    },
-                                    "exchange_rate_from_usd_to_riel": {
-                                        "type": "number",
-                                        "example": 4100
-                                    },
-                                    "selling_unit_price_in_usd": {
-                                        "type": "number",
-                                        "example": 15
-                                    },
-                                    "selling_exchange_rate_from_usd_to_riel": {
-                                        "type": "number",
-                                        "example": 4100
-                                    },
-                                    "movement_date": {
-                                        "type": "string",
-                                        "format": "date-time",
-                                        "example": "2026-04-04T10:00:00Z"
-                                    },
-                                    "note": {
-                                        "type": "string",
-                                        "example": "Reorder due to low stock"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
                 "responses": {
                     "201": {
-                        "description": "Reorder created successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Reorder created successfully"
                     },
                     "422": {
-                        "description": "Validation error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Validation error"
                     },
                     "500": {
-                        "description": "Internal server error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Internal server error"
                     }
                 },
                 "security": [
@@ -2933,10 +2294,9 @@
         "/api/products/{productId}/reorder/external-purchase": {
             "patch": {
                 "tags": [
-                    "Products"
+                    "Products - Reorder External"
                 ],
-                "summary": "Update an existing reorder movement for an externally purchased product",
-                "description": "Update a previously created RE_ORDER / IN movement. Updates are blocked if the movement has been used/sold.",
+                "summary": "Update external purchase reorder",
                 "operationId": "9db647ef57d95667aa398e7b49968361",
                 "parameters": [
                     {
@@ -2944,99 +2304,77 @@
                         "in": "path",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 1
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "movementId",
+                        "in": "query",
+                        "description": "Reorder movement id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
                         }
                     }
                 ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "quantity",
-                                    "purchase_unit_price_in_usd",
-                                    "exchange_rate_from_usd_to_riel",
-                                    "selling_unit_price_in_usd",
-                                    "selling_exchange_rate_from_usd_to_riel"
-                                ],
-                                "properties": {
-                                    "quantity": {
-                                        "type": "number",
-                                        "example": 100
-                                    },
-                                    "purchase_unit_price_in_usd": {
-                                        "type": "number",
-                                        "example": 12.5
-                                    },
-                                    "exchange_rate_from_usd_to_riel": {
-                                        "type": "number",
-                                        "example": 4100
-                                    },
-                                    "selling_unit_price_in_usd": {
-                                        "type": "number",
-                                        "example": 15
-                                    },
-                                    "selling_exchange_rate_from_usd_to_riel": {
-                                        "type": "number",
-                                        "example": 4100
-                                    },
-                                    "movement_date": {
-                                        "type": "string",
-                                        "format": "date-time",
-                                        "example": "2026-04-04T10:00:00Z"
-                                    },
-                                    "note": {
-                                        "type": "string",
-                                        "example": "Updated reorder note"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
                 "responses": {
                     "201": {
-                        "description": "Reorder updated successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Reorder updated successfully"
                     },
                     "401": {
-                        "description": "Cannot update used stock movement",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Cannot update used stock movement"
                     },
                     "422": {
-                        "description": "Validation error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Validation error"
                     },
                     "500": {
-                        "description": "Internal server error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
+                        "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/products/{productId}/reorder/external-purchase/{movementId}": {
+            "get": {
+                "tags": [
+                    "Products - Reorder External"
+                ],
+                "summary": "Get external purchase reorder detail",
+                "operationId": "f8260d1d1537de112ee90648c5c0758e",
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
                         }
+                    },
+                    {
+                        "name": "movementId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Reorder detail retrieved successfully"
+                    },
+                    "404": {
+                        "description": "Movement not found or invalid for product"
+                    },
+                    "422": {
+                        "description": "Invalid product type"
+                    },
+                    "500": {
+                        "description": "Internal server error"
                     }
                 },
                 "security": [
@@ -3049,10 +2387,9 @@
         "/api/products/{id}/reorder/internal-manufacturing": {
             "post": {
                 "tags": [
-                    "Products"
+                    "Products - Reorder Internal"
                 ],
-                "summary": "Create a reorder movement for an internally manufactured product",
-                "description": "Creates a RE_ORDER / IN product movement for an internally manufactured product. Purchase costs are zero and raw materials (BOM) must be supplied; raw material stock will be validated and deducted.",
+                "summary": "Create internal manufacturing reorder",
                 "operationId": "04f8d73c20b519749a486cff786a8217",
                 "parameters": [
                     {
@@ -3060,96 +2397,19 @@
                         "in": "path",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 1
+                            "type": "integer"
                         }
                     }
                 ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "quantity",
-                                    "selling_unit_price_in_usd",
-                                    "selling_exchange_rate_from_usd_to_riel",
-                                    "raw_materials"
-                                ],
-                                "properties": {
-                                    "quantity": {
-                                        "type": "number",
-                                        "example": 50
-                                    },
-                                    "selling_unit_price_in_usd": {
-                                        "type": "number",
-                                        "example": 12
-                                    },
-                                    "selling_exchange_rate_from_usd_to_riel": {
-                                        "type": "number",
-                                        "example": 4100
-                                    },
-                                    "movement_date": {
-                                        "type": "string",
-                                        "format": "date-time",
-                                        "example": "2026-04-04T10:00:00Z"
-                                    },
-                                    "note": {
-                                        "type": "string",
-                                        "example": "Production run"
-                                    },
-                                    "raw_materials": {
-                                        "type": "array",
-                                        "items": {
-                                            "properties": {
-                                                "raw_material_id": {
-                                                    "type": "integer",
-                                                    "example": 3
-                                                },
-                                                "quantity": {
-                                                    "type": "number",
-                                                    "example": 2
-                                                }
-                                            },
-                                            "type": "object"
-                                        }
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
                 "responses": {
                     "201": {
-                        "description": "Reorder created successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Reorder created successfully"
                     },
                     "422": {
-                        "description": "Validation error or insufficient raw material stock",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Validation error or insufficient raw material stock"
                     },
                     "500": {
-                        "description": "Internal server error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Internal server error"
                     }
                 },
                 "security": [
@@ -3162,10 +2422,9 @@
         "/api/products/{productId}/reorder/internal-manufacturing": {
             "patch": {
                 "tags": [
-                    "Products"
+                    "Products - Reorder Internal"
                 ],
-                "summary": "Update an existing internal-manufacturing reorder movement",
-                "description": "Update a previously created RE_ORDER / IN movement for an internally manufactured product. Updates are blocked if the movement has been used/sold. Raw material adjustments are not performed on update.",
+                "summary": "Update internal manufacturing reorder",
                 "operationId": "20817cf0a34f9056a80ee9c3fb333544",
                 "parameters": [
                     {
@@ -3173,89 +2432,77 @@
                         "in": "path",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 1
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "movementId",
+                        "in": "query",
+                        "description": "Reorder movement id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
                         }
                     }
                 ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "quantity",
-                                    "selling_unit_price_in_usd",
-                                    "selling_exchange_rate_from_usd_to_riel"
-                                ],
-                                "properties": {
-                                    "quantity": {
-                                        "type": "number",
-                                        "example": 50
-                                    },
-                                    "selling_unit_price_in_usd": {
-                                        "type": "number",
-                                        "example": 12
-                                    },
-                                    "selling_exchange_rate_from_usd_to_riel": {
-                                        "type": "number",
-                                        "example": 4100
-                                    },
-                                    "movement_date": {
-                                        "type": "string",
-                                        "format": "date-time",
-                                        "example": "2026-04-04T10:00:00Z"
-                                    },
-                                    "note": {
-                                        "type": "string",
-                                        "example": "Adjusted production quantity"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
                 "responses": {
                     "201": {
-                        "description": "Reorder updated successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Reorder updated successfully"
                     },
                     "401": {
-                        "description": "Cannot update used stock movement",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Cannot update used stock movement"
                     },
                     "422": {
-                        "description": "Validation error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Validation error"
                     },
                     "500": {
-                        "description": "Internal server error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
+                        "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/products/{productId}/reorder/internal-manufacturing/{movementId}": {
+            "get": {
+                "tags": [
+                    "Products - Reorder Internal"
+                ],
+                "summary": "Get internal manufacturing reorder detail",
+                "operationId": "9a2eded54aa47096b48626fffbfbe535",
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
                         }
+                    },
+                    {
+                        "name": "movementId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Reorder detail retrieved successfully"
+                    },
+                    "404": {
+                        "description": "Movement not found or invalid for product"
+                    },
+                    "422": {
+                        "description": "Invalid product type"
+                    },
+                    "500": {
+                        "description": "Internal server error"
                     }
                 },
                 "security": [
@@ -3268,10 +2515,9 @@
         "/api/products/{id}/scrap": {
             "post": {
                 "tags": [
-                    "Products"
+                    "Products - Scrap"
                 ],
-                "summary": "Create a scrap movement for a product",
-                "description": "Creates a SCRAP / OUT movement for a product. Financial fields are set to zero for scrapped stock.",
+                "summary": "Create product scrap movement",
                 "operationId": "c7519cf6d4e88bab2c0cf1ca1410757b",
                 "parameters": [
                     {
@@ -3279,69 +2525,107 @@
                         "in": "path",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 1
+                            "type": "integer"
                         }
                     }
                 ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "quantity"
-                                ],
-                                "properties": {
-                                    "quantity": {
-                                        "type": "number",
-                                        "example": 5
-                                    },
-                                    "movement_date": {
-                                        "type": "string",
-                                        "format": "date-time",
-                                        "example": "2026-04-04T10:00:00Z"
-                                    },
-                                    "note": {
-                                        "type": "string",
-                                        "example": "Damaged items scrapped"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
                 "responses": {
                     "201": {
-                        "description": "Product scrapped successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Product scrapped successfully"
                     },
                     "422": {
-                        "description": "Validation error or insufficient stock",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Validation error or insufficient stock"
                     },
                     "500": {
-                        "description": "Internal server error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
+                        "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/products/{productId}/scrap/{movementId}": {
+            "get": {
+                "tags": [
+                    "Products - Scrap"
+                ],
+                "summary": "Get product scrap movement detail",
+                "description": "Retrieves scrap movement detail. Validates that the movement belongs to the product and that the movement type is SCRAP.",
+                "operationId": "e4fa9183de7e52a4f34362802b3df840",
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
                         }
+                    },
+                    {
+                        "name": "movementId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Scrap movement detail retrieved successfully"
+                    },
+                    "404": {
+                        "description": "Movement not found or not a scrap movement"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Products - Scrap"
+                ],
+                "summary": "Update product scrap movement",
+                "operationId": "ab47b1571b8863e1850353facdb679a3",
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "movementId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Product scrap updated successfully"
+                    },
+                    "401": {
+                        "description": "Cannot update used stock movement"
+                    },
+                    "422": {
+                        "description": "Validation error or insufficient stock"
+                    },
+                    "500": {
+                        "description": "Internal server error"
                     }
                 },
                 "security": [
@@ -10848,8 +10132,28 @@
             "description": "API Endpoints for managing customers (ADMIN & VENDER ROLE)"
         },
         {
-            "name": "Products",
-            "description": "API Endpoints for managing products (external purchase & internal manufacturing flows). Note: `product_type` is stored on the product record and is enforced by the server; movement records do not accept `product_type`."
+            "name": "Products - Core",
+            "description": "Product listing and detail APIs"
+        },
+        {
+            "name": "Products - External Purchase",
+            "description": "Create/update initial external purchased stock"
+        },
+        {
+            "name": "Products - Internal Manufacturing",
+            "description": "Create/update initial internally manufactured stock"
+        },
+        {
+            "name": "Products - Reorder External",
+            "description": "External purchase reorder create/update/detail"
+        },
+        {
+            "name": "Products - Reorder Internal",
+            "description": "Internal manufacturing reorder create/update/detail"
+        },
+        {
+            "name": "Products - Scrap",
+            "description": "Scrap movement create/update"
         },
         {
             "name": "Product Categories",

@@ -1,0 +1,256 @@
+<?php
+
+namespace App\Service;
+
+use App\Helpers\CurrencyPricingHelper;
+use App\Helpers\GetCurrentUserHelper;
+use App\Helpers\ResponseHelper;
+use App\Models\Product;
+use App\Models\ProductMovement;
+use App\Validations\ProductValidation;
+use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
+
+class ExternalProductReorder
+{
+	protected ProductValidation $productValidation;
+	protected GetCurrentUserHelper $getCurrentUserHelper;
+
+	public function __construct(
+		ProductValidation $productValidation,
+		GetCurrentUserHelper $getCurrentUserHelper
+	) {
+		$this->productValidation = $productValidation;
+		$this->getCurrentUserHelper = $getCurrentUserHelper;
+	}
+
+	public function reorderExternalPurchasedProduct(Request $request, $productId)
+	{
+		try {
+			$product = Product::findOrFail($productId);
+
+			$rules = $this->productValidation->createExternalPurchaseMovementRules();
+			$validator = Validator::make($request->all(), $rules);
+			if ($validator->fails()) {
+				return ResponseHelper::validation($validator->errors()->toArray(), 'Validation Error');
+			}
+
+			$productTypeValue = ($product->product_type instanceof \BackedEnum)
+				? $product->product_type->value
+				: (string) $product->product_type;
+
+			if ($productTypeValue !== \App\Enums\ProductTypeEnum::EXTERNAL_PURCHASED->value) {
+				return ResponseHelper::error(
+					'Invalid product type for external reorder',
+					422,
+					'Product must be an externally purchased product to create an external reorder.'
+				);
+			}
+
+			$request->merge([
+				'product_id' => $product->id,
+				'direction' => \App\Enums\StockDirectionEnum::IN->value,
+				'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
+				'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
+			]);
+
+			$request->merge([
+				'purchase_total_price_in_usd' => null,
+				'purchase_unit_price_in_riel' => null,
+				'purchase_total_price_in_riel' => null,
+				'exchange_rate_from_riel_to_usd' => null,
+			]);
+
+			$currentUserId = $this->getCurrentUserHelper->getUserId();
+			$request->merge([
+				'created_by'      => $currentUserId,
+				'last_updated_by' => $currentUserId,
+			]);
+
+			$lastMovement = ProductMovement::where('product_id', $product->id)
+				->orderBy('movement_date', 'desc')
+				->first();
+
+			if ($lastMovement) {
+				$request->merge([
+					'selling_unit_price_in_usd' => $lastMovement->selling_unit_price_in_usd ?? 0,
+					'selling_exchange_rate_from_usd_to_riel' => $lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0,
+				]);
+			} else {
+				$request->merge([
+					'selling_unit_price_in_usd' => $request->input('selling_unit_price_in_usd', 0),
+					'selling_exchange_rate_from_usd_to_riel' => $request->input('selling_exchange_rate_from_usd_to_riel', 0),
+				]);
+			}
+
+			CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
+
+			$validated = Validator::make($request->all(), $rules)->validate();
+			$validated['created_by'] = $validated['created_by'] ?? $this->getCurrentUserHelper->getUserId();
+			$validated['last_updated_by'] = $validated['last_updated_by'] ?? $this->getCurrentUserHelper->getUserId();
+
+			$movement = DB::transaction(function () use ($validated, $product) {
+				return ProductMovement::create([
+					'product_id' => $product->id,
+					'direction' => \App\Enums\StockDirectionEnum::IN->value,
+					'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
+					'product_status' => \App\Enums\ProductStatusEnum::COMPLETED->value,
+					'quantity' => $validated['quantity'],
+					'is_sold' => false,
+					'movement_date' => $validated['movement_date'],
+					'note' => $validated['note'] ?? null,
+					'created_by' => $validated['created_by'],
+					'last_updated_by' => $validated['last_updated_by'],
+					'purchase_unit_price_in_usd' => $validated['purchase_unit_price_in_usd'],
+					'purchase_total_price_in_usd' => $validated['purchase_total_price_in_usd'] ?? 0,
+					'exchange_rate_from_usd_to_riel' => $validated['exchange_rate_from_usd_to_riel'],
+					'purchase_unit_price_in_riel' => $validated['purchase_unit_price_in_riel'] ?? 0,
+					'purchase_total_price_in_riel' => $validated['purchase_total_price_in_riel'] ?? 0,
+					'exchange_rate_from_riel_to_usd' => $validated['exchange_rate_from_riel_to_usd'] ?? 0,
+					'selling_unit_price_in_usd' => $validated['selling_unit_price_in_usd'],
+					'selling_unit_price_in_riel' => $validated['selling_unit_price_in_riel'] ?? 0,
+					'selling_exchange_rate_from_usd_to_riel' => $validated['selling_exchange_rate_from_usd_to_riel'],
+					'selling_exchange_rate_from_riel_to_usd' => $validated['selling_exchange_rate_from_riel_to_usd'] ?? 0,
+				]);
+			});
+
+			return ResponseHelper::success($movement, 'Product reordered successfully', 201);
+		} catch (ValidationException $e) {
+			return ResponseHelper::validation($e->errors(), 'Validation Error');
+		} catch (Exception $e) {
+			return ResponseHelper::error($e->getMessage(), 500);
+		}
+	}
+
+	public function updateReorderExternalPurchasedProduct(Request $request, $productId, $movementId)
+	{
+		try {
+			$product = Product::findOrFail($productId);
+			$movement = ProductMovement::findOrFail($movementId);
+
+			$rules = $this->productValidation->createExternalPurchaseMovementRules();
+			$validator = Validator::make($request->all(), $rules);
+			if ($validator->fails()) {
+				return ResponseHelper::validation($validator->errors()->toArray(), 'Validation Error');
+			}
+
+			$productTypeValue = ($product->product_type instanceof \BackedEnum)
+				? $product->product_type->value
+				: (string) $product->product_type;
+
+			if ($productTypeValue !== \App\Enums\ProductTypeEnum::EXTERNAL_PURCHASED->value) {
+				return ResponseHelper::error(
+					'Invalid product type for external reorder update',
+					422,
+					'Product must be an externally purchased product to update an external reorder.'
+				);
+			}
+
+			$request->merge([
+				'product_id' => $product->id,
+				'direction' => \App\Enums\StockDirectionEnum::IN->value,
+				'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
+				'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
+			]);
+
+			$request->merge([
+				'purchase_total_price_in_usd' => null,
+				'purchase_unit_price_in_riel' => null,
+				'purchase_total_price_in_riel' => null,
+				'exchange_rate_from_riel_to_usd' => null,
+			]);
+
+			$request->merge([
+				'created_by' => $movement->created_by,
+				'last_updated_by' => $this->getCurrentUserHelper->getUserId(),
+			]);
+
+			if ($movement->is_sold === true) {
+				return ResponseHelper::error('Cannot update used stock movement', 401, 'The reordered product has been sold. Data cannot be updated to avoid data inconsistency.');
+			}
+
+			$lastMovement = ProductMovement::where('product_id', $product->id)
+				->orderBy('movement_date', 'desc')
+				->first();
+
+			if ($lastMovement) {
+				$request->merge([
+					'selling_unit_price_in_usd' => $lastMovement->selling_unit_price_in_usd ?? 0,
+					'selling_exchange_rate_from_usd_to_riel' => $lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0,
+				]);
+			} else {
+				$request->merge([
+					'selling_unit_price_in_usd' => $request->input('selling_unit_price_in_usd', 0),
+					'selling_exchange_rate_from_usd_to_riel' => $request->input('selling_exchange_rate_from_usd_to_riel', 0),
+				]);
+			}
+
+			CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
+
+			$validated = Validator::make($request->all(), $rules)->validate();
+			$validated['created_by'] = $validated['created_by'] ?? $movement->created_by ?? $this->getCurrentUserHelper->getUserId();
+			$validated['last_updated_by'] = $validated['last_updated_by'] ?? $this->getCurrentUserHelper->getUserId();
+
+			$movement = DB::transaction(function () use ($validated, $movement) {
+				$movement->update([
+					'quantity' => $validated['quantity'],
+					'direction' => \App\Enums\StockDirectionEnum::IN->value,
+					'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
+					'movement_date' => $validated['movement_date'],
+					'note' => $validated['note'] ?? null,
+					'purchase_unit_price_in_usd' => $validated['purchase_unit_price_in_usd'],
+					'purchase_total_price_in_usd' => $validated['purchase_total_price_in_usd'] ?? 0,
+					'exchange_rate_from_usd_to_riel' => $validated['exchange_rate_from_usd_to_riel'],
+					'purchase_unit_price_in_riel' => $validated['purchase_unit_price_in_riel'] ?? 0,
+					'purchase_total_price_in_riel' => $validated['purchase_total_price_in_riel'] ?? 0,
+					'exchange_rate_from_riel_to_usd' => $validated['exchange_rate_from_riel_to_usd'] ?? 0,
+					'selling_unit_price_in_usd' => $validated['selling_unit_price_in_usd'],
+					'selling_unit_price_in_riel' => $validated['selling_unit_price_in_riel'] ?? 0,
+					'selling_exchange_rate_from_usd_to_riel' => $validated['selling_exchange_rate_from_usd_to_riel'],
+					'selling_exchange_rate_from_riel_to_usd' => $validated['selling_exchange_rate_from_riel_to_usd'] ?? 0,
+					'last_updated_by' => $validated['last_updated_by'],
+				]);
+
+				return $movement->fresh();
+			});
+
+			return ResponseHelper::success($movement, 'Product reorder updated successfully', 201);
+		} catch (ValidationException $e) {
+			return ResponseHelper::validation($e->errors(), 'Validation Error');
+		} catch (Exception $e) {
+			return ResponseHelper::error($e->getMessage(), 500);
+		}
+	}
+
+	public function getReorderExternalDetail(int $productId, int $movementId)
+	{
+		try {
+			$product = Product::findOrFail($productId);
+
+			$productTypeValue = ($product->product_type instanceof \BackedEnum)
+				? $product->product_type->value
+				: (string) $product->product_type;
+
+			if ($productTypeValue !== \App\Enums\ProductTypeEnum::EXTERNAL_PURCHASED->value) {
+				return ResponseHelper::error('Invalid product type for external purchase reorder', 422, 'Product must be an externally purchased product.');
+			}
+
+			$movement = ProductMovement::findOrFail($movementId);
+			$movementTypeValue = is_object($movement->movement_type) ? $movement->movement_type->value : (string) $movement->movement_type;
+
+			if ($movement->product_id !== $product->id || $movementTypeValue !== \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value) {
+				return ResponseHelper::error('Movement not found or not a reorder movement', 404);
+			}
+
+			return ResponseHelper::success([
+				'product' => $product,
+				'movement' => $movement,
+			]);
+		} catch (Exception $e) {
+			return ResponseHelper::error($e->getMessage(), 500);
+		}
+	}
+}

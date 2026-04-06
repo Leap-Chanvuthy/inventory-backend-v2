@@ -84,5 +84,10 @@ class ProductAPIController extends Controller
         return $this->productService->updateScrapMovement($request, $productId, $movementId);
     }
 
+    public function getScrap($productId, $movementId)
+    {
+        return $this->productService->getScrapDetail((int)$productId, (int)$movementId);
+    }
+
 
 }
