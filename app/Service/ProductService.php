@@ -107,17 +107,6 @@ class ProductService
         }
     }
 
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Create and Update: External Purchased Product
-    //
-    // Flow:
-    //   1. Set defaults (direction, movement_type, movement_date, user IDs)
-    //   2. Derive missing currency fields via CurrencyPricingHelper
-    //   3. Validate product + movement + images; collect ALL errors up-front
-    //   4. DB transaction: create Product → ProductMovement → ProductImages
-    // ─────────────────────────────────────────────────────────────────────────
-
     public function createExternalPurchasedProduct(Request $request)
     {
         try {
@@ -372,20 +361,6 @@ class ProductService
             return ResponseHelper::error($e->getMessage(), 500);
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Create & Update: Internal Manufactured Product
-    //
-    // Flow:
-    //   1. Set defaults; force all purchase prices to 0
-    //   2. Derive missing selling currency fields via CurrencyPricingHelper
-    //   3. Validate product + movement (with BOM) + images; collect ALL errors
-    //   4. Check raw material stock (FIFO/LIFO) — return error if insufficient
-    //   5. DB transaction:
-    //        create Product → ProductRawMaterial BOM records
-    //        → ProductMovement → deduct raw material stock (PRODUCTION_RECEIPT OUT)
-    //        → ProductImages
-    // ─────────────────────────────────────────────────────────────────────────
 
     public function createInternalManufacturedProduct(Request $request)
     {

@@ -15,6 +15,7 @@ use App\Http\Controllers\API\UOMAPIController;
 use App\Http\Controllers\API\UomCategoryAPIController;
 use App\Http\Controllers\API\UserAPIController;
 use App\Http\Controllers\API\WarehouseAPIController;
+use App\Http\Controllers\TestAPIController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -172,6 +173,13 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
         Route::get('/{productId}/scrap/{movementId}', [ProductAPIController::class, 'getScrap']);
         Route::patch('/{productId}/scrap/{movementId}', [ProductAPIController::class, 'updateScrap']);
     });
+
+    
+    // Test route for product PnL
+    Route::prefix('test')->group(function () {
+        Route::get('/{productId}/pnl-test', [TestAPIController::class, 'show']);
+    });
+    
 
 });
 
