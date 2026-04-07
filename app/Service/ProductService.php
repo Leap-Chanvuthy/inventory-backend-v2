@@ -27,28 +27,19 @@ class ProductService
     protected ProductMovementService          $productMovementService;
     protected RawMaterialStockDeductionService $stockDeductionService;
     protected GetCurrentUserHelper            $getCurrentUserHelper;
-    protected ExternalProductReorder          $externalProductReorder;
-    protected InternalProductReorder          $internalProductReorder;
-    protected ProductScrap                    $productScrap;
 
     public function __construct(
         ProductValidation                $productValidation,
         ProductQueryBuilder              $productQueryBuilder,
         ProductMovementService           $productMovementService,
         RawMaterialStockDeductionService $stockDeductionService,
-        GetCurrentUserHelper             $getCurrentUserHelper,
-        ExternalProductReorder           $externalProductReorder,
-        InternalProductReorder           $internalProductReorder,
-        ProductScrap                     $productScrap
+        GetCurrentUserHelper             $getCurrentUserHelper
     ) {
         $this->productValidation       = $productValidation;
         $this->productQueryBuilder     = $productQueryBuilder;
         $this->productMovementService  = $productMovementService;
         $this->stockDeductionService   = $stockDeductionService;
         $this->getCurrentUserHelper    = $getCurrentUserHelper;
-        $this->externalProductReorder  = $externalProductReorder;
-        $this->internalProductReorder  = $internalProductReorder;
-        $this->productScrap            = $productScrap;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -704,64 +695,10 @@ class ProductService
         }
     }
 
-    // Reorder Product for External Purchased Product
-    public function reorderExternalPurchasedProduct(Request $request, $productId)
-    {
-        return $this->externalProductReorder->reorderExternalPurchasedProduct($request, $productId);
-    }
-
-    // Update Reorder Product (External Purchased Product)
-    public function updateReorderExternalPurchasedProduct(Request $request, $productId, $movementId)
-    {
-        return $this->externalProductReorder->updateReorderExternalPurchasedProduct($request, $productId, $movementId);
-    }
-
-    // Reorder Product for Internal Produced Product
-    public function reorderInternalManufacturedProduct(Request $request, $productId) {
-        return $this->internalProductReorder->reorderInternalManufacturedProduct($request, $productId);
-    }
-
-    // Update Reorder Product for Internal Produced Product
-    public function updateReorderInternalManufacturedProduct(Request $request, $productId, $movementId) {
-        return $this->internalProductReorder->updateReorderInternalManufacturedProduct($request, $productId, $movementId);
-    }
-
-    // Create Product Scrap Movement
-    public function createScrapMovement(Request $request, $productId) {
-        return $this->productScrap->createScrapMovement($request, $productId);
-    }
-
-
-    // Update Product Scrap Movement
-    public function updateScrapMovement(Request $request, $productId, $movementId) {
-        return $this->productScrap->updateScrapMovement($request, $productId, $movementId);
-    }
-
-    // Get Product Scrap Detail
-    public function getScrapDetail(int $productId, int $movementId)
-    {
-        return $this->productScrap->getScrapDetail($productId, $movementId);
-    }
-
     private function buildReorderReferenceToken(int $movementId): string
     {
         return "REORDER_MOVEMENT_ID:{$movementId}";
     }
-
-
-    // -------------------------------------------------------------------------
-    // Reorder detail retrieval helpers
-    // -------------------------------------------------------------------------
-    public function getReorderInternalDetail(int $productId, int $movementId)
-    {
-        return $this->internalProductReorder->getReorderInternalDetail($productId, $movementId);
-    }
-
-    public function getReorderExternalDetail(int $productId, int $movementId)
-    {
-        return $this->externalProductReorder->getReorderExternalDetail($productId, $movementId);
-    }
-
 
 
     /**
