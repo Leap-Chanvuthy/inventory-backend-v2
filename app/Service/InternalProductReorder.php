@@ -402,6 +402,56 @@ class InternalProductReorder
 		}
 	}
 
+	// Delete internal product reorder movement in case the movement is not used in any sales yet. This is to avoid data inconsistency since the reorder movement can be used as a reference for COGS calculation in sales.
+	public function deleteReorderInternalManufacturedProduct(int $productId, int $movementId){
+		try {
+			$product = Product::findOrFail($productId);
+			$movement = ProductMovement::findOrFail($movementId);
+
+			$productTypeValue = ($product->product_type instanceof \BackedEnum)
+				? $product->product_type->value
+				: (string) $product->product_type;
+
+			if ($productTypeValue !== \App\Enums\ProductTypeEnum::INTERNAL_PRODUCED->value) {
+				return ResponseHelper::error('Invalid product type for internal manufacturing reorder deletion', 422, 'Product must be an internally produced product.');
+			}
+
+			$movementTypeValue = is_object($movement->movement_type) ? $movement->movement_type->value : (string) $movement->movement_type;
+			if ($movement->product_id !== $product->id || $movementTypeValue !== \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value) {
+				return ResponseHelper::error('Movement not found or not a reorder movement', 404);
+			}
+
+			if ($movement->is_sold === true) {
+				return ResponseHelper::error('Cannot delete used stock movement', 401, 'The reordered product has been sold. Data cannot be deleted to avoid data inconsistency.');
+			}
+
+			// Remove dependent reorder snapshot and any RM stock movements created for the reorder
+			$productReorder = ProductReorder::where('product_id', $product->id)
+				->where('product_movement_id', $movement->id)
+				->first();
+
+			if ($productReorder) {
+				$referenceToken = $this->buildReorderReferenceToken((int) $movement->id);
+				// delete RM stock movements created for this reorder (if any)
+				$this->stockDeductionService->deleteReorderConsumptionMovementsByToken($referenceToken);
+
+				// delete BOM snapshot items
+				$productReorder->bomItems()->delete();
+
+				// delete the reorder snapshot
+				$productReorder->delete();
+			}
+
+			$movement->delete();
+
+			return ResponseHelper::success(null, 'Product reorder deleted successfully', 200);
+		} catch (Exception $e) {
+			return ResponseHelper::error($e->getMessage(), 500);
+		}
+	}
+
+
+
 	private function getDefaultBomFromProduct(Product $product): array
 	{
 		return ProductRawMaterial::where('product_id', $product->id)

@@ -3559,62 +3559,128 @@
                         }
                     }
                 ],
-                "responses": {
-                    "201": {
-                        "description": "Reorder created successfully"
-                    },
-                    "422": {
-                        "description": "Validation error or insufficient raw material stock"
-                    },
-                    "500": {
-                        "description": "Internal server error"
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "movement_date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-03-20T10:00:00Z"
+                                    },
+                                    "product_status": {
+                                        "type": "string",
+                                        "format": "text",
+                                        "example": "COMPLETED"
+                                    },
+                                    "quantity": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 100
+                                    },
+                                    "selling_unit_price_in_usd": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 10
+                                    },
+                                    "selling_exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 4100
+                                    },
+                                    "raw_materials": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "raw_material_id": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "quantity": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 2
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "BOM-based reorder for restock"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
                     }
                 },
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ]
-            }
-        },
-        "/api/products/{productId}/reorder/internal-manufacturing": {
-            "patch": {
-                "tags": [
-                    "Products - Reorder Internal"
-                ],
-                "summary": "Update internal manufacturing reorder",
-                "operationId": "20817cf0a34f9056a80ee9c3fb333544",
-                "parameters": [
-                    {
-                        "name": "productId",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
-                    {
-                        "name": "movementId",
-                        "in": "query",
-                        "description": "Reorder movement id",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
                 "responses": {
                     "201": {
-                        "description": "Reorder updated successfully"
-                    },
-                    "401": {
-                        "description": "Cannot update used stock movement"
+                        "description": "Reorder created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Product reordered (internal manufacturing) successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "422": {
-                        "description": "Validation error"
+                        "description": "Validation error or insufficient raw material stock",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Insufficient raw material stock"
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "example": {
+                                                "raw_materials": [
+                                                    {
+                                                        "raw_material_id": 10,
+                                                        "required": 5
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "500": {
-                        "description": "Internal server error"
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -3661,6 +3727,358 @@
                     },
                     "500": {
                         "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Products - Reorder Internal"
+                ],
+                "summary": "Delete internal manufacturing reorder movement",
+                "description": "Deletes a reorder movement for a product if it has not been used in sales.",
+                "operationId": "cbf78ef100b3f0535d0440fe7860c531",
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "movementId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Product reorder deleted successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Product reorder (internal manufacturing) deleted successfully"
+                                        },
+                                        "data": {
+                                            "type": "null",
+                                            "example": null,
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Cannot delete used stock movement",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Cannot delete used stock movement"
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "movement_id": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "Movement has been sold and cannot be deleted"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Movement not found or not a reorder movement",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Movement not found or not a reorder movement"
+                                        },
+                                        "errors": {
+                                            "type": "null",
+                                            "example": null,
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid product type",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Invalid product type for internal manufacturing reorder deletion"
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "product_type": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "Product must be of type INTERNAL_MANUFACTURING"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                },
+                                "example": {
+                                    "status": false,
+                                    "message": "Server error: Unexpected exception",
+                                    "errors": null
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Products - Reorder Internal"
+                ],
+                "summary": "Update internal manufacturing reorder",
+                "operationId": "0eb8151a8690775c552f22b5dd2c028b",
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "movementId",
+                        "in": "path",
+                        "description": "Reorder movement id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "movement_date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-03-20T10:00:00Z"
+                                    },
+                                    "product_status": {
+                                        "type": "string",
+                                        "format": "text",
+                                        "example": "COMPLETED"
+                                    },
+                                    "quantity": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 120
+                                    },
+                                    "selling_unit_price_in_usd": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 11
+                                    },
+                                    "selling_exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 4100
+                                    },
+                                    "raw_materials": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "raw_material_id": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "quantity": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 3
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Update reorder (internal)"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Reorder updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Product reorder (internal manufacturing) updated successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Cannot update used stock movement",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Cannot update used stock movement"
+                                        },
+                                        "errors": {
+                                            "type": "null",
+                                            "example": null,
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error or insufficient stock",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Insufficient raw material stock"
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "example": {
+                                                "raw_materials": [
+                                                    {
+                                                        "raw_material_id": 10,
+                                                        "required": 5
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Movement not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [

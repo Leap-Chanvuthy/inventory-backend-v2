@@ -468,35 +468,171 @@ interface ProductAPIControllerInterface
      */
     public function deleteReorderExternalPurchase($productId, $movementId);
 
-    /**
-     * @OA\Post(
-     *     path="/api/products/{id}/reorder/internal-manufacturing",
-     *     tags={"Products - Reorder Internal"},
-     *     security={{"Bearer":{}}},
-     *     summary="Create internal manufacturing reorder",
-     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *     @OA\Response(response=201, description="Reorder created successfully"),
-     *     @OA\Response(response=422, description="Validation error or insufficient raw material stock"),
-     *     @OA\Response(response=500, description="Internal server error")
-     * )
-     */
-    public function reorderInternalManufacturing($id);
+   /**
+    * @OA\Post(
+    *     path="/api/products/{id}/reorder/internal-manufacturing",
+    *     tags={"Products - Reorder Internal"},
+    *     security={{"Bearer":{}}},
+    *     summary="Create internal manufacturing reorder",
+    *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+    *     @OA\RequestBody(
+    *         required=true,
+    *         @OA\JsonContent(type="object",
+    *             @OA\Property(property="movement_date", type="string", format="date-time", example="2026-03-20T10:00:00Z"),
+   *             @OA\Property(property="product_status", type="string", format="text", example="COMPLETED"),
+    *             @OA\Property(property="quantity", type="number", format="float", example=100),
+    *             @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=10),
+    *             @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
+    *             @OA\Property(property="raw_materials", type="array",
+    *                 @OA\Items(type="object",
+    *                     @OA\Property(property="raw_material_id", type="integer", example=10),
+    *                     @OA\Property(property="quantity", type="number", format="float", example=2)
+    *                 )
+    *             ),
+    *             @OA\Property(property="note", type="string", example="BOM-based reorder for restock")
+    *         )
+    *     ),
+    *     @OA\Response(
+    *         response=201,
+    *         description="Reorder created successfully",
+    *         @OA\JsonContent(type="object",
+    *             @OA\Property(property="status", type="boolean", example=true),
+    *             @OA\Property(property="message", type="string", example="Product reordered (internal manufacturing) successfully"),
+    *             @OA\Property(property="data", type="object")
+    *         )
+    *     ),
+    *     @OA\Response(
+    *         response=422,
+    *         description="Validation error or insufficient raw material stock",
+    *         @OA\JsonContent(type="object",
+    *             @OA\Property(property="status", type="boolean", example=false),
+    *             @OA\Property(property="message", type="string", example="Insufficient raw material stock"),
+    *             @OA\Property(property="errors", type="object", example={"raw_materials":{{"raw_material_id":10,"required":5}}})
+    *         )
+    *     ),
+    *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(ref="#/components/schemas/ApiError"))
+    * )
+    */
+   public function reorderInternalManufacturing($id);
 
-    /**
-     * @OA\Patch(
-     *     path="/api/products/{productId}/reorder/internal-manufacturing",
-     *     tags={"Products - Reorder Internal"},
-     *     security={{"Bearer":{}}},
-     *     summary="Update internal manufacturing reorder",
-     *     @OA\Parameter(name="productId", in="path", required=true, @OA\Schema(type="integer")),
-     *     @OA\Parameter(name="movementId", in="query", required=true, @OA\Schema(type="integer"), description="Reorder movement id"),
-     *     @OA\Response(response=201, description="Reorder updated successfully"),
-     *     @OA\Response(response=401, description="Cannot update used stock movement"),
-     *     @OA\Response(response=422, description="Validation error"),
-     *     @OA\Response(response=500, description="Internal server error")
-     * )
-     */
-    public function updateReorderInternalManufacturing($productId);
+   /**
+    * @OA\Patch(
+    *     path="/api/products/{productId}/reorder/internal-manufacturing/{movementId}",
+    *     tags={"Products - Reorder Internal"},
+    *     security={{"Bearer":{}}},
+    *     summary="Update internal manufacturing reorder",
+    *     @OA\Parameter(name="productId", in="path", required=true, @OA\Schema(type="integer")),
+    *     @OA\Parameter(name="movementId", in="path", required=true, @OA\Schema(type="integer"), description="Reorder movement id"),
+    *     @OA\RequestBody(
+    *         required=true,
+    *         @OA\JsonContent(type="object",
+    *             @OA\Property(property="movement_date", type="string", format="date-time", example="2026-03-20T10:00:00Z"),
+    *             @OA\Property(property="product_status", type="string", format="text", example="COMPLETED"),
+    *             @OA\Property(property="quantity", type="number", format="float", example=120),
+    *             @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=11),
+    *             @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
+    *             @OA\Property(property="raw_materials", type="array",
+    *                 @OA\Items(type="object",
+    *                     @OA\Property(property="raw_material_id", type="integer", example=10),
+    *                     @OA\Property(property="quantity", type="number", format="float", example=3)
+    *                 )
+    *             ),
+    *             @OA\Property(property="note", type="string", example="Update reorder (internal)")
+    *         )
+    *     ),
+    *     @OA\Response(
+    *         response=201,
+    *         description="Reorder updated successfully",
+    *         @OA\JsonContent(type="object",
+    *             @OA\Property(property="status", type="boolean", example=true),
+    *             @OA\Property(property="message", type="string", example="Product reorder (internal manufacturing) updated successfully"),
+    *             @OA\Property(property="data", type="object")
+    *         )
+    *     ),
+    *     @OA\Response(
+    *         response=401,
+    *         description="Cannot update used stock movement",
+    *         @OA\JsonContent(type="object",
+    *             @OA\Property(property="status", type="boolean", example=false),
+    *             @OA\Property(property="message", type="string", example="Cannot update used stock movement"),
+    *             @OA\Property(property="errors", type="null", nullable=true, example=null)
+    *         )
+    *     ),
+    *     @OA\Response(
+    *         response=422,
+    *         description="Validation error or insufficient stock",
+    *         @OA\JsonContent(type="object",
+    *             @OA\Property(property="status", type="boolean", example=false),
+    *             @OA\Property(property="message", type="string", example="Insufficient raw material stock"),
+    *             @OA\Property(property="errors", type="object", example={"raw_materials":{{"raw_material_id":10,"required":5}}})
+    *         )
+    *     ),
+    *     @OA\Response(response=404, description="Movement not found", @OA\JsonContent(ref="#/components/schemas/ApiError")),
+    *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(ref="#/components/schemas/ApiError"))
+    * )
+    */
+   public function updateReorderInternalManufacturing($productId);
+
+   
+   /**
+      * @OA\Delete(
+      *     path="/api/products/{productId}/reorder/internal-manufacturing/{movementId}",
+      *     tags={"Products - Reorder Internal"},
+      *     security={{"Bearer":{}}},
+      *     summary="Delete internal manufacturing reorder movement",
+      *     description="Deletes a reorder movement for a product if it has not been used in sales.",
+      *     @OA\Parameter(name="productId", in="path", required=true, @OA\Schema(type="integer")),
+      *     @OA\Parameter(name="movementId", in="path", required=true, @OA\Schema(type="integer")),
+      *
+      *     @OA\Response(
+      *         response=200,
+      *         description="Product reorder deleted successfully",
+      *         @OA\JsonContent(type="object",
+      *             @OA\Property(property="status", type="boolean", example=true),
+      *             @OA\Property(property="message", type="string", example="Product reorder (internal manufacturing) deleted successfully"),
+      *             @OA\Property(property="data", type="null", nullable=true, example=null)
+      *         )
+      *     ),
+      *
+      *     @OA\Response(
+      *         response=401,
+      *         description="Cannot delete used stock movement",
+      *         @OA\JsonContent(type="object",
+      *             @OA\Property(property="status", type="boolean", example=false),
+      *             @OA\Property(property="message", type="string", example="Cannot delete used stock movement"),
+      *             @OA\Property(property="errors", type="object",
+      *                 @OA\Property(property="movement_id", type="array", @OA\Items(type="string", example="Movement has been sold and cannot be deleted"))
+      *             )
+      *         )
+      *     ),
+      *
+      *     @OA\Response(
+      *         response=404,
+      *         description="Movement not found or not a reorder movement",
+      *         @OA\JsonContent(type="object",
+      *             @OA\Property(property="status", type="boolean", example=false),
+      *             @OA\Property(property="message", type="string", example="Movement not found or not a reorder movement"),
+      *             @OA\Property(property="errors", type="null", nullable=true, example=null)
+      *         )
+      *     ),
+      *     @OA\Response(
+      *         response=422,
+      *         description="Invalid product type",
+      *         @OA\JsonContent(type="object",
+      *             @OA\Property(property="status", type="boolean", example=false), 
+      *             @OA\Property(property="message", type="string", example="Invalid product type for internal manufacturing reorder deletion"),
+      *             @OA\Property(property="errors", type="object",
+      *                 @OA\Property(property="product_type", type="array", @OA\Items(type="string", example="Product must be of type INTERNAL_MANUFACTURING"))
+      *             )
+      *         )
+      *     ),
+      *     @OA\Response(
+      *         response=500, description="Internal server error",
+      *         @OA\JsonContent(ref="#/components/schemas/ApiError", example={"status":false,"message":"Server error: Unexpected exception","errors":null})
+      *     )
+      * )
+      */
+    public function deleteReorderInternalManufacturing($productId, $movementId);
 
     /**
      * @OA\Get(

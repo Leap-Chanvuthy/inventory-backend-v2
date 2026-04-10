@@ -99,6 +99,11 @@ class ProductAPIController extends Controller
         return $this->internalProductReorder->updateReorderInternalManufacturedProduct($request, $productId, $movementId);
     }
 
+    public function deleteReorderInternalManufacturing($productId, $movementId)
+    {
+        return $this->internalProductReorder->deleteReorderInternalManufacturedProduct((int)$productId, (int)$movementId);
+    }
+
     // GET reorder details
     public function getReorderInternalManufacturing($productId, $movementId)
     {
