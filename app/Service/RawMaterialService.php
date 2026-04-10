@@ -25,16 +25,19 @@ class RawMaterialService
     protected RMValidation $rmValidation;
     protected GetCurrentUserHelper $getCurrentUserHelper;
     protected RawMaterialQueryBuilder $rawMaterialQueryBuilder;
+    protected AuditLoggerService $auditLoggerService;
 
     public function __construct(
         RMValidation $rmValidation,
         RawMaterialQueryBuilder $rawMaterialQueryBuilder,
-        GetCurrentUserHelper $getCurrentUserHelper
+        GetCurrentUserHelper $getCurrentUserHelper,
+        AuditLoggerService $auditLoggerService
         )
     {
         $this -> rmValidation = $rmValidation;
         $this -> rawMaterialQueryBuilder = $rawMaterialQueryBuilder;
         $this -> getCurrentUserHelper = $getCurrentUserHelper;
+        $this -> auditLoggerService = $auditLoggerService;
     }
 
     // Get all raw materials with filtering, sorting, and pagination
@@ -201,7 +204,7 @@ class RawMaterialService
                 return ResponseHelper::validation($errors, 'Validation Error');
             }
 
-            return DB::transaction(function () use ($request) {
+            return DB::transaction(function () use ($request, $currentUserId) {
                 // 1) Create Raw Material
                 $rawMaterialRules = $this->rmValidation->CreateRMValidation($request);
                 $rawMaterialData = Validator::make($request->all(), $rawMaterialRules)->validate();
@@ -276,6 +279,23 @@ class RawMaterialService
                     'raw_material' => $rawMaterial->fresh(
                         ['rm_category', 'supplier' => fn ($q) => $q->withTrashed() , 'warehouse'=> fn ($q) => $q->withTrashed(), 'uom' => fn ($q) => $q->withTrashed() , 'rm_stock_movements', 'rm_images']),
                 ];
+
+                $this->auditLoggerService->logChange(
+                    'raw_material.create',
+                    RawMaterial::class,
+                    (int) $rawMaterial->id,
+                    [],
+                    [
+                        'raw_material' => $this->auditLoggerService->snapshotModel($data['raw_material']),
+                        'purchase_movement' => $this->auditLoggerService->snapshotModel($movement),
+                        'images' => $data['raw_material']->rm_images?->map(fn ($img) => [
+                            'id' => (int) $img->id,
+                            'image' => $img->image,
+                        ])->values()->all() ?? [],
+                    ],
+                    (int) $currentUserId,
+                    ['context' => 'raw_material_service']
+                );
 
                 return ResponseHelper::success($data, 'Raw material created successfully', 201);
             });
@@ -385,6 +405,19 @@ class RawMaterialService
             }
 
             return DB::transaction(function () use ($request, $rawMaterial, $purchaseMovement, $incomingFiles) {
+                $oldSnapshot = [
+                    'raw_material' => $this->auditLoggerService->snapshotModel($rawMaterial),
+                    'purchase_movement' => $this->auditLoggerService->snapshotModel($purchaseMovement),
+                    'images' => RMImage::query()
+                        ->where('raw_material_id', $rawMaterial->id)
+                        ->orderBy('id')
+                        ->get(['id', 'image'])
+                        ->map(fn ($img) => [
+                            'id' => (int) $img->id,
+                            'image' => $img->image,
+                        ])->values()->all(),
+                ];
+
                 $rawMaterialRules = $this->rmValidation->UpdateRMValidation($request, (int) $rawMaterial->id);
                 $rawMaterialData = Validator::make($request->all(), $rawMaterialRules)->validate();
 
@@ -478,6 +511,25 @@ class RawMaterialService
                     ]),
                 ];
 
+                $newSnapshot = [
+                    'raw_material' => $this->auditLoggerService->snapshotModel($data['raw_material']),
+                    'purchase_movement' => $this->auditLoggerService->snapshotModel($purchaseMovement->fresh()),
+                    'images' => $data['raw_material']->rm_images?->map(fn ($img) => [
+                        'id' => (int) $img->id,
+                        'image' => $img->image,
+                    ])->values()->all() ?? [],
+                ];
+
+                $this->auditLoggerService->logDiff(
+                    'raw_material.update',
+                    RawMaterial::class,
+                    (int) $rawMaterial->id,
+                    $oldSnapshot,
+                    $newSnapshot,
+                    $this->getCurrentUserHelper->getUserId(),
+                    ['context' => 'raw_material_service']
+                );
+
                 return ResponseHelper::success($data, 'Raw material updated successfully', 200);
             });
         }catch (ValidationException $e) {
@@ -491,7 +543,19 @@ class RawMaterialService
     public function deleteRawMaterial ($rawMaterialId){
         try {
             $rawMaterial = RawMaterial::findOrFail($rawMaterialId);
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($rawMaterial);
             $rawMaterial->delete();
+
+            $this->auditLoggerService->logChange(
+                'raw_material.delete',
+                RawMaterial::class,
+                (int) $rawMaterial->id,
+                $oldSnapshot,
+                [],
+                $this->getCurrentUserHelper->getUserId(),
+                ['context' => 'raw_material_service']
+            );
+
             return ResponseHelper::success(null , 'Raw material deleted successfully' , 200);
         }catch (Exception $e) {
             return ResponseHelper::error('Cannot delete this raw material' , 500 , $e -> getMessage());
@@ -502,7 +566,19 @@ class RawMaterialService
     public function recoverRawMaterial($rawMaterialId){
         try {
             $rawMaterial = RawMaterial::withTrashed()->findOrFail($rawMaterialId);
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($rawMaterial);
             $rawMaterial->restore();
+
+            $this->auditLoggerService->logChange(
+                'raw_material.recover',
+                RawMaterial::class,
+                (int) $rawMaterial->id,
+                $oldSnapshot,
+                $this->auditLoggerService->snapshotModel($rawMaterial->fresh()),
+                $this->getCurrentUserHelper->getUserId(),
+                ['context' => 'raw_material_service']
+            );
+
             return ResponseHelper::success(null , 'Raw material recovered successfully' , 200);
         }catch (Exception $e) {
             return ResponseHelper::error('Cannot recover this raw material' , 500 , $e -> getMessage());
@@ -567,6 +643,16 @@ class RawMaterialService
                 ]);
             });
 
+            $this->auditLoggerService->logChange(
+                'raw_material.reorder.create',
+                RawMaterial::class,
+                (int) $rawMaterial->id,
+                [],
+                ['movement' => $this->auditLoggerService->snapshotModel($movement)],
+                (int) $currentUserId,
+                ['context' => 'raw_material_service']
+            );
+
             return ResponseHelper::success($movement, 'Raw material reordered successfully', 201);
 
         }catch (ValidationException $e){
@@ -620,6 +706,8 @@ class RawMaterialService
             $rules = $this->rmValidation->CreateRMStockMovementValidation($request);
             $validated = Validator::make($request->all(), $rules)->validate();
 
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($movement);
+
             $movement = DB::transaction(function () use ($validated, $movement) {
                 $movement->update([
                     'quantity' => $validated['quantity'],
@@ -639,6 +727,16 @@ class RawMaterialService
 
                 return $movement->fresh();
             });
+
+            $this->auditLoggerService->logDiff(
+                'raw_material.reorder.update',
+                RawMaterial::class,
+                (int) $rawMaterial->id,
+                $oldSnapshot,
+                $this->auditLoggerService->snapshotModel($movement),
+                $this->getCurrentUserHelper->getUserId(),
+                ['context' => 'raw_material_service']
+            );
 
             return ResponseHelper::success($movement, 'Raw material reordered updated successfully', 201);
 
@@ -723,6 +821,16 @@ class RawMaterialService
                     'note' => $validated['note'],
                 ]);
             });
+
+            $this->auditLoggerService->logChange(
+                'raw_material.adjustment_out.create',
+                RawMaterial::class,
+                (int) $rawMaterial->id,
+                [],
+                ['movement' => $this->auditLoggerService->snapshotModel($movement)],
+                (int) $currentUserId,
+                ['context' => 'raw_material_service']
+            );
 
             return ResponseHelper::success($movement, 'Raw material adjustment out successfully', 201);
 

@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Enums\RawMaterialStockMovementTypeEnum;
 use App\Helpers\CurrencyPricingHelper;
+use App\Helpers\GetCurrentUserHelper;
 use App\Helpers\ResponseHelper;
 use App\Models\RMStockMovement;
 use App\Models\RawMaterial;
@@ -17,7 +18,9 @@ use Illuminate\Validation\ValidationException;
 class RMStockMovementService
 {
     public function __construct(
-        protected RMValidation $rmValidation
+        protected RMValidation $rmValidation,
+        protected GetCurrentUserHelper $getCurrentUserHelper,
+        protected AuditLoggerService $auditLoggerService
     ) {
     }
 
@@ -35,6 +38,12 @@ class RMStockMovementService
             if (!$request->filled('movement_type')) {
                 $request->merge(['movement_type' => RawMaterialStockMovementTypeEnum::RE_ORDER->value]);
             }
+
+            $currentUserId = $this->getCurrentUserHelper->getUserId();
+            $request->merge([
+                'created_by' => $currentUserId,
+                'last_updated_by' => $currentUserId,
+            ]);
 
             // If PURCHASE, enforce only one purchase per raw material.
             if ($request->input('movement_type') === RawMaterialStockMovementTypeEnum::PURCHASE->value) {
@@ -93,6 +102,16 @@ class RMStockMovementService
                     'note' => $validated['note'] ?? null,
                 ]);
             });
+
+            $this->auditLoggerService->logChange(
+                'raw_material.stock_movement.create',
+                RawMaterial::class,
+                (int) $rawMaterial->id,
+                [],
+                ['movement' => $this->auditLoggerService->snapshotModel($movement)],
+                $currentUserId !== null ? (int) $currentUserId : null,
+                ['context' => 'rm_stock_movement_service']
+            );
 
             return ResponseHelper::success($movement, 'RM Stock movement created successfully', 201);
         } catch (ValidationException $e) {

@@ -19,8 +19,16 @@ use App\Service\TwoFactorService;
 
 class AuthService
 {
-    public function __construct(private readonly TwoFactorService $twoFactorService)
+
+    // Implement auth audit log activity
+    protected AuditLoggerService $auditLoggerService;
+
+    public function __construct(
+        private readonly TwoFactorService $twoFactorService,
+        AuditLoggerService $auditLoggerService
+    )
     {
+        $this->auditLoggerService = $auditLoggerService;
     }
 
     public function login(Request $request)
@@ -63,6 +71,17 @@ class AuthService
             if (!$token) {
                 return ResponseHelper::error('Invalid credentials', 401);
             }
+
+            // implement auth log here but doesn't record password for security reason
+            $this->auditLoggerService->logChange(
+                event: 'auth.login',
+                auditableType: User::class,
+                auditableId: $user->id,
+                old: [],
+                new: ['email' => $user->email],
+                userId: $user->id,
+                meta: ['ip' => $request->ip()]
+            );
 
             return ResponseHelper::success([
                 'user' => $user,

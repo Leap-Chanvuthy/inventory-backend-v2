@@ -9,9 +9,17 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Spatie\QueryBuilder\AllowedFilter;
 use App\Models\RawMaterialCategory;
+use App\Service\AuditLoggerService;
 use Illuminate\Validation\ValidationException;
 
 class RawMaterialCategoryService {
+
+    protected AuditLoggerService $auditLoggerService;
+
+    public function __construct(AuditLoggerService $auditLoggerService)
+    {
+        $this->auditLoggerService = $auditLoggerService;
+    }
 
     public function rawMaterialBuilder(){
         return QueryBuilderHelper::build(
@@ -92,6 +100,17 @@ class RawMaterialCategoryService {
             ]);
 
             $category = RawMaterialCategory::create($validated);
+
+            $this->auditLoggerService->logChange(
+                'raw_material_category.create',
+                RawMaterialCategory::class,
+                (int) $category->id,
+                [],
+                $this->auditLoggerService->snapshotModel($category),
+                null,
+                ['context' => 'raw_material_category_service']
+            );
+
             return ResponseHelper::success($category, 'Raw material category created successfully', 201);
         } catch (Exception $e) {
             return ResponseHelper::error('Failed to create raw material category: ' . $e->getMessage(), 500);
@@ -113,7 +132,22 @@ class RawMaterialCategoryService {
                 'description' => 'nullable|string',
             ]);
 
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($category);
+
             $category->update($validated);
+
+            $newSnapshot = $this->auditLoggerService->snapshotModel($category->fresh());
+
+            $this->auditLoggerService->logDiff(
+                'raw_material_category.update',
+                RawMaterialCategory::class,
+                (int) $category->id,
+                $oldSnapshot,
+                $newSnapshot,
+                null,
+                ['context' => 'raw_material_category_service']
+            );
+
             return ResponseHelper::success($category, 'Raw material category updated successfully', 200);
         } catch (ValidationException $e){
             return ResponseHelper::validation($e->errors() , 'Validation Error', 422);
@@ -131,7 +165,20 @@ class RawMaterialCategoryService {
             if (!$category) {
                 return ResponseHelper::error('Raw material category not found', 404);
             }
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($category);
+
             $category->delete();
+
+            $this->auditLoggerService->logChange(
+                'raw_material_category.delete',
+                RawMaterialCategory::class,
+                (int) $category->id,
+                $oldSnapshot,
+                [],
+                null,
+                ['context' => 'raw_material_category_service']
+            );
+
             return ResponseHelper::success(null, 'Raw material category deleted successfully', 200);
         } catch (Exception $e) {
             return ResponseHelper::error('Failed to delete raw material category: ' . $e->getMessage(), 500);
@@ -147,6 +194,18 @@ class RawMaterialCategoryService {
             }
 
             $category->restore();
+
+            $newSnapshot = $this->auditLoggerService->snapshotModel($category->fresh());
+
+            $this->auditLoggerService->logChange(
+                'raw_material_category.restore',
+                RawMaterialCategory::class,
+                (int) $category->id,
+                [],
+                $newSnapshot,
+                null,
+                ['context' => 'raw_material_category_service']
+            );
 
             return ResponseHelper::success($category, 'Raw material category restored successfully', 200);
         } catch (Exception $e) {

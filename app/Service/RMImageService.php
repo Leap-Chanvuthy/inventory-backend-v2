@@ -13,6 +13,11 @@ use Illuminate\Support\Facades\Validator;
 
 class RMImageService
 {
+    public function __construct(
+        protected AuditLoggerService $auditLoggerService
+    ) {
+    }
+
     /**
      * Delete raw material images (user can send one id or many ids).
      * Expected payload: {"image_ids": [1,2]}.
@@ -51,10 +56,33 @@ class RMImageService
             }
 
             $deletedIds = $images->pluck('id')->map(fn ($id) => (int) $id)->all();
+            $oldImages = $images->map(fn ($img) => [
+                'id' => (int) $img->id,
+                'image' => $img->image,
+            ])->values()->all();
 
             DB::transaction(function () use ($images) {
                 ImageDeleteHelper::deleteMultiple($images);
             });
+
+            $remainingImages = RMImage::query()
+                ->where('raw_material_id', $rawMaterialId)
+                ->orderBy('id')
+                ->get(['id', 'image'])
+                ->map(fn ($img) => [
+                    'id' => (int) $img->id,
+                    'image' => $img->image,
+                ])->values()->all();
+
+            $this->auditLoggerService->logDiff(
+                'raw_material.images.delete',
+                RawMaterial::class,
+                (int) $rawMaterialId,
+                ['deleted_images' => $oldImages],
+                ['remaining_images' => $remainingImages],
+                null,
+                ['context' => 'rm_image_service']
+            );
 
             return ResponseHelper::success([
                 'deleted_image_ids' => $deletedIds,
