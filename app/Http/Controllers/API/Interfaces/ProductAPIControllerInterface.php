@@ -209,6 +209,69 @@ interface ProductAPIControllerInterface
     public function getReorderExternalPurchase($productId, $movementId);
 
     /**
+     * @OA\Delete(
+     *     path="/api/products/{productId}/reorder/external-purchase/{movementId}",
+     *     tags={"Products - Reorder External"},
+     *     security={{"Bearer":{}}},
+     *     summary="Delete external purchase reorder movement",
+     *     description="Deletes a reorder movement for a product if it has not been used in sales.",
+     *     @OA\Parameter(name="productId", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="movementId", in="path", required=true, @OA\Schema(type="integer")),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Product reorder deleted successfully",
+     *         @OA\JsonContent(type="object",
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Product reorder deleted successfully"),
+     *             @OA\Property(property="data", type="null", nullable=true, example=null)
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=401,
+     *         description="Cannot delete used stock movement",
+     *         @OA\JsonContent(type="object",
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Cannot delete used stock movement"),
+     *             @OA\Property(property="errors", type="object",
+     *                 @OA\Property(property="movement_id", type="array", @OA\Items(type="string", example="Movement has been sold and cannot be deleted"))
+     *             )
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=404,
+     *         description="Movement not found or not a reorder movement",
+     *         @OA\JsonContent(type="object",
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Movement not found or not a reorder movement"),
+     *             @OA\Property(property="errors", type="null", nullable=true, example=null)
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=422,
+     *         description="Invalid product type",
+     *         @OA\JsonContent(type="object",
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Invalid product type for external purchase reorder deletion"),
+     *             @OA\Property(property="errors", type="object",
+     *                 @OA\Property(property="product_type", type="array", @OA\Items(type="string", example="Product must be of type EXTERNAL_PURCHASE"))
+     *             )
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=500,
+     *         description="Internal server error",
+     *         @OA\JsonContent(ref="#/components/schemas/ApiError", example={"status":false,"message":"Server error: Unexpected exception","errors":null})
+     *     )
+     * )
+     */
+    public function deleteReorderExternalPurchase($productId, $movementId);
+
+    /**
      * @OA\Post(
      *     path="/api/products/{id}/reorder/internal-manufacturing",
      *     tags={"Products - Reorder Internal"},

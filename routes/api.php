@@ -162,9 +162,16 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
         Route::post('/create/internal-manufacturing', [ProductAPIController::class, 'storeInternalManufacturing']);
         Route::delete('/{id}', [ProductAPIController::class, 'delete']);
         Route::patch('/{id}/restore', [ProductAPIController::class, 'restore']);
+
+        // Reorder product (Create/Update) by external purchase (add stock)
         Route::post('/{id}/reorder/external-purchase', [ProductAPIController::class, 'reorderExternalPurchase']);
         Route::patch('/{productId}/reorder/external-purchase', [ProductAPIController::class, 'updateReorderExternalPurchase']);
         Route::get('/{productId}/reorder/external-purchase/{movementId}', [ProductAPIController::class, 'getReorderExternalPurchase']);
+        Route::delete('/{productId}/reorder/external-purchase/{movementId}', [ProductAPIController::class, 'deleteReorderExternalPurchase']);
+
+
+
+        // Reorder product (Create/Update) by internal manufacturing (add stock)
         Route::post('/{id}/reorder/internal-manufacturing', [ProductAPIController::class, 'reorderInternalManufacturing']);
         Route::patch('/{productId}/reorder/internal-manufacturing', [ProductAPIController::class, 'updateReorderInternalManufacturing']);
         Route::get('/{productId}/reorder/internal-manufacturing/{movementId}', [ProductAPIController::class, 'getReorderInternalManufacturing']);
