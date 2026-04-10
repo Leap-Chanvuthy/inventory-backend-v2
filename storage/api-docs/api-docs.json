@@ -2702,15 +2702,152 @@
                 ],
                 "summary": "Create internally manufactured product",
                 "operationId": "a330e69f3f61d6f5fe926304638c3d60",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "product_name": {
+                                        "type": "string",
+                                        "example": "Manufacturing Product"
+                                    },
+                                    "product_status": {
+                                        "type": "string",
+                                        "example": "COMPLETED"
+                                    },
+                                    "product_description": {
+                                        "type": "string",
+                                        "example": "Sample internally manufactured product for Postman test"
+                                    },
+                                    "product_category_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "base_uom_id": {
+                                        "type": "integer",
+                                        "example": 20
+                                    },
+                                    "supplier_id": {
+                                        "type": "integer",
+                                        "example": 1,
+                                        "nullable": true
+                                    },
+                                    "warehouse_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "movement_date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-03-20T10:00:00Z"
+                                    },
+                                    "quantity": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 100
+                                    },
+                                    "selling_unit_price_in_usd": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 10
+                                    },
+                                    "selling_exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 4100
+                                    },
+                                    "raw_materials": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "raw_material_id": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "quantity": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 2
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "BOM-based manufactured product"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "201": {
-                        "description": "Created successfully"
+                        "description": "Created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Product created successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "422": {
-                        "description": "Validation error or insufficient stock"
+                        "description": "Validation error or insufficient stock",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Insufficient raw material stock"
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "example": {
+                                                "raw_materials": [
+                                                    {
+                                                        "raw_material_id": 10,
+                                                        "required": 5
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "500": {
-                        "description": "Internal server error"
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -2737,18 +2874,177 @@
                         }
                     }
                 ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "product_name": {
+                                        "type": "string",
+                                        "example": "Test Internal Product"
+                                    },
+                                    "product_status": {
+                                        "type": "string",
+                                        "example": "COMPLETED"
+                                    },
+                                    "product_description": {
+                                        "type": "string",
+                                        "example": "Sample internally manufactured product for Postman test"
+                                    },
+                                    "product_category_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "base_uom_id": {
+                                        "type": "integer",
+                                        "example": 20
+                                    },
+                                    "supplier_id": {
+                                        "type": "integer",
+                                        "example": 1,
+                                        "nullable": true
+                                    },
+                                    "warehouse_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "movement_date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-03-20T10:00:00Z"
+                                    },
+                                    "quantity": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 100
+                                    },
+                                    "selling_unit_price_in_usd": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 10
+                                    },
+                                    "selling_exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 4100
+                                    },
+                                    "raw_materials": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "raw_material_id": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "quantity": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 3
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "BOM-based manufactured product"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "201": {
-                        "description": "Updated successfully"
+                        "description": "Updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Product updated successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "401": {
-                        "description": "Cannot update used stock movement"
+                        "description": "Cannot update used stock movement",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Cannot update used stock movement"
+                                        },
+                                        "errors": {
+                                            "type": "null",
+                                            "example": null,
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "422": {
-                        "description": "Validation error or insufficient stock"
+                        "description": "Validation error or insufficient stock",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Insufficient raw material stock"
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "example": {
+                                                "raw_materials": [
+                                                    {
+                                                        "raw_material_id": 10,
+                                                        "required": 5
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "500": {
-                        "description": "Internal server error"
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
