@@ -11,8 +11,16 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Spatie\QueryBuilder\AllowedFilter;
 use App\Models\ProductCategory;
+use App\Service\AuditLoggerService;
 
 class ProductCategoryService {
+
+    protected AuditLoggerService $auditLoggerService;
+
+    public function __construct(AuditLoggerService $auditLoggerService)
+    {
+        $this->auditLoggerService = $auditLoggerService;
+    }
 
 
     public function productBuilder (){
@@ -84,6 +92,17 @@ class ProductCategoryService {
             ]);
 
             $category = ProductCategory::create($validated);
+            // Audit: record creation
+            $this->auditLoggerService->logChange(
+                'product_category.create',
+                ProductCategory::class,
+                (int) $category->id,
+                [],
+                $this->auditLoggerService->snapshotModel($category),
+                null,
+                ['context' => 'product_category_service']
+            );
+
             return ResponseHelper::success($category , 'Product category created successfully' , 201);
 
         }catch (ValidationException $e){
@@ -107,7 +126,22 @@ class ProductCategoryService {
                 'description' => 'nullable|string',
             ]);
 
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($category);
+
             $category -> update($validated);
+
+            $newSnapshot = $this->auditLoggerService->snapshotModel($category->fresh());
+
+            $this->auditLoggerService->logDiff(
+                'product_category.update',
+                ProductCategory::class,
+                (int) $category->id,
+                $oldSnapshot,
+                $newSnapshot,
+                null,
+                ['context' => 'product_category_service']
+            );
+
             return ResponseHelper::success($category , 'Product category updated successfully' , 200);
         } catch (ValidationException $e){
             return ResponseHelper::validation($e->errors() , 'Validation Error' , 422);
@@ -123,7 +157,20 @@ class ProductCategoryService {
                 return ResponseHelper::error('Product category not found', 404);
             }
 
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($category);
+
             $category -> delete();
+
+            $this->auditLoggerService->logChange(
+                'product_category.delete',
+                ProductCategory::class,
+                (int) $category->id,
+                $oldSnapshot,
+                [],
+                null,
+                ['context' => 'product_category_service']
+            );
+
             return ResponseHelper::success(null , 'Product category deleted successfully' , 200);
         } catch (Exception $e){
             return ResponseHelper::error('Failed to delete product category: ', 500, $e->getMessage());
