@@ -165,7 +165,7 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
 
         // Reorder product (Create/Update) by external purchase (add stock)
         Route::post('/{id}/reorder/external-purchase', [ProductAPIController::class, 'reorderExternalPurchase']);
-        Route::patch('/{productId}/reorder/external-purchase', [ProductAPIController::class, 'updateReorderExternalPurchase']);
+        Route::patch('/{productId}/reorder/external-purchase/{movementId}', [ProductAPIController::class, 'updateReorderExternalPurchase']);
         Route::get('/{productId}/reorder/external-purchase/{movementId}', [ProductAPIController::class, 'getReorderExternalPurchase']);
         Route::delete('/{productId}/reorder/external-purchase/{movementId}', [ProductAPIController::class, 'deleteReorderExternalPurchase']);
 

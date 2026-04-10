@@ -3071,62 +3071,99 @@
                         }
                     }
                 ],
-                "responses": {
-                    "201": {
-                        "description": "Reorder created successfully"
-                    },
-                    "422": {
-                        "description": "Validation error"
-                    },
-                    "500": {
-                        "description": "Internal server error"
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "movement_date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-03-20T10:00:00Z"
+                                    },
+                                    "quantity": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 50
+                                    },
+                                    "purchase_unit_price_in_usd": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 5.5
+                                    },
+                                    "exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 4100
+                                    },
+                                    "selling_unit_price_in_usd": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 7.5
+                                    },
+                                    "selling_exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 4100
+                                    },
+                                    "warehouse_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Reorder purchase for restock"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
                     }
                 },
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ]
-            }
-        },
-        "/api/products/{productId}/reorder/external-purchase": {
-            "patch": {
-                "tags": [
-                    "Products - Reorder External"
-                ],
-                "summary": "Update external purchase reorder",
-                "operationId": "9db647ef57d95667aa398e7b49968361",
-                "parameters": [
-                    {
-                        "name": "productId",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
-                    {
-                        "name": "movementId",
-                        "in": "query",
-                        "description": "Reorder movement id",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
                 "responses": {
                     "201": {
-                        "description": "Reorder updated successfully"
-                    },
-                    "401": {
-                        "description": "Cannot update used stock movement"
+                        "description": "Reorder created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Reorder created successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "422": {
-                        "description": "Validation error"
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
                     },
                     "500": {
-                        "description": "Internal server error"
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -3332,6 +3369,167 @@
                                     "status": false,
                                     "message": "Server error: Unexpected exception",
                                     "errors": null
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Products - Reorder External"
+                ],
+                "summary": "Update external purchase reorder",
+                "operationId": "0d5fe5432e991084219f0e869b48e917",
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "movementId",
+                        "in": "path",
+                        "description": "Reorder movement id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "movement_date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-03-20T10:00:00Z"
+                                    },
+                                    "quantity": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 75
+                                    },
+                                    "purchase_unit_price_in_usd": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 5.75
+                                    },
+                                    "exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 4100
+                                    },
+                                    "selling_unit_price_in_usd": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 8
+                                    },
+                                    "selling_exchange_rate_from_usd_to_riel": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 4100
+                                    },
+                                    "warehouse_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Update reorder movement"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Reorder updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Reorder updated successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Cannot update used stock movement",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Cannot update used stock movement"
+                                        },
+                                        "errors": {
+                                            "type": "null",
+                                            "example": null,
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Movement not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
                                 }
                             }
                         }

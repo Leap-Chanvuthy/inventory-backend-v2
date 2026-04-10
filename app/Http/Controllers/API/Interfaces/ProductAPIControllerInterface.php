@@ -313,28 +313,79 @@ interface ProductAPIControllerInterface
      *     path="/api/products/{id}/reorder/external-purchase",
      *     tags={"Products - Reorder External"},
      *     security={{"Bearer":{}}},
-     *     summary="Create external purchase reorder",
-     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *     @OA\Response(response=201, description="Reorder created successfully"),
-     *     @OA\Response(response=422, description="Validation error"),
-     *     @OA\Response(response=500, description="Internal server error")
-     * )
+        *     summary="Create external purchase reorder",
+        *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+        *     @OA\RequestBody(
+        *         required=true,
+        *         @OA\JsonContent(type="object",
+        *             @OA\Property(property="movement_date", type="string", format="date-time", example="2026-03-20T10:00:00Z"),
+        *             @OA\Property(property="quantity", type="number", format="float", example=50),
+        *             @OA\Property(property="purchase_unit_price_in_usd", type="number", format="float", example=5.5),
+        *             @OA\Property(property="exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
+        *             @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=7.5),
+        *             @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
+        *             @OA\Property(property="warehouse_id", type="integer", example=1),
+        *             @OA\Property(property="note", type="string", example="Reorder purchase for restock")
+        *         )
+        *     ),
+        *     @OA\Response(
+        *         response=201,
+        *         description="Reorder created successfully",
+        *         @OA\JsonContent(type="object",
+        *             @OA\Property(property="status", type="boolean", example=true),
+        *             @OA\Property(property="message", type="string", example="Reorder created successfully"),
+        *             @OA\Property(property="data", type="object")
+        *         )
+        *     ),
+        *     @OA\Response(response=422, description="Validation error", @OA\JsonContent(ref="#/components/schemas/ValidationError")),
+        *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(ref="#/components/schemas/ApiError"))
+        * )
      */
     public function reorderExternalPurchase($id);
 
     /**
      * @OA\Patch(
-     *     path="/api/products/{productId}/reorder/external-purchase",
+     *     path="/api/products/{productId}/reorder/external-purchase/{movementId}",
      *     tags={"Products - Reorder External"},
      *     security={{"Bearer":{}}},
      *     summary="Update external purchase reorder",
      *     @OA\Parameter(name="productId", in="path", required=true, @OA\Schema(type="integer")),
-     *     @OA\Parameter(name="movementId", in="query", required=true, @OA\Schema(type="integer"), description="Reorder movement id"),
-     *     @OA\Response(response=201, description="Reorder updated successfully"),
-     *     @OA\Response(response=401, description="Cannot update used stock movement"),
-     *     @OA\Response(response=422, description="Validation error"),
-     *     @OA\Response(response=500, description="Internal server error")
-     * )
+     *     @OA\Parameter(name="movementId", in="path", required=true, @OA\Schema(type="integer"), description="Reorder movement id"),
+        *     @OA\RequestBody(
+        *         required=true,
+        *         @OA\JsonContent(type="object",
+        *             @OA\Property(property="movement_date", type="string", format="date-time", example="2026-03-20T10:00:00Z"),
+        *             @OA\Property(property="quantity", type="number", format="float", example=75),
+        *             @OA\Property(property="purchase_unit_price_in_usd", type="number", format="float", example=5.75),
+        *             @OA\Property(property="exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
+        *             @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=8.0),
+        *             @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
+        *             @OA\Property(property="warehouse_id", type="integer", example=1),
+        *             @OA\Property(property="note", type="string", example="Update reorder movement")
+        *         )
+        *     ),
+        *     @OA\Response(
+        *         response=201,
+        *         description="Reorder updated successfully",
+        *         @OA\JsonContent(type="object",
+        *             @OA\Property(property="status", type="boolean", example=true),
+        *             @OA\Property(property="message", type="string", example="Reorder updated successfully"),
+        *             @OA\Property(property="data", type="object")
+        *         )
+        *     ),
+        *     @OA\Response(
+        *         response=401,
+        *         description="Cannot update used stock movement",
+        *         @OA\JsonContent(type="object",
+        *             @OA\Property(property="status", type="boolean", example=false),
+        *             @OA\Property(property="message", type="string", example="Cannot update used stock movement"),
+        *             @OA\Property(property="errors", type="null", nullable=true, example=null)
+        *         )
+        *     ),
+        *     @OA\Response(response=422, description="Validation error", @OA\JsonContent(ref="#/components/schemas/ValidationError")),
+        *     @OA\Response(response=404, description="Movement not found", @OA\JsonContent(ref="#/components/schemas/ApiError")),
+        *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(ref="#/components/schemas/ApiError"))
+        * )
      */
     public function updateReorderExternalPurchase($productId);
 
