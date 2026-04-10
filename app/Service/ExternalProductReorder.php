@@ -18,13 +18,16 @@ class ExternalProductReorder
 {
 	protected ProductValidation $productValidation;
 	protected GetCurrentUserHelper $getCurrentUserHelper;
+	protected AuditLoggerService $auditLoggerService;
 
 	public function __construct(
 		ProductValidation $productValidation,
-		GetCurrentUserHelper $getCurrentUserHelper
+		GetCurrentUserHelper $getCurrentUserHelper,
+		AuditLoggerService $auditLoggerService
 	) {
 		$this->productValidation = $productValidation;
 		$this->getCurrentUserHelper = $getCurrentUserHelper;
+		$this->auditLoggerService = $auditLoggerService;
 	}
 
 	public function reorderExternalPurchasedProduct(Request $request, $productId)
@@ -117,6 +120,18 @@ class ExternalProductReorder
 				]);
 			});
 
+			$this->auditLoggerService->logChange(
+				'product.reorder.external.create',
+				Product::class,
+				(int) $product->id,
+				[],
+				[
+					'movement' => $this->auditLoggerService->snapshotModel($movement),
+				],
+				(int) ($validated['last_updated_by'] ?? $currentUserId),
+				['context' => 'external_reorder_service']
+			);
+
 			return ResponseHelper::success($movement, 'Product reordered successfully', 201);
 		} catch (ValidationException $e) {
 			return ResponseHelper::validation($e->errors(), 'Validation Error');
@@ -194,6 +209,8 @@ class ExternalProductReorder
 			$validated['created_by'] = $validated['created_by'] ?? $movement->created_by ?? $this->getCurrentUserHelper->getUserId();
 			$validated['last_updated_by'] = $validated['last_updated_by'] ?? $this->getCurrentUserHelper->getUserId();
 
+			$oldSnapshot = $this->auditLoggerService->snapshotModel($movement);
+
 			$movement = DB::transaction(function () use ($validated, $movement) {
 				$movement->update([
 					'quantity' => $validated['quantity'],
@@ -216,6 +233,16 @@ class ExternalProductReorder
 
 				return $movement->fresh();
 			});
+
+			$this->auditLoggerService->logDiff(
+				'product.reorder.external.update',
+				Product::class,
+				(int) $product->id,
+				$oldSnapshot,
+				$this->auditLoggerService->snapshotModel($movement),
+				(int) ($validated['last_updated_by'] ?? $this->getCurrentUserHelper->getUserId()),
+				['context' => 'external_reorder_service']
+			);
 
 			return ResponseHelper::success($movement, 'Product reorder updated successfully', 201);
 		} catch (ValidationException $e) {
@@ -279,7 +306,18 @@ class ExternalProductReorder
 				return ResponseHelper::error('Cannot delete used stock movement', 401, 'The reordered product has been sold. Data cannot be deleted to avoid data inconsistency.');
 			}
 
+			$oldSnapshot = $this->auditLoggerService->snapshotModel($movement);
 			$movement->delete();
+
+			$this->auditLoggerService->logChange(
+				'product.reorder.external.delete',
+				Product::class,
+				(int) $product->id,
+				$oldSnapshot,
+				[],
+				$this->getCurrentUserHelper->getUserId(),
+				['context' => 'external_reorder_service']
+			);
 
 			return ResponseHelper::success(null, 'Product reorder deleted successfully', 200);
 		} catch (Exception $e) {

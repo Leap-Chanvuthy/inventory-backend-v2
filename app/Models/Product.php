@@ -7,10 +7,24 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+
 class Product extends Model
 {
     use HasFactory;
     use SoftDeletes;
+
+
+    protected $auditInclude = [
+        'product_name',
+        'product_sku_code',
+        'barcode',
+        'product_description',
+        'product_type',
+        'product_category_id',
+        'base_uom_id',
+        'supplier_id',
+        'warehouse_id',
+    ];
 
     protected $fillable = [
         'product_name',

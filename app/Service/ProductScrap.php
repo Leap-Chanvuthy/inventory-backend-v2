@@ -15,10 +15,12 @@ use Illuminate\Validation\ValidationException;
 class ProductScrap
 {
 	protected GetCurrentUserHelper $getCurrentUserHelper;
+	protected AuditLoggerService $auditLoggerService;
 
-	public function __construct(GetCurrentUserHelper $getCurrentUserHelper)
+	public function __construct(GetCurrentUserHelper $getCurrentUserHelper, AuditLoggerService $auditLoggerService)
 	{
 		$this->getCurrentUserHelper = $getCurrentUserHelper;
+		$this->auditLoggerService = $auditLoggerService;
 	}
 
 	public function createScrapMovement(Request $request, $productId)
@@ -79,6 +81,16 @@ class ProductScrap
 				]);
 			});
 
+			$this->auditLoggerService->logChange(
+				'product.scrap.create',
+				Product::class,
+				(int) $product->id,
+				[],
+				['movement' => $this->auditLoggerService->snapshotModel($movement)],
+				$currentUserId,
+				['context' => 'product_scrap_service']
+			);
+
 			return ResponseHelper::success($movement, 'Product scrapped successfully', 201);
 		} catch (ValidationException $e) {
 			return ResponseHelper::validation($e->errors(), 'Validation Error');
@@ -135,6 +147,8 @@ class ProductScrap
 			$currentUserId = $this->getCurrentUserHelper->getUserId();
 			$movementDate = $validated['movement_date'] ?? now()->toDateTimeString();
 
+			$oldSnapshot = $this->auditLoggerService->snapshotModel($movement);
+
 			$movement = DB::transaction(function () use ($movement, $validated, $currentUserId, $movementDate) {
 				$movement->update([
 					'quantity' => $validated['quantity'],
@@ -157,6 +171,16 @@ class ProductScrap
 
 				return $movement->fresh();
 			});
+
+			$this->auditLoggerService->logDiff(
+				'product.scrap.update',
+				Product::class,
+				(int) $product->id,
+				$oldSnapshot,
+				$this->auditLoggerService->snapshotModel($movement),
+				$currentUserId,
+				['context' => 'product_scrap_service']
+			);
 
 			return ResponseHelper::success($movement, 'Product scrap updated successfully', 201);
 		} catch (ValidationException $e) {

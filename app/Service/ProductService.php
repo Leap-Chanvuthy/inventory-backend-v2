@@ -29,6 +29,7 @@ class ProductService
     protected GetCurrentUserHelper            $getCurrentUserHelper;
     protected ProductPnLService               $productPnLService;
     protected ProductHelper                   $productHelper;
+    protected AuditLoggerService              $auditLoggerService;
 
     public function __construct(
         ProductValidation                $productValidation,
@@ -37,7 +38,8 @@ class ProductService
         RawMaterialStockDeductionService $stockDeductionService,
         GetCurrentUserHelper             $getCurrentUserHelper,
         ProductPnLService                $productPnLService,
-        ProductHelper                    $productHelper
+        ProductHelper                    $productHelper,
+        AuditLoggerService               $auditLoggerService
     ) {
         $this->productValidation       = $productValidation;
         $this->productQueryBuilder     = $productQueryBuilder;
@@ -46,6 +48,7 @@ class ProductService
         $this->getCurrentUserHelper    = $getCurrentUserHelper;
         $this->productPnLService       = $productPnLService;
         $this->productHelper          = $productHelper;
+        $this->auditLoggerService      = $auditLoggerService;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -151,7 +154,7 @@ class ProductService
                 return ResponseHelper::validation($errors, 'Validation Error');
             }
 
-            return DB::transaction(function () use ($request) {
+            $result = DB::transaction(function () use ($request) {
                 $userId = $this->getCurrentUserHelper->getUserId();
 
                 // 1) Create product record
@@ -164,7 +167,7 @@ class ProductService
                 )->validate();
 
                 // 3) Create initial movement (EXTERNAL_PURCHASED / IN / COMPLETED)
-                $this->productMovementService->createExternalPurchaseMovement(
+                $movement = $this->productMovementService->createExternalPurchaseMovement(
                     $product,
                     $movementValidated,
                     $userId
@@ -173,12 +176,25 @@ class ProductService
                 // 4) Upload and store product images
                 ProductHelper::handleImageUpload($request, $product);
 
-                return ResponseHelper::success(
-                    ['product' => ProductHelper::freshProduct($product)],
-                    'Product created successfully',
-                    201
+                $freshProduct = ProductHelper::freshProduct($product);
+
+                $this->auditLoggerService->logChange(
+                    'product.create.external',
+                    Product::class,
+                    (int) $product->id,
+                    [],
+                    [
+                        'product' => $this->auditLoggerService->snapshotModel($freshProduct),
+                        'movement' => $this->auditLoggerService->snapshotModel($movement),
+                    ],
+                    $userId,
+                    ['context' => 'product_service']
                 );
+
+                return ResponseHelper::success(['product' => $freshProduct], 'Product created successfully', 201);
             });
+
+            return $result;
         } catch (ValidationException $e) {
             return ResponseHelper::validation($e->errors(), 'Validation Error');
         } catch (Exception $e) {
@@ -290,6 +306,11 @@ class ProductService
             // Merge product validated fields into movement validated payload so they persist together
             $validated = array_merge($validated, $productValidated);
 
+            $oldSnapshot = [
+                'product' => $this->auditLoggerService->snapshotModel($product),
+                'movement' => $this->auditLoggerService->snapshotModel($movement),
+            ];
+
             $movement = DB::transaction(function () use ($validated, $movement, $product) {
                 // Update product-level fields if provided in the request
                 $productData = [];
@@ -374,6 +395,21 @@ class ProductService
                 return $movement->fresh();
             });
 
+            $newSnapshot = [
+                'product' => $this->auditLoggerService->snapshotModel($product->fresh()),
+                'movement' => $this->auditLoggerService->snapshotModel($movement),
+            ];
+
+            $this->auditLoggerService->logDiff(
+                'product.update.external',
+                Product::class,
+                (int) $product->id,
+                $oldSnapshot,
+                $newSnapshot,
+                (int) ($validated['last_updated_by'] ?? $this->getCurrentUserHelper->getUserId()),
+                ['context' => 'product_service']
+            );
+
             return ResponseHelper::success($movement, 'Product updated successfully', 201);
         } catch (ValidationException $e) {
             return ResponseHelper::validation($e->errors(), 'Validation Error');
@@ -428,7 +464,7 @@ class ProductService
                 );
             }
 
-            return DB::transaction(function () use ($request, $bomItems) {
+            $result = DB::transaction(function () use ($request, $bomItems) {
                 $userId       = $this->getCurrentUserHelper->getUserId();
                 $movementDate = $request->input('movement_date', now()->toDateTimeString());
 
@@ -451,7 +487,7 @@ class ProductService
                 )->validate();
 
                 // 4) Create initial movement (INTERNAL_PRODUCED / IN / COMPLETED)
-                $this->productMovementService->createInternalProductionMovement(
+                $movement = $this->productMovementService->createInternalProductionMovement(
                     $product,
                     $movementValidated,
                     $userId
@@ -468,12 +504,34 @@ class ProductService
                 // 6) Upload and store product images
                 ProductHelper::handleImageUpload($request, $product);
 
-                return ResponseHelper::success(
-                    ['product' => ProductHelper::freshProduct($product)],
-                    'Product created successfully',
-                    201
+                $freshProduct = ProductHelper::freshProduct($product);
+                $freshBom = ProductRawMaterial::where('product_id', $product->id)
+                    ->get(['raw_material_id', 'quantity'])
+                    ->map(fn ($item) => [
+                        'raw_material_id' => (int) $item->raw_material_id,
+                        'quantity' => (float) $item->quantity,
+                    ])
+                    ->values()
+                    ->all();
+
+                $this->auditLoggerService->logChange(
+                    'product.create.internal',
+                    Product::class,
+                    (int) $product->id,
+                    [],
+                    [
+                        'product' => $this->auditLoggerService->snapshotModel($freshProduct),
+                        'movement' => $this->auditLoggerService->snapshotModel($movement),
+                        'bom' => $freshBom,
+                    ],
+                    $userId,
+                    ['context' => 'product_service']
                 );
+
+                return ResponseHelper::success(['product' => $freshProduct], 'Product created successfully', 201);
             });
+
+            return $result;
         } catch (ValidationException $e) {
             return ResponseHelper::validation($e->errors(), 'Validation Error');
         } catch (Exception $e) {
@@ -597,6 +655,19 @@ class ProductService
             $productValidated = Validator::make($request->all(), $productRules)->validate();
             $validated = array_merge($validated, $productValidated);
 
+            $oldSnapshot = [
+                'product' => $this->auditLoggerService->snapshotModel($product),
+                'movement' => $this->auditLoggerService->snapshotModel($movement),
+                'bom' => ProductRawMaterial::where('product_id', $product->id)
+                    ->get(['raw_material_id', 'quantity'])
+                    ->map(fn ($item) => [
+                        'raw_material_id' => (int) $item->raw_material_id,
+                        'quantity' => (float) $item->quantity,
+                    ])
+                    ->values()
+                    ->all(),
+            ];
+
             $bomItems = $validated['raw_materials'] ?? [];
 
             DB::beginTransaction();
@@ -682,6 +753,29 @@ class ProductService
                 throw $e;
             }
 
+            $newSnapshot = [
+                'product' => $this->auditLoggerService->snapshotModel($product->fresh()),
+                'movement' => $this->auditLoggerService->snapshotModel($movement),
+                'bom' => ProductRawMaterial::where('product_id', $product->id)
+                    ->get(['raw_material_id', 'quantity'])
+                    ->map(fn ($item) => [
+                        'raw_material_id' => (int) $item->raw_material_id,
+                        'quantity' => (float) $item->quantity,
+                    ])
+                    ->values()
+                    ->all(),
+            ];
+
+            $this->auditLoggerService->logDiff(
+                'product.update.internal',
+                Product::class,
+                (int) $product->id,
+                $oldSnapshot,
+                $newSnapshot,
+                (int) ($validated['last_updated_by'] ?? $this->getCurrentUserHelper->getUserId()),
+                ['context' => 'product_service']
+            );
+
             return ResponseHelper::success($movement, 'Product updated successfully', 201);
         } catch (ValidationException $e) {
             return ResponseHelper::validation($e->errors(), 'Validation Error');
@@ -696,7 +790,19 @@ class ProductService
     {
         try {
             $product = Product::findOrFail($productId);
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($product);
+            $userId = $this->getCurrentUserHelper->getUserId();
             $product->delete();
+
+            $this->auditLoggerService->logChange(
+                'product.delete',
+                Product::class,
+                (int) $product->id,
+                $oldSnapshot,
+                [],
+                $userId,
+                ['context' => 'product_service']
+            );
 
             return ResponseHelper::success(null, 'Product deleted successfully');
         } catch (Exception $e) {
@@ -709,7 +815,19 @@ class ProductService
         try {
             $product = Product::withTrashed()->findOrFail($productId);
             if ($product->trashed()) {
+                $oldSnapshot = $this->auditLoggerService->snapshotModel($product);
                 $product->restore();
+
+                $this->auditLoggerService->logChange(
+                    'product.restore',
+                    Product::class,
+                    (int) $product->id,
+                    $oldSnapshot,
+                    $this->auditLoggerService->snapshotModel($product->fresh()),
+                    $this->getCurrentUserHelper->getUserId(),
+                    ['context' => 'product_service']
+                );
+
                 return ResponseHelper::success(null, 'Product restored successfully');
             } else {
                 return ResponseHelper::error('Product is not deleted', 400);

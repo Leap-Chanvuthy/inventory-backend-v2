@@ -23,15 +23,18 @@ class InternalProductReorder
 	protected ProductValidation $productValidation;
 	protected RawMaterialStockDeductionService $stockDeductionService;
 	protected GetCurrentUserHelper $getCurrentUserHelper;
+	protected AuditLoggerService $auditLoggerService;
 
 	public function __construct(
 		ProductValidation $productValidation,
 		RawMaterialStockDeductionService $stockDeductionService,
-		GetCurrentUserHelper $getCurrentUserHelper
+		GetCurrentUserHelper $getCurrentUserHelper,
+		AuditLoggerService $auditLoggerService
 	) {
 		$this->productValidation = $productValidation;
 		$this->stockDeductionService = $stockDeductionService;
 		$this->getCurrentUserHelper = $getCurrentUserHelper;
+		$this->auditLoggerService = $auditLoggerService;
 	}
 
 	public function reorderInternalManufacturedProduct(Request $request, $productId)
@@ -176,6 +179,19 @@ class InternalProductReorder
 				];
 			});
 
+			$this->auditLoggerService->logChange(
+				'product.reorder.internal.create',
+				Product::class,
+				(int) $product->id,
+				[],
+				[
+					'movement' => $this->auditLoggerService->snapshotModel($movement['movement'] ?? null),
+					'bom' => $bomItems,
+				],
+				(int) ($validated['last_updated_by'] ?? $this->getCurrentUserHelper->getUserId()),
+				['context' => 'internal_reorder_service']
+			);
+
 			return ResponseHelper::success($movement, 'Product reordered (internal manufacturing) successfully', 201);
 		} catch (ValidationException $e) {
 			return ResponseHelper::validation($e->errors(), 'Validation Error');
@@ -285,6 +301,18 @@ class InternalProductReorder
 			$validated['created_by'] = $validated['created_by'] ?? $movement->created_by ?? $this->getCurrentUserHelper->getUserId();
 			$validated['last_updated_by'] = $validated['last_updated_by'] ?? $this->getCurrentUserHelper->getUserId();
 
+			$oldSnapshot = [
+				'movement' => $this->auditLoggerService->snapshotModel($movement),
+				'bom' => $productReorder->bomItems()
+					->get(['raw_material_id', 'quantity'])
+					->map(fn($item) => [
+						'raw_material_id' => (int) $item->raw_material_id,
+						'quantity' => (float) $item->quantity,
+					])
+					->values()
+					->all(),
+			];
+
 			$bomItems = $validated['raw_materials'] ?? [];
 
 			DB::beginTransaction();
@@ -355,6 +383,28 @@ class InternalProductReorder
 				DB::rollBack();
 				throw $e;
 			}
+
+			$newSnapshot = [
+				'movement' => $this->auditLoggerService->snapshotModel($movement),
+				'bom' => $productReorder->bomItems()
+					->get(['raw_material_id', 'quantity'])
+					->map(fn($item) => [
+						'raw_material_id' => (int) $item->raw_material_id,
+						'quantity' => (float) $item->quantity,
+					])
+					->values()
+					->all(),
+			];
+
+			$this->auditLoggerService->logDiff(
+				'product.reorder.internal.update',
+				Product::class,
+				(int) $product->id,
+				$oldSnapshot,
+				$newSnapshot,
+				(int) ($validated['last_updated_by'] ?? $this->getCurrentUserHelper->getUserId()),
+				['context' => 'internal_reorder_service']
+			);
 
 			return ResponseHelper::success($movement, 'Product reorder (internal manufacturing) updated successfully', 201);
 		} catch (ValidationException $e) {
@@ -442,7 +492,18 @@ class InternalProductReorder
 				$productReorder->delete();
 			}
 
+			$oldSnapshot = $this->auditLoggerService->snapshotModel($movement);
 			$movement->delete();
+
+			$this->auditLoggerService->logChange(
+				'product.reorder.internal.delete',
+				Product::class,
+				(int) $product->id,
+				$oldSnapshot,
+				[],
+				$this->getCurrentUserHelper->getUserId(),
+				['context' => 'internal_reorder_service']
+			);
 
 			return ResponseHelper::success(null, 'Product reorder deleted successfully', 200);
 		} catch (Exception $e) {
