@@ -21,6 +21,16 @@ use Carbon\Carbon;
 
 class UserService
 { 
+
+    protected $auditLoggerService;
+
+
+    public function __construct(AuditLoggerService $auditLoggerService)
+    {
+        $this->auditLoggerService = $auditLoggerService;
+    }
+
+
     private function userBuilder(Request $request)
     {
         $perPage = (int) $request->query('per_page', 10);
@@ -149,6 +159,18 @@ class UserService
                 )
             );
 
+            // Audit: record creation (old is empty)
+            $newSnapshot = $this->auditLoggerService->snapshotModel($user);
+            $this->auditLoggerService->logChange(
+                'user.create',
+                User::class,
+                $user->id,
+                [],
+                $newSnapshot,
+                null,
+                ['description' => "User created with email: {$user->email}"]
+            );
+
             return ResponseHelper::success($user, "User created successfully", 201);
         } catch (ValidationException $e) {
             return ResponseHelper::validation($e->errors(), "Validation Error");
@@ -174,6 +196,9 @@ class UserService
                 return ResponseHelper::error("User not found", 404, null);
             }
 
+            // Snapshot before changes
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($user);
+
             if ($request->hasFile('profile_picture')) {
                 $validated['profile_picture'] = FileUploadHelper::uploadSingle(
                     $request->file('profile_picture'),
@@ -183,6 +208,19 @@ class UserService
             }
 
             $user->update($validated);
+            $user->refresh();
+
+            // Snapshot after update and record diff
+            $newSnapshot = $this->auditLoggerService->snapshotModel($user);
+            $this->auditLoggerService->logDiff(
+                'user.update',
+                User::class,
+                $user->id,
+                $oldSnapshot,
+                $newSnapshot,
+                null,
+                ['description' => "User updated with id: {$user->id}"]
+            );
 
             return ResponseHelper::success($user, "User updated successfully", 200);
         } catch (ValidationException $e) {
@@ -218,10 +256,26 @@ class UserService
                 );
             }
 
+            // Snapshot before verification
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($user);
+
             $user->update([
                 'email_verified_at' => now(),
                 // keep token, DO NOT set to null
             ]);
+            $user->refresh();
+
+            // Snapshot after and log diff
+            $newSnapshot = $this->auditLoggerService->snapshotModel($user);
+            $this->auditLoggerService->logDiff(
+                'user.verify_email',
+                User::class,
+                $user->id,
+                $oldSnapshot,
+                $newSnapshot,
+                null,
+                ['description' => "User email verified: {$user->email}"]
+            );
 
             return ResponseHelper::success(
                 null,
