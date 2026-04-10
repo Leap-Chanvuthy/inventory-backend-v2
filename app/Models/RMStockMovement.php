@@ -12,6 +12,10 @@ class RMStockMovement extends Model
 
     protected $table = 'rm_stock_movements';
 
+    protected $attributes = [
+        'in_used' => false,
+    ];
+
     protected $casts = [
         'movement_type' => RawMaterialStockMovementTypeEnum::class,
         'raw_material_id' => 'integer',

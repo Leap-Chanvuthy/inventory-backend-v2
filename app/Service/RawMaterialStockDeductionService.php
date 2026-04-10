@@ -211,7 +211,10 @@ class RawMaterialStockDeductionService
 
         return RMStockMovement::where('raw_material_id', $rawMaterialId)
             ->where('direction', StockDirectionEnum::IN->value)
-            ->where('in_used', false)
+            ->where(function ($query) {
+                $query->where('in_used', false)
+                    ->orWhereNull('in_used');
+            })
             ->orderBy('movement_date', $order)
             ->get();
     }

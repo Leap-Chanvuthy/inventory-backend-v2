@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\ProductImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use App\Validations\ProductValidation;
 
 class ProductHelper
 {
@@ -91,6 +92,38 @@ class ProductHelper
             'productMovements.lastUpdatedBy',
             'productRawMaterials.rawMaterial',
             'productImages',
+        ]);
+    }
+
+    /**
+     * Build a reorder reference token for marking consumption movements.
+     */
+    public function buildReorderReferenceToken(int $movementId): string
+    {
+        return "REORDER_MOVEMENT_ID:{$movementId}";
+    }
+
+    /**
+     * Create a Product model record using validated data. Accepts a ProductValidation
+     * instance to resolve the validation rules the same way `ProductService` did.
+     */
+    public function createProductRecord(Request $request, ProductValidation $productValidation): Product
+    {
+        $validated = Validator::make(
+            $request->all(),
+            $productValidation->createProductRules($request)
+        )->validate();
+
+        return Product::create([
+            'product_name'        => $validated['product_name'],
+            'product_type'        => $validated['product_type'],
+            'product_sku_code'    => $validated['product_sku_code'],
+            'barcode'             => $validated['barcode']             ?? null,
+            'product_description' => $validated['product_description'] ?? null,
+            'product_category_id' => $validated['product_category_id'],
+            'base_uom_id'         => $validated['base_uom_id'],
+            'supplier_id'         => $validated['supplier_id'],
+            'warehouse_id'        => $validated['warehouse_id'],
         ]);
     }
 }

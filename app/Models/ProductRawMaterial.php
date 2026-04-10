@@ -11,6 +11,12 @@ class ProductRawMaterial extends Model
 
     protected $table = 'product_raw_material';
 
+    protected $casts = [
+        'product_id' => 'integer',
+        'raw_material_id' => 'integer',
+        'quantity' => 'float',
+    ];
+
     protected $fillable = [
         'product_id',
         'raw_material_id',
