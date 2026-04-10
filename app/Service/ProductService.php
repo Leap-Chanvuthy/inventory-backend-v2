@@ -27,19 +27,22 @@ class ProductService
     protected ProductMovementService          $productMovementService;
     protected RawMaterialStockDeductionService $stockDeductionService;
     protected GetCurrentUserHelper            $getCurrentUserHelper;
+    protected ProductPnLService               $productPnLService;
 
     public function __construct(
         ProductValidation                $productValidation,
         ProductQueryBuilder              $productQueryBuilder,
         ProductMovementService           $productMovementService,
         RawMaterialStockDeductionService $stockDeductionService,
-        GetCurrentUserHelper             $getCurrentUserHelper
+        GetCurrentUserHelper             $getCurrentUserHelper,
+        ProductPnLService                $productPnLService
     ) {
         $this->productValidation       = $productValidation;
         $this->productQueryBuilder     = $productQueryBuilder;
         $this->productMovementService  = $productMovementService;
         $this->stockDeductionService   = $stockDeductionService;
         $this->getCurrentUserHelper    = $getCurrentUserHelper;
+        $this->productPnLService       = $productPnLService;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -50,6 +53,16 @@ class ProductService
     {
         try {
             return $this->productQueryBuilder->productBuilder($request);
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+    
+
+    public function getTrashedProducts(Request $request)
+    {
+        try {
+            return $this->productQueryBuilder->productBuilder($request, true);
         } catch (Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
         }
@@ -94,11 +107,15 @@ class ProductService
             // Determine stock status (simple): OUT_OF_STOCK or IN_STOCK
             $productStockStatus = $currentQtyInStock <= 0 ? 'OUT_OF_STOCK' : 'IN_STOCK';
 
+            // Get P&L data for the product
+            $productPnL = $this->productPnLService->getProductPnL($product->id);
+
             return ResponseHelper::success([
                 'product' => $product,
                 'current_qty_in_stock' => $currentQtyInStock,
                 'product_stock_status' => $productStockStatus,
                 'total_count_by_movement_type' => $totalCountByMovementType,
+                'product_pnl' => $productPnL,
             ]);
 
             return ResponseHelper::success(['product' => $product]);
@@ -665,6 +682,35 @@ class ProductService
             return ResponseHelper::success($movement, 'Product updated successfully', 201);
         } catch (ValidationException $e) {
             return ResponseHelper::validation($e->errors(), 'Validation Error');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+
+    // Delete Product - to be implemented with soft deletes and cascade to movements, images, BOM, etc.
+    public function deleteProduct($productId)
+    {
+        try {
+            $product = Product::findOrFail($productId);
+            $product->delete();
+
+            return ResponseHelper::success(null, 'Product deleted successfully');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    // recovery of soft-deleted product
+    public function restoreProduct($productId){
+        try {
+            $product = Product::withTrashed()->findOrFail($productId);
+            if ($product->trashed()) {
+                $product->restore();
+                return ResponseHelper::success(null, 'Product restored successfully');
+            } else {
+                return ResponseHelper::error('Product is not deleted', 400);
+            }
         } catch (Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
         }

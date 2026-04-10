@@ -2079,7 +2079,98 @@
                     "Products - Core"
                 ],
                 "summary": "Get all products",
+                "description": "Supports filtering, sorting and pagination. Use `filter[...]` query parameters as shown.",
                 "operationId": "c76a1ceb22c0759070047fe6b360a926",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Items per page (1-100)",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort fields. Prefix with - for desc. Allowed: created_at,updated_at,deleted_at,product_name,product_sku_code,product_category_name,official_name,warehouse_name,uom_name,product_category_id,supplier_id,warehouse_id,base_uom_id",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[id]",
+                        "in": "query",
+                        "description": "Exact product id",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[product_category_id]",
+                        "in": "query",
+                        "description": "Exact product category id",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[supplier_id]",
+                        "in": "query",
+                        "description": "Exact supplier id",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[warehouse_id]",
+                        "in": "query",
+                        "description": "Exact warehouse id",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[base_uom_id]",
+                        "in": "query",
+                        "description": "Exact base UOM id",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[product_type]",
+                        "in": "query",
+                        "description": "Partial match on product_type",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "description": "Search across product_name, product_sku_code, category name, supplier, warehouse, uom",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[category_name]",
+                        "in": "query",
+                        "description": "Search by category name",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Products retrieved successfully"
@@ -2115,6 +2206,187 @@
                 "responses": {
                     "200": {
                         "description": "Product retrieved successfully"
+                    },
+                    "404": {
+                        "description": "Product not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Products - Core"
+                ],
+                "summary": "Soft delete a product",
+                "operationId": "de8f9e261c2b7db3e2aeba0e01df9f75",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Product deleted successfully"
+                    },
+                    "404": {
+                        "description": "Product not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/products/trashed": {
+            "get": {
+                "tags": [
+                    "Products - Core"
+                ],
+                "summary": "Get soft-deleted (trashed) products",
+                "description": "Returns soft-deleted products. Supports the same filter/sort/pagination parameters as `/api/products`.",
+                "operationId": "af9c3e6e15799ea0b2838ce6a98c5683",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Items per page (1-100)",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort fields. Prefix with - for desc. Allowed: created_at,updated_at,deleted_at,product_name,product_sku_code,product_category_name,official_name,warehouse_name,uom_name,product_category_id,supplier_id,warehouse_id,base_uom_id",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[id]",
+                        "in": "query",
+                        "description": "Exact product id",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[product_category_id]",
+                        "in": "query",
+                        "description": "Exact product category id",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[supplier_id]",
+                        "in": "query",
+                        "description": "Exact supplier id",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[warehouse_id]",
+                        "in": "query",
+                        "description": "Exact warehouse id",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[base_uom_id]",
+                        "in": "query",
+                        "description": "Exact base UOM id",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[product_type]",
+                        "in": "query",
+                        "description": "Partial match on product_type",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "description": "Search across product_name, product_sku_code, category name, supplier, warehouse, uom",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[category_name]",
+                        "in": "query",
+                        "description": "Search by category name",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Trashed products retrieved successfully"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/products/{id}/restore": {
+            "patch": {
+                "tags": [
+                    "Products - Core"
+                ],
+                "summary": "Restore a soft-deleted product",
+                "operationId": "2db38e88750fb44b27042a71df117468",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Product restored successfully"
                     },
                     "404": {
                         "description": "Product not found"

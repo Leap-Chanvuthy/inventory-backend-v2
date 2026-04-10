@@ -34,6 +34,11 @@ class ProductAPIController extends Controller
         return $this->productService->getAllProducts($request);
     }
     
+    public function trashed(Request $request)
+    {
+        return $this->productService->getTrashedProducts($request);
+    }
+    
     public function show($id){
         return $this->productService->getProductDetail($id);
     }
@@ -57,6 +62,17 @@ class ProductAPIController extends Controller
     {
         return $this->productService->updateInternalManufacturedProduct($request, $id);
     }
+
+    public function delete($id)
+    {
+        return $this->productService->deleteProduct($id);
+    }
+    
+
+    public function restore($id)
+    {
+        return $this->productService->restoreProduct($id);
+}
 
 
     // Reorder product (Create/Update) by external purchase (add stock)

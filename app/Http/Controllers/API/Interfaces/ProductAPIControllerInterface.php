@@ -18,6 +18,20 @@ interface ProductAPIControllerInterface
      *     tags={"Products - Core"},
      *     security={{"Bearer":{}}},
      *     summary="Get all products",
+     *     description="Supports filtering, sorting and pagination. Use `filter[...]` query parameters as shown.",
+     *     @OA\Parameter(name="page", in="query", @OA\Schema(type="integer"), description="Page number"),
+     *     @OA\Parameter(name="per_page", in="query", @OA\Schema(type="integer"), description="Items per page (1-100)"),
+     *     @OA\Parameter(name="sort", in="query", @OA\Schema(type="string"), description="Sort fields. Prefix with - for desc. Allowed: created_at,updated_at,deleted_at,product_name,product_sku_code,product_category_name,official_name,warehouse_name,uom_name,product_category_id,supplier_id,warehouse_id,base_uom_id"),
+     *
+     *     @OA\Parameter(name="filter[id]", in="query", @OA\Schema(type="integer"), description="Exact product id"),
+     *     @OA\Parameter(name="filter[product_category_id]", in="query", @OA\Schema(type="integer"), description="Exact product category id"),
+     *     @OA\Parameter(name="filter[supplier_id]", in="query", @OA\Schema(type="integer"), description="Exact supplier id"),
+     *     @OA\Parameter(name="filter[warehouse_id]", in="query", @OA\Schema(type="integer"), description="Exact warehouse id"),
+     *     @OA\Parameter(name="filter[base_uom_id]", in="query", @OA\Schema(type="integer"), description="Exact base UOM id"),
+     *     @OA\Parameter(name="filter[product_type]", in="query", @OA\Schema(type="string"), description="Partial match on product_type"),
+     *     @OA\Parameter(name="filter[search]", in="query", @OA\Schema(type="string"), description="Search across product_name, product_sku_code, category name, supplier, warehouse, uom"),
+     *     @OA\Parameter(name="filter[category_name]", in="query", @OA\Schema(type="string"), description="Search by category name"),
+     *
      *     @OA\Response(response=200, description="Products retrieved successfully"),
      *     @OA\Response(response=500, description="Internal server error")
      * )
@@ -37,6 +51,60 @@ interface ProductAPIControllerInterface
      * )
      */
     public function show($id);
+
+    /**
+     * @OA\Get(
+     *     path="/api/products/trashed",
+     *     tags={"Products - Core"},
+     *     security={{"Bearer":{}}},
+     *     summary="Get soft-deleted (trashed) products",
+     *     description="Returns soft-deleted products. Supports the same filter/sort/pagination parameters as `/api/products`.",
+     *     @OA\Parameter(name="page", in="query", @OA\Schema(type="integer"), description="Page number"),
+     *     @OA\Parameter(name="per_page", in="query", @OA\Schema(type="integer"), description="Items per page (1-100)"),
+     *     @OA\Parameter(name="sort", in="query", @OA\Schema(type="string"), description="Sort fields. Prefix with - for desc. Allowed: created_at,updated_at,deleted_at,product_name,product_sku_code,product_category_name,official_name,warehouse_name,uom_name,product_category_id,supplier_id,warehouse_id,base_uom_id"),
+     *
+     *     @OA\Parameter(name="filter[id]", in="query", @OA\Schema(type="integer"), description="Exact product id"),
+     *     @OA\Parameter(name="filter[product_category_id]", in="query", @OA\Schema(type="integer"), description="Exact product category id"),
+     *     @OA\Parameter(name="filter[supplier_id]", in="query", @OA\Schema(type="integer"), description="Exact supplier id"),
+     *     @OA\Parameter(name="filter[warehouse_id]", in="query", @OA\Schema(type="integer"), description="Exact warehouse id"),
+     *     @OA\Parameter(name="filter[base_uom_id]", in="query", @OA\Schema(type="integer"), description="Exact base UOM id"),
+     *     @OA\Parameter(name="filter[product_type]", in="query", @OA\Schema(type="string"), description="Partial match on product_type"),
+     *     @OA\Parameter(name="filter[search]", in="query", @OA\Schema(type="string"), description="Search across product_name, product_sku_code, category name, supplier, warehouse, uom"),
+     *     @OA\Parameter(name="filter[category_name]", in="query", @OA\Schema(type="string"), description="Search by category name"),
+     *
+     *     @OA\Response(response=200, description="Trashed products retrieved successfully"),
+     *     @OA\Response(response=500, description="Internal server error")
+     * )
+     */
+    public function trashed($request);
+
+    /**
+     * @OA\Delete(
+     *     path="/api/products/{id}",
+     *     tags={"Products - Core"},
+     *     security={{"Bearer":{}}},
+     *     summary="Soft delete a product",
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Response(response=200, description="Product deleted successfully"),
+     *     @OA\Response(response=404, description="Product not found"),
+     *     @OA\Response(response=500, description="Internal server error")
+     * )
+     */
+    public function delete($id);
+
+    /**
+     * @OA\Patch(
+     *     path="/api/products/{id}/restore",
+     *     tags={"Products - Core"},
+     *     security={{"Bearer":{}}},
+     *     summary="Restore a soft-deleted product",
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Response(response=200, description="Product restored successfully"),
+     *     @OA\Response(response=404, description="Product not found"),
+     *     @OA\Response(response=500, description="Internal server error")
+     * )
+     */
+    public function restore($id);
 
     /**
      * @OA\Post(

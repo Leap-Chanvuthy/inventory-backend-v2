@@ -156,9 +156,12 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
 
     Route::prefix('products')->group(function () {
         Route::get('/', [ProductAPIController::class, 'index']);
+        Route::get('/trashed', [ProductAPIController::class, 'trashed']);
         Route::get('/{id}', [ProductAPIController::class, 'show']);
         Route::post('/create/external-purchase',      [ProductAPIController::class, 'storeExternalPurchase']);
         Route::post('/create/internal-manufacturing', [ProductAPIController::class, 'storeInternalManufacturing']);
+        Route::delete('/{id}', [ProductAPIController::class, 'delete']);
+        Route::patch('/{id}/restore', [ProductAPIController::class, 'restore']);
         Route::post('/{id}/reorder/external-purchase', [ProductAPIController::class, 'reorderExternalPurchase']);
         Route::patch('/{productId}/reorder/external-purchase', [ProductAPIController::class, 'updateReorderExternalPurchase']);
         Route::get('/{productId}/reorder/external-purchase/{movementId}', [ProductAPIController::class, 'getReorderExternalPurchase']);
