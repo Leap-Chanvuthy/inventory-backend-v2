@@ -112,9 +112,35 @@ interface ProductAPIControllerInterface
      *     tags={"Products - External Purchase"},
      *     security={{"Bearer":{}}},
      *     summary="Create externally purchased product",
-     *     @OA\Response(response=201, description="Created successfully"),
-     *     @OA\Response(response=422, description="Validation error"),
-     *     @OA\Response(response=500, description="Internal server error")
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(type="object",
+     *             @OA\Property(property="product_name", type="string", example="Test External Product"),
+     *             @OA\Property(property="product_description", type="string", example="Sample external purchased product"),
+     *             @OA\Property(property="product_category_id", type="integer", example=1),
+     *             @OA\Property(property="base_uom_id", type="integer", example=10),
+     *             @OA\Property(property="supplier_id", type="integer", example=2),
+     *             @OA\Property(property="warehouse_id", type="integer", example=1),
+     *             @OA\Property(property="movement_date", type="string", format="date-time", example="2026-03-20T10:00:00Z"),
+     *             @OA\Property(property="quantity", type="number", format="float", example=100),
+     *             @OA\Property(property="purchase_unit_price_in_usd", type="number", format="float", example=5.25),
+     *             @OA\Property(property="exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
+     *             @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=7.0),
+     *             @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
+     *             @OA\Property(property="note", type="string", example="Initial purchase for testing")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Created successfully",
+     *         @OA\JsonContent(type="object",
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Product created successfully"),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(response=422, description="Validation error", @OA\JsonContent(ref="#/components/schemas/ValidationError")),
+     *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(ref="#/components/schemas/ApiError"))
      * )
      */
     public function storeExternalPurchase();
@@ -126,10 +152,44 @@ interface ProductAPIControllerInterface
      *     security={{"Bearer":{}}},
      *     summary="Update initial external purchased movement",
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *     @OA\Response(response=201, description="Updated successfully"),
-     *     @OA\Response(response=401, description="Cannot update used stock movement"),
-     *     @OA\Response(response=422, description="Validation error"),
-     *     @OA\Response(response=500, description="Internal server error")
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(type="object",
+     *             @OA\Property(property="product_name", type="string", example="Test Update 3"),
+     *             @OA\Property(property="product_description", type="string", example="Sample external purchased product"),
+     *             @OA\Property(property="product_category_id", type="integer", example=2),
+     *             @OA\Property(property="base_uom_id", type="integer", example=10),
+     *             @OA\Property(property="supplier_id", type="integer", example=2),
+     *             @OA\Property(property="warehouse_id", type="integer", example=1),
+     *             @OA\Property(property="movement_date", type="string", format="date-time", example="2026-03-20T10:00:00Z"),
+     *             @OA\Property(property="quantity", type="number", format="float", example=200),
+     *             @OA\Property(property="purchase_unit_price_in_usd", type="number", format="float", example=5.25),
+     *             @OA\Property(property="exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
+     *             @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=7.0),
+     *             @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
+     *             @OA\Property(property="note", type="string", example="Initial purchase for testing")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Updated successfully",
+     *         @OA\JsonContent(type="object",
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Product updated successfully"),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Cannot update used stock movement",
+     *         @OA\JsonContent(type="object",
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Cannot update used stock movement"),
+     *             @OA\Property(property="errors", type="null", nullable=true, example=null)
+     *         )
+     *     ),
+     *     @OA\Response(response=422, description="Validation error", @OA\JsonContent(ref="#/components/schemas/ValidationError")),
+     *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(ref="#/components/schemas/ApiError"))
      * )
      */
     public function updateExternalPurchase($id);
