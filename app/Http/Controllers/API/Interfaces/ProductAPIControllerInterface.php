@@ -12,31 +12,31 @@ namespace App\Http\Controllers\API\Interfaces;
  */
 interface ProductAPIControllerInterface
 {
-    /**
-     * @OA\Get(
-     *     path="/api/products",
-     *     tags={"Products - Core"},
-     *     security={{"Bearer":{}}},
-     *     summary="Get all products",
-     *     description="Supports filtering, sorting and pagination. Use `filter[...]` query parameters as shown.",
-     *     @OA\Parameter(name="page", in="query", @OA\Schema(type="integer"), description="Page number"),
-     *     @OA\Parameter(name="per_page", in="query", @OA\Schema(type="integer"), description="Items per page (1-100)"),
-     *     @OA\Parameter(name="sort", in="query", @OA\Schema(type="string"), description="Sort fields. Prefix with - for desc. Allowed: created_at,updated_at,deleted_at,product_name,product_sku_code,product_category_name,official_name,warehouse_name,uom_name,product_category_id,supplier_id,warehouse_id,base_uom_id"),
-     *
-     *     @OA\Parameter(name="filter[id]", in="query", @OA\Schema(type="integer"), description="Exact product id"),
-     *     @OA\Parameter(name="filter[product_category_id]", in="query", @OA\Schema(type="integer"), description="Exact product category id"),
-     *     @OA\Parameter(name="filter[supplier_id]", in="query", @OA\Schema(type="integer"), description="Exact supplier id"),
-     *     @OA\Parameter(name="filter[warehouse_id]", in="query", @OA\Schema(type="integer"), description="Exact warehouse id"),
-     *     @OA\Parameter(name="filter[base_uom_id]", in="query", @OA\Schema(type="integer"), description="Exact base UOM id"),
-     *     @OA\Parameter(name="filter[product_type]", in="query", @OA\Schema(type="string"), description="Partial match on product_type"),
-     *     @OA\Parameter(name="filter[search]", in="query", @OA\Schema(type="string"), description="Search across product_name, product_sku_code, category name, supplier, warehouse, uom"),
-     *     @OA\Parameter(name="filter[category_name]", in="query", @OA\Schema(type="string"), description="Search by category name"),
-     *
-     *     @OA\Response(response=200, description="Products retrieved successfully"),
-     *     @OA\Response(response=500, description="Internal server error")
-     * )
-     */
-    public function index();
+      /**
+       * @OA\Get(
+       *     path="/api/products",
+       *     tags={"Products - Core"},
+       *     security={{"Bearer":{}}},
+       *     summary="Get all products",
+       *     description="Supports filtering, sorting and pagination. Use `filter[...]` query parameters as shown.",
+       *     @OA\Parameter(name="page", in="query", @OA\Schema(type="integer"), description="Page number"),
+       *     @OA\Parameter(name="per_page", in="query", @OA\Schema(type="integer"), description="Items per page (1-100)"),
+       *     @OA\Parameter(name="sort", in="query", @OA\Schema(type="string"), description="Sort fields. Prefix with - for desc. Allowed: created_at,updated_at,deleted_at,product_name,product_sku_code,product_category_name,official_name,warehouse_name,uom_name,product_category_id,supplier_id,warehouse_id,base_uom_id"),
+       *
+       *     @OA\Parameter(name="filter[id]", in="query", @OA\Schema(type="integer"), description="Exact product id"),
+       *     @OA\Parameter(name="filter[product_category_id]", in="query", @OA\Schema(type="integer"), description="Exact product category id"),
+       *     @OA\Parameter(name="filter[supplier_id]", in="query", @OA\Schema(type="integer"), description="Exact supplier id"),
+       *     @OA\Parameter(name="filter[warehouse_id]", in="query", @OA\Schema(type="integer"), description="Exact warehouse id"),
+       *     @OA\Parameter(name="filter[base_uom_id]", in="query", @OA\Schema(type="integer"), description="Exact base UOM id"),
+       *     @OA\Parameter(name="filter[product_type]", in="query", @OA\Schema(type="string"), description="Partial match on product_type"),
+       *     @OA\Parameter(name="filter[search]", in="query", @OA\Schema(type="string"), description="Search across product_name, product_sku_code, category name, supplier, warehouse, uom"),
+       *     @OA\Parameter(name="filter[category_name]", in="query", @OA\Schema(type="string"), description="Search by category name"),
+       *
+       *     @OA\Response(response=200, description="Products retrieved successfully"),
+       *     @OA\Response(response=500, description="Internal server error")
+       * )
+       */
+      public function index();
 
     /**
      * @OA\Get(
@@ -650,19 +650,35 @@ interface ProductAPIControllerInterface
      */
     public function getReorderInternalManufacturing($productId, $movementId);
 
-    /**
-     * @OA\Post(
-     *     path="/api/products/{id}/scrap",
-     *     tags={"Products - Scrap"},
-     *     security={{"Bearer":{}}},
-     *     summary="Create product scrap movement",
-     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *     @OA\Response(response=201, description="Product scrapped successfully"),
-     *     @OA\Response(response=422, description="Validation error or insufficient stock"),
-     *     @OA\Response(response=500, description="Internal server error")
-     * )
-     */
-    public function createScrap($id);
+   /**
+    * @OA\Post(
+    *     path="/api/products/{id}/scrap",
+    *     tags={"Products - Scrap"},
+    *     security={{"Bearer":{}}},
+    *     summary="Create product scrap movement",
+    *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+    *     @OA\RequestBody(
+    *         required=true,
+    *         @OA\JsonContent(type="object",
+    *             @OA\Property(property="movement_date", type="string", format="date-time", example="2026-03-20T10:00:00Z"),
+    *             @OA\Property(property="quantity", type="number", format="float", example=5),
+    *             @OA\Property(property="note", type="string", example="Scrapped due to defect")
+    *         )
+    *     ),
+    *     @OA\Response(
+    *         response=201,
+    *         description="Product scrapped successfully",
+    *         @OA\JsonContent(type="object",
+    *             @OA\Property(property="status", type="boolean", example=true),
+    *             @OA\Property(property="message", type="string", example="Product scrapped successfully"),
+    *             @OA\Property(property="data", type="object")
+    *         )
+    *     ),
+    *     @OA\Response(response=422, description="Validation error or insufficient stock", @OA\JsonContent(ref="#/components/schemas/ValidationError")),
+    *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(ref="#/components/schemas/ApiError"))
+    * )
+    */
+   public function createScrap($id);
 
 
     /**
@@ -681,19 +697,44 @@ interface ProductAPIControllerInterface
      */
     public function getScrap($productId, $movementId);
 
-    /**
-     * @OA\Patch(
-     *     path="/api/products/{productId}/scrap/{movementId}",
-     *     tags={"Products - Scrap"},
-     *     security={{"Bearer":{}}},
-     *     summary="Update product scrap movement",
-     *     @OA\Parameter(name="productId", in="path", required=true, @OA\Schema(type="integer")),
-     *     @OA\Parameter(name="movementId", in="path", required=true, @OA\Schema(type="integer")),
-     *     @OA\Response(response=201, description="Product scrap updated successfully"),
-     *     @OA\Response(response=401, description="Cannot update used stock movement"),
-     *     @OA\Response(response=422, description="Validation error or insufficient stock"),
-     *     @OA\Response(response=500, description="Internal server error")
-     * )
-     */
-    public function updateScrap($productId, $movementId);
+   /**
+    * @OA\Patch(
+    *     path="/api/products/{productId}/scrap/{movementId}",
+    *     tags={"Products - Scrap"},
+    *     security={{"Bearer":{}}},
+    *     summary="Update product scrap movement",
+    *     @OA\Parameter(name="productId", in="path", required=true, @OA\Schema(type="integer")),
+    *     @OA\Parameter(name="movementId", in="path", required=true, @OA\Schema(type="integer")),
+    *     @OA\RequestBody(
+    *         required=true,
+    *         @OA\JsonContent(type="object",
+    *             @OA\Property(property="movement_date", type="string", format="date-time", example="2026-03-21T10:00:00Z"),
+    *             @OA\Property(property="quantity", type="number", format="float", example=3),
+    *             @OA\Property(property="note", type="string", example="Adjusted scrap quantity")
+    *         )
+    *     ),
+    *     @OA\Response(
+    *         response=201,
+    *         description="Product scrap updated successfully",
+    *         @OA\JsonContent(type="object",
+    *             @OA\Property(property="status", type="boolean", example=true),
+    *             @OA\Property(property="message", type="string", example="Product scrap updated successfully"),
+    *             @OA\Property(property="data", type="object")
+    *         )
+    *     ),
+    *     @OA\Response(
+    *         response=401,
+    *         description="Cannot update used stock movement",
+    *         @OA\JsonContent(type="object",
+    *             @OA\Property(property="status", type="boolean", example=false),
+    *             @OA\Property(property="message", type="string", example="Cannot update used stock movement"),
+    *             @OA\Property(property="errors", type="null", nullable=true, example=null)
+    *         )
+    *     ),
+    *     @OA\Response(response=422, description="Validation error or insufficient stock", @OA\JsonContent(ref="#/components/schemas/ValidationError")),
+    *     @OA\Response(response=404, description="Movement not found", @OA\JsonContent(ref="#/components/schemas/ApiError")),
+    *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(ref="#/components/schemas/ApiError"))
+    * )
+    */
+   public function updateScrap($productId, $movementId);
 }

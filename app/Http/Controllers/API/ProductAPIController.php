@@ -75,7 +75,7 @@ class ProductAPIController extends Controller
 }
 
 
-    // Reorder product (Create/Update) by external purchase (add stock)
+    // [REOREDER External] Reorder product (Create/Update) by external purchase (add stock)
     public function reorderExternalPurchase(Request $request, $id){
         return $this->externalProductReorder->reorderExternalPurchasedProduct($request, $id);
     }
@@ -89,8 +89,15 @@ class ProductAPIController extends Controller
         return $this->externalProductReorder->deleteReorderExternalPurchasedProduct((int)$productId, (int)$movementId);
     }
 
+    public function getReorderExternalPurchase($productId, $movementId)
+    {
+        return $this->externalProductReorder->getReorderExternalDetail((int)$productId, (int)$movementId);
+    }
+    // [REOREDER External] Reorder product (Create/Update) by external purchase (add stock)
 
-    // Reorder product (Create/Update) by internal manufacturing (add stock)
+
+
+    // [REOREDER INTERNAL] Reorder product (Create/Update) by internal manufacturing (add stock)
     public function reorderInternalManufacturing(Request $request, $id){
         return $this->internalProductReorder->reorderInternalManufacturedProduct($request, $id);
     }
@@ -104,16 +111,11 @@ class ProductAPIController extends Controller
         return $this->internalProductReorder->deleteReorderInternalManufacturedProduct((int)$productId, (int)$movementId);
     }
 
-    // GET reorder details
     public function getReorderInternalManufacturing($productId, $movementId)
     {
         return $this->internalProductReorder->getReorderInternalDetail((int)$productId, (int)$movementId);
     }
-
-    public function getReorderExternalPurchase($productId, $movementId)
-    {
-        return $this->externalProductReorder->getReorderExternalDetail((int)$productId, (int)$movementId);
-    }
+    // [REOREDER INTERNAL] Reorder product (Create/Update) by internal manufacturing (add stock)
 
     public function createScrap(Request $request, $id)
     {
