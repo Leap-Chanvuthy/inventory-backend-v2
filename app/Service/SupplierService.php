@@ -34,6 +34,7 @@ class SupplierService
     protected $supplierQueryBuilder;
     protected $supplierImportQueryBuilder;
     protected $supplierBankService;
+    protected $auditLoggerService;
 
     public function __construct(
         SupplierValidation $supplierValidation,
@@ -41,12 +42,14 @@ class SupplierService
         SupplierBankService $supplierBankService,
         SupplierQueryBuilder $supplierQueryBuilder,
         SupplierImportQuery $supplierImportQueryBuilder,
+        AuditLoggerService $auditLoggerService,
     ) {
         $this->supplierValidation = $supplierValidation;
         $this->supplierBankValidation = $supplierBankValidation;
         $this->supplierBankService = $supplierBankService;
         $this->supplierQueryBuilder = $supplierQueryBuilder;
         $this->supplierImportQueryBuilder = $supplierImportQueryBuilder;
+        $this->auditLoggerService = $auditLoggerService;
     }
 
 
@@ -355,6 +358,18 @@ class SupplierService
                 $this->supplierBankService->createMany($supplier, $banks);
             }
 
+            // Audit: record supplier creation (inside transaction)
+            $newSnapshot = $this->auditLoggerService->snapshotModel($supplier->load('banks'));
+            $this->auditLoggerService->logChange(
+                'supplier.create',
+                Supplier::class,
+                $supplier->id,
+                [],
+                $newSnapshot,
+                null,
+                ['description' => "Supplier created with id: {$supplier->id}"]
+            );
+
             DB::commit();
 
             return ResponseHelper::success(
@@ -382,6 +397,8 @@ class SupplierService
             if (!$supplier) {
                 return ResponseHelper::error("Supplier not found", 404, null);
             }
+            // Snapshot before changes for auditing
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($supplier->load('banks'));
 
             $validatedSupplier = $this->supplierValidation->updateValidationFields($request, $id);
             $validatedBanks = $this->supplierBankValidation->validate($request);
@@ -420,6 +437,19 @@ class SupplierService
                 // update existing by bank_name, create if not exists
                 $this->supplierBankService->upsertByBankName($supplier, $incomingBanks);
             }
+
+            // Snapshot after update and record diff (inside transaction)
+            $supplier->refresh();
+            $newSnapshot = $this->auditLoggerService->snapshotModel($supplier->load('banks'));
+            $this->auditLoggerService->logDiff(
+                'supplier.update',
+                Supplier::class,
+                $supplier->id,
+                $oldSnapshot,
+                $newSnapshot,
+                null,
+                ['description' => "Supplier updated with id: {$supplier->id}"]
+            );
 
             DB::commit();
 
@@ -553,13 +583,25 @@ public function importSupplier(Request $request)
             return ResponseHelper::validation($errors, 'Import validation failed');
         }
 
-        SupplierImportHistory::create([
+        $history = SupplierImportHistory::create([
             'filename'       => $validated['supplier_file']->getClientOriginalName(),
             'size'           => $validated['supplier_file']->getSize(),
             'uploaded_by'    => Auth::id(),
             'total_uploaded' => $totalImported,
             'uploaded_at'    => now(),
         ]);
+
+        // Audit: record import history creation
+        $historySnapshot = $this->auditLoggerService->snapshotModel($history->toArray());
+        $this->auditLoggerService->logChange(
+            'supplier.import',
+            SupplierImportHistory::class,
+            $history->id,
+            [],
+            $historySnapshot,
+            Auth::id(),
+            ['description' => "Supplier import completed: {$history->filename}"]
+        );
 
         DB::commit();
 
@@ -586,7 +628,21 @@ public function importSupplier(Request $request)
                 return ResponseHelper::error("Supplier not found", 404, null);
             }
 
+            // Snapshot before delete
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($supplier);
+
             $supplier->delete();
+
+            // Audit delete
+            $this->auditLoggerService->logChange(
+                'supplier.delete',
+                Supplier::class,
+                $supplier->id,
+                $oldSnapshot,
+                [],
+                null,
+                ['description' => "Supplier deleted with id: {$supplier->id}"]
+            );
 
             return ResponseHelper::success(null, "Supplier deleted successfully", 200);
         } catch (Exception $e) {
@@ -598,7 +654,24 @@ public function importSupplier(Request $request)
     {
         try {
             $supplier = Supplier::withTrashed()->findOrFail($id);
+            // Snapshot before restore
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($supplier->toArray());
+
             $supplier->restore();
+            $supplier->refresh();
+
+            // Snapshot after restore and log diff
+            $newSnapshot = $this->auditLoggerService->snapshotModel($supplier->toArray());
+            $this->auditLoggerService->logDiff(
+                'supplier.restore',
+                Supplier::class,
+                $supplier->id,
+                $oldSnapshot,
+                $newSnapshot,
+                null,
+                ['description' => "Supplier restored with id: {$supplier->id}"]
+            );
+
             return ResponseHelper::success(null, "Supplier recovered successfully", 200);
         } catch (Exception $e) {
             return ResponseHelper::error("Cannot recover this supplier", 500, $e->getMessage());
