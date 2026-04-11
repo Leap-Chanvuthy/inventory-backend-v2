@@ -14,9 +14,16 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 use Illuminate\Validation\ValidationException;
+use App\Service\AuditLoggerService;
 
 class CompanyInfoService
 {
+    protected AuditLoggerService $auditLoggerService;
+
+    public function __construct(AuditLoggerService $auditLoggerService)
+    {
+        $this->auditLoggerService = $auditLoggerService;
+    }
     public function getCompanyInfo()
     {
         try {
@@ -52,6 +59,11 @@ class CompanyInfoService
 
             $company = CompanyInformation::firstOrCreate([], []);
 
+            $company = CompanyInformation::firstOrCreate([], []);
+
+            // Snapshot before change
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($company);
+
             if ($request->hasFile('company_logo')) {
                 $validated['company_logo'] = FileUploadHelper::uploadSingle(
                     $request->file('company_logo'),
@@ -61,6 +73,19 @@ class CompanyInfoService
             }
 
             $company->update($validated);
+            $company->refresh();
+
+            // Snapshot after and log diff
+            $newSnapshot = $this->auditLoggerService->snapshotModel($company);
+            $this->auditLoggerService->logDiff(
+                'company.general.update',
+                CompanyInformation::class,
+                (int) $company->id,
+                $oldSnapshot,
+                $newSnapshot,
+                null,
+                ['context' => 'company_info_service']
+            );
 
             DB::commit();
 
@@ -104,7 +129,25 @@ class CompanyInfoService
 
             $company = CompanyInformation::firstOrCreate([], []);
 
+            $company = CompanyInformation::firstOrCreate([], []);
+
+            // Snapshot before change
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($company);
+
             $company->update($validated);
+            $company->refresh();
+
+            // Snapshot after and log diff
+            $newSnapshot = $this->auditLoggerService->snapshotModel($company);
+            $this->auditLoggerService->logDiff(
+                'company.address.update',
+                CompanyInformation::class,
+                (int) $company->id,
+                $oldSnapshot,
+                $newSnapshot,
+                null,
+                ['context' => 'company_info_service']
+            );
 
             DB::commit();
 
@@ -139,9 +182,25 @@ class CompanyInfoService
 
             $company = CompanyInformation::firstOrCreate([], []);
 
+            // Snapshot before change
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($company);
+
             $company->update([
                 $column => $validated['chat_id']
             ]);
+            $company->refresh();
+
+            // Snapshot after and log diff (include notification type in meta)
+            $newSnapshot = $this->auditLoggerService->snapshotModel($company);
+            $this->auditLoggerService->logDiff(
+                'company.telegram.update',
+                CompanyInformation::class,
+                (int) $company->id,
+                $oldSnapshot,
+                $newSnapshot,
+                null,
+                ['context' => 'company_info_service', 'notification_type' => $validated['type']]
+            );
 
             DB::commit();
 
@@ -196,6 +255,9 @@ class CompanyInfoService
                 ->where('bank_name', $validated['bank_name'])
                 ->first();
 
+            // Snapshot payment before create/update
+            $oldPaymentSnapshot = $this->auditLoggerService->snapshotModel($payment);
+
             $oldQrUrl = $payment ? $payment->khqr_code : null;
 
             $validated['khqr_code'] = $request->hasFile('khqr_code')
@@ -222,6 +284,30 @@ class CompanyInfoService
                 $payment->update($paymentData);
             } else {
                 $payment = CompanyBankingInfo::create($paymentData);
+            }
+
+            // Snapshot after and log create/update accordingly
+            $newPaymentSnapshot = $this->auditLoggerService->snapshotModel($payment->fresh());
+            if (empty($oldPaymentSnapshot)) {
+                $this->auditLoggerService->logChange(
+                    'company.payment.create',
+                    CompanyBankingInfo::class,
+                    (int) $payment->id,
+                    [],
+                    $newPaymentSnapshot,
+                    null,
+                    ['context' => 'company_info_service']
+                );
+            } else {
+                $this->auditLoggerService->logDiff(
+                    'company.payment.update',
+                    CompanyBankingInfo::class,
+                    (int) $payment->id,
+                    $oldPaymentSnapshot,
+                    $newPaymentSnapshot,
+                    null,
+                    ['context' => 'company_info_service']
+                );
             }
 
             DB::commit();
