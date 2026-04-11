@@ -10,20 +10,23 @@ use App\Validations\CustomerValidation;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use App\Service\AuditLoggerService;
 
 class CustomerService {
     
     protected $customerBuilder;
     protected $customerValidation;
+    protected AuditLoggerService $auditLoggerService;
 
     public function __construct(
         CustomerQueryBuilder $customerBuilder,
         CustomerValidation $customerValidation
-        
+        , AuditLoggerService $auditLoggerService
     )
     {
         $this->customerBuilder = $customerBuilder;
         $this->customerValidation = $customerValidation;
+        $this->auditLoggerService = $auditLoggerService;
     }
 
 
@@ -62,6 +65,17 @@ class CustomerService {
             }
 
             $customer = Customer::create($validated);
+
+            // Audit: record creation
+            $this->auditLoggerService->logChange(
+                'customer.create',
+                Customer::class,
+                (int) $customer->id,
+                [],
+                $this->auditLoggerService->snapshotModel($customer->load(['customerCategory'])),
+                null,
+                ['context' => 'customer_service']
+            );
             return ResponseHelper::success($customer, "Customer created successfully", 201);
         }
         catch (ValidationException $ve){
@@ -89,7 +103,24 @@ class CustomerService {
                 );
             }
 
+            // Snapshot before update
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($customer->load(['customerCategory']));
+
             $customer->update($validated);
+            $customer->refresh();
+
+            // Snapshot after and log diff
+            $newSnapshot = $this->auditLoggerService->snapshotModel($customer->fresh(['customerCategory']));
+            $this->auditLoggerService->logDiff(
+                'customer.update',
+                Customer::class,
+                (int) $customer->id,
+                $oldSnapshot,
+                $newSnapshot,
+                null,
+                ['context' => 'customer_service']
+            );
+
             return ResponseHelper::success($customer, "Customer updated successfully", 200);
         }
         catch (ValidationException $ve){
@@ -107,7 +138,21 @@ class CustomerService {
             if (!$customer) {
                 return ResponseHelper::error('Customer not found', 404);
             }
+            // Snapshot before delete
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($customer->load(['customerCategory']));
+
             $customer->delete();
+
+            $this->auditLoggerService->logChange(
+                'customer.delete',
+                Customer::class,
+                (int) $customer->id,
+                $oldSnapshot,
+                [],
+                null,
+                ['context' => 'customer_service']
+            );
+
             return ResponseHelper::success(null, "Customer deleted successfully", 200);
         } catch (Exception $e) {
             return ResponseHelper::error('Error deleting customer', 500, $e->getMessage());
