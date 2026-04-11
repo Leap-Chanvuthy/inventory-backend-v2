@@ -7,6 +7,7 @@ use App\Helpers\ResponseHelper;
 use App\Models\UnitOfMeasurement;
 use App\QueryBuilders\UOMQueryBuilder;
 use App\Validations\UOMValidation;
+use App\Service\AuditLoggerService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -16,15 +17,18 @@ class UOMService
     protected UOMValidation      $UOMValidation;
     protected UOMQueryBuilder    $UOMQueryBuilder;
     protected UomConversionService $conversionService;
+    protected AuditLoggerService $auditLoggerService;
 
     public function __construct(
         UOMValidation        $UOMValidation,
         UOMQueryBuilder      $UOMQueryBuilder,
         UomConversionService $conversionService
+        , AuditLoggerService   $auditLoggerService
     ) {
         $this->UOMValidation     = $UOMValidation;
         $this->UOMQueryBuilder   = $UOMQueryBuilder;
         $this->conversionService = $conversionService;
+        $this->auditLoggerService = $auditLoggerService;
     }
 
     // -------------------------------------------------------------------------
@@ -61,6 +65,17 @@ class UOMService
 
             $uom = UnitOfMeasurement::create($validated);
 
+            // Audit: record creation
+            $this->auditLoggerService->logChange(
+                'uom.create',
+                UnitOfMeasurement::class,
+                (int) $uom->id,
+                [],
+                $this->auditLoggerService->snapshotModel($uom->load(['category','baseUom'])),
+                null,
+                ['context' => 'uom_service']
+            );
+
             return ResponseHelper::success(
                 $uom->load(['category', 'baseUom']),
                 'UOM created successfully',
@@ -78,7 +93,23 @@ class UOMService
         try {
             $validated = $this->UOMValidation->UpdateValidationFields($request, $id);
             $uom       = UnitOfMeasurement::findOrFail($id);
+            // Snapshot before
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($uom->load(['category','baseUom']));
+
             $uom->update($validated);
+            $uom->refresh();
+
+            // Snapshot after and log diff
+            $newSnapshot = $this->auditLoggerService->snapshotModel($uom->fresh(['category','baseUom']));
+            $this->auditLoggerService->logDiff(
+                'uom.update',
+                UnitOfMeasurement::class,
+                (int) $uom->id,
+                $oldSnapshot,
+                $newSnapshot,
+                null,
+                ['context' => 'uom_service']
+            );
 
             return ResponseHelper::success(
                 $uom->fresh(['category', 'baseUom']),
@@ -96,7 +127,20 @@ class UOMService
     {
         try {
             $uom = UnitOfMeasurement::findOrFail($id);
+            // Snapshot before delete
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($uom->load(['category','baseUom']));
+
             $uom->delete(); // SoftDeletes: sets deleted_at
+
+            $this->auditLoggerService->logChange(
+                'uom.delete',
+                UnitOfMeasurement::class,
+                (int) $uom->id,
+                $oldSnapshot,
+                [],
+                null,
+                ['context' => 'uom_service']
+            );
 
             return ResponseHelper::success(null, 'UOM archived successfully', 200);
         } catch (Exception $e) {
@@ -111,7 +155,22 @@ class UOMService
     {
         try {
             $uom = UnitOfMeasurement::onlyTrashed()->findOrFail($id);
+            // Snapshot before restore
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($uom->toArray());
+
             $uom->restore();
+            $uom->refresh();
+
+            $newSnapshot = $this->auditLoggerService->snapshotModel($uom->fresh(['category','baseUom']));
+            $this->auditLoggerService->logDiff(
+                'uom.restore',
+                UnitOfMeasurement::class,
+                (int) $uom->id,
+                $oldSnapshot,
+                $newSnapshot,
+                null,
+                ['context' => 'uom_service']
+            );
 
             return ResponseHelper::success(
                 $uom->fresh(['category', 'baseUom']),
