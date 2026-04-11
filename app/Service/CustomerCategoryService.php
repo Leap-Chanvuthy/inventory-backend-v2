@@ -10,9 +10,17 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Spatie\QueryBuilder\AllowedFilter;
 use App\Models\CustomerCategory;
+use App\Service\AuditLoggerService;
 
 
 class CustomerCategoryService {
+
+    protected AuditLoggerService $auditLoggerService;
+
+    public function __construct(AuditLoggerService $auditLoggerService)
+    {
+        $this->auditLoggerService = $auditLoggerService;
+    }
 
     private function customerCategoryBuilder(Request $request)
     {
@@ -94,6 +102,18 @@ class CustomerCategoryService {
             ]);
 
             $category = CustomerCategory::create($validated);
+
+            // Audit: record creation
+            $this->auditLoggerService->logChange(
+                'customer_category.create',
+                CustomerCategory::class,
+                (int) $category->id,
+                [],
+                $this->auditLoggerService->snapshotModel($category),
+                null,
+                ['context' => 'customer_category_service']
+            );
+
             return ResponseHelper::success($category , 'Customer category created successfully' , 201);
 
         }catch (ValidationException $e){
@@ -117,7 +137,22 @@ class CustomerCategoryService {
                 'description' => 'nullable|string',
             ]);
 
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($category);
+
             $category -> update($validated);
+
+            $newSnapshot = $this->auditLoggerService->snapshotModel($category->fresh());
+
+            $this->auditLoggerService->logDiff(
+                'customer_category.update',
+                CustomerCategory::class,
+                (int) $category->id,
+                $oldSnapshot,
+                $newSnapshot,
+                null,
+                ['context' => 'customer_category_service']
+            );
+
             return ResponseHelper::success($category , 'Product category updated successfully' , 200);
         } catch (ValidationException $e){
             return ResponseHelper::validation($e->errors() , 'Validation Error' , 422);
@@ -133,7 +168,20 @@ class CustomerCategoryService {
                 return ResponseHelper::error('Customer category not found', 404);
             }
 
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($category);
+
             $category->delete();
+
+            $this->auditLoggerService->logChange(
+                'customer_category.delete',
+                CustomerCategory::class,
+                (int) $category->id,
+                $oldSnapshot,
+                [],
+                null,
+                ['context' => 'customer_category_service']
+            );
+
             return ResponseHelper::success(null, 'Customer category deleted successfully', 200);
         } catch (Exception $e) {
             return ResponseHelper::error('Failed to delete customer category: ' . $e->getMessage(), 500);
