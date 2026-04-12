@@ -3,17 +3,47 @@
 namespace App\Service;
 
 use App\Helpers\GetCurrentUserHelper;
+use App\Helpers\ResponseHelper;
+use Exception;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use OwenIt\Auditing\Models\Audit;
+use App\QueryBuilders\AuditLogQueryBuilder;
 
 class AuditLoggerService
 {
     protected GetCurrentUserHelper $getCurrentUserHelper;
+    protected AuditLogQueryBuilder $auditLogQueryBuilder;
 
-    public function __construct(GetCurrentUserHelper $getCurrentUserHelper)
+    public function __construct(GetCurrentUserHelper $getCurrentUserHelper, AuditLogQueryBuilder $auditLogQueryBuilder)
     {
         $this->getCurrentUserHelper = $getCurrentUserHelper;
+        $this->auditLogQueryBuilder = $auditLogQueryBuilder;
     }
+
+
+    // Get all audit logs
+    public function getAllAudits(Request $request)
+    {
+        try {
+            return $this->auditLogQueryBuilder->auditBuilder($request);
+        }catch (Exception $e) {
+            return ResponseHelper::error('Failed to fetch audit logs: ', 500, $e->getMessage());
+        }
+    }
+
+    
+    public function getAuditById(int $id)
+    {
+        try {
+            $audit = Audit::with(['user'])->findOrFail($id);
+            return ResponseHelper::success($audit, 'Audit log fetched successfully', 200);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Audit log not found', 404, $e->getMessage());
+        }
+    }
+
+
 
     public function logChange(
         string $event,

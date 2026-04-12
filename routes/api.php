@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\API\AuditLogAPIController;
 use App\Http\Controllers\API\AuthAPIController;
 use App\Http\Controllers\API\CompanyInfoAPIController;
 use App\Http\Controllers\API\CustomerAPIController;
@@ -50,6 +51,13 @@ Route::middleware(['auth:api'])->group(function () {
         Route::post('/setup', [TwoFactorAPIController::class, 'setup']);
         Route::post('/confirm', [TwoFactorAPIController::class, 'confirm']);
         Route::post('/disable', [TwoFactorAPIController::class, 'disable']);
+    });
+
+
+    // Audit log routes - only accessible by ADMIN
+    Route::prefix('audit-logs')->group(function () {
+        Route::get('/', [AuditLogAPIController::class, 'index']);
+        Route::get('/{id}', [AuditLogAPIController::class, 'show']);
     });
 
     Route::prefix('company')->group(function () {

@@ -6,6 +6,161 @@
         "version": "1.0.0"
     },
     "paths": {
+        "/api/audit-logs": {
+            "get": {
+                "tags": [
+                    "Audit Logs"
+                ],
+                "summary": "Get paginated audit logs",
+                "operationId": "e6f86770e2e75868a9ee71353246c6e2",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Items per page",
+                        "schema": {
+                            "type": "integer",
+                            "default": 10
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Search across event, auditable_type, auditable_id",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of audit logs",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "event": {
+                                                        "type": "string"
+                                                    },
+                                                    "auditable_type": {
+                                                        "type": "string"
+                                                    },
+                                                    "auditable_id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "old_values": {
+                                                        "type": "object"
+                                                    },
+                                                    "new_values": {
+                                                        "type": "object"
+                                                    },
+                                                    "user_id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "created_at": {
+                                                        "type": "string",
+                                                        "format": "date-time"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "meta": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/audit-logs/{id}": {
+            "get": {
+                "tags": [
+                    "Audit Logs"
+                ],
+                "summary": "Get a single audit log by id",
+                "operationId": "815c845697d31bc751735dc8c764b12b",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Audit log object",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "id": {
+                                            "type": "integer"
+                                        },
+                                        "event": {
+                                            "type": "string"
+                                        },
+                                        "auditable_type": {
+                                            "type": "string"
+                                        },
+                                        "auditable_id": {
+                                            "type": "integer"
+                                        },
+                                        "old_values": {
+                                            "type": "object"
+                                        },
+                                        "new_values": {
+                                            "type": "object"
+                                        },
+                                        "user_id": {
+                                            "type": "integer"
+                                        },
+                                        "created_at": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Audit not found"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/login": {
             "post": {
                 "tags": [
@@ -11918,6 +12073,10 @@
         {
             "name": "Warehouses",
             "description": "API Endpoints for managing warehouses. (Only Accessible for: ADMIN and STOCK_CONTROLLER Users)"
+        },
+        {
+            "name": "Audit Logs",
+            "description": "Audit Logs"
         },
         {
             "name": "Company",
