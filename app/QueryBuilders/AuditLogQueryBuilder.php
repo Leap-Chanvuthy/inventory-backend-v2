@@ -31,8 +31,35 @@ class AuditLogQueryBuilder
 
             allowedFilters: [
                 AllowedFilter::exact('id'),
+                AllowedFilter::exact('user_id'),
+                AllowedFilter::exact('event'),
                 AllowedFilter::exact('auditable_type'),
                 AllowedFilter::exact('auditable_id'),
+
+                // Frontend action filter maps to event text in audits table
+                AllowedFilter::callback('action', function (Builder $query, $value) {
+                    if (!$value) {
+                        return;
+                    }
+
+                    $query->whereRaw('LOWER(audits.event) LIKE ?', ['%' . strtolower((string) $value) . '%']);
+                }),
+
+                AllowedFilter::callback('date_from', function (Builder $query, $value) {
+                    if (!$value) {
+                        return;
+                    }
+
+                    $query->whereDate('audits.created_at', '>=', $value);
+                }),
+
+                AllowedFilter::callback('date_to', function (Builder $query, $value) {
+                    if (!$value) {
+                        return;
+                    }
+
+                    $query->whereDate('audits.created_at', '<=', $value);
+                }),
 
                 // Search by event / auditable type / auditable id
                 AllowedFilter::callback('search', function (Builder $query, $value) {
