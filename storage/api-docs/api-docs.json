@@ -1180,7 +1180,7 @@
                     {
                         "name": "filter[customer_status]",
                         "in": "query",
-                        "description": "Filter by status (ACTIVE, INACTIVE, PROSPECTIVE)",
+                        "description": "Filter by status (active, inactive, blacklisted)",
                         "schema": {
                             "type": "string"
                         }
@@ -1312,9 +1312,9 @@
                                         "example": "https://maps.google.com/..."
                                     },
                                     "customer_status": {
-                                        "description": "ACTIVE | INACTIVE | PROSPECTIVE",
+                                        "description": "active | inactive | blacklisted",
                                         "type": "string",
-                                        "example": "ACTIVE"
+                                        "example": "active"
                                     },
                                     "customer_category_id": {
                                         "type": "integer",
@@ -1484,7 +1484,7 @@
                                                 },
                                                 "customer_status": {
                                                     "type": "string",
-                                                    "example": "ACTIVE"
+                                                    "example": "active"
                                                 },
                                                 "customer_category_id": {
                                                     "type": "integer",
@@ -1721,7 +1721,7 @@
                                     },
                                     "customer_status": {
                                         "type": "string",
-                                        "example": "INACTIVE"
+                                        "example": "inactive"
                                     },
                                     "customer_category_id": {
                                         "type": "integer",
@@ -1831,6 +1831,641 @@
                                 }
                             }
                         }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/customers/pos-search": {
+            "get": {
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "POS customer search",
+                "description": "Fast customer lookup for POS by keyword (name, code, phone).",
+                "operationId": "807c6e7faf46b4b18350c3e247b40b61",
+                "parameters": [
+                    {
+                        "name": "keyword",
+                        "in": "query",
+                        "description": "Search keyword",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "Sokha"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Max records returned (1-50)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 15
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "POS customer search completed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "POS customer search completed"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Errors"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/customers/walk-in": {
+            "get": {
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Resolve walk-in customer",
+                "description": "Returns the default walk-in customer for POS checkout.",
+                "operationId": "a8421e67cb5e78f344598bab298f3f11",
+                "responses": {
+                    "200": {
+                        "description": "Walk-in customer resolved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Walk-in customer resolved successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/customers/segmented": {
+            "get": {
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Get segmented customers",
+                "description": "Retrieve segmented customers by category, status, and tag filters.",
+                "operationId": "e83706501ba5c9f6802dc6d07acab0e7",
+                "parameters": [
+                    {
+                        "name": "category_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "example": "active"
+                        }
+                    },
+                    {
+                        "name": "tag_ids[]",
+                        "in": "query",
+                        "description": "Tag ids filter",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Segmented customers retrieved successfully"
+                    },
+                    "422": {
+                        "description": "Validation Errors"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/customers/{id}/profile": {
+            "get": {
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Get customer profile",
+                "description": "Get aggregated customer profile including financials, addresses, and tags.",
+                "operationId": "2f048ae52388b3395d63488c1483308f",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Customer profile retrieved successfully"
+                    },
+                    "404": {
+                        "description": "Customer not found"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/customers/addresses/default": {
+            "post": {
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Set default customer address",
+                "description": "Set a billing/shipping address as default for a customer.",
+                "operationId": "b9997342ccda22d1ca572fb1527d29d5",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "customer_id",
+                                    "address_id"
+                                ],
+                                "properties": {
+                                    "customer_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "address_id": {
+                                        "type": "integer",
+                                        "example": 12
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Default address updated successfully"
+                    },
+                    "422": {
+                        "description": "Validation Errors"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/customers/{id}/credit/can-purchase": {
+            "post": {
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Check credit purchase eligibility",
+                "description": "Checks if customer can purchase by credit for provided amount.",
+                "operationId": "97b6377a2a938755e7c30f2d4823d504",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "amount"
+                                ],
+                                "properties": {
+                                    "amount": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 150.5
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Credit purchase check completed"
+                    },
+                    "422": {
+                        "description": "Validation Errors"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/customers/{id}/credit/apply-sale": {
+            "post": {
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Apply sale to customer credit",
+                "description": "Increases customer outstanding credit balance.",
+                "operationId": "a127b1cbea6ff617402a75812c9ee3e4",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "amount"
+                                ],
+                                "properties": {
+                                    "amount": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 250
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Sale applied to customer credit successfully"
+                    },
+                    "422": {
+                        "description": "Validation Errors"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/customers/{id}/credit/apply-payment": {
+            "post": {
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Apply payment to customer credit",
+                "description": "Reduces customer outstanding credit balance.",
+                "operationId": "7552f8c42f8b7f6df3f1e69484e7698f",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "amount"
+                                ],
+                                "properties": {
+                                    "amount": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 100
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Payment applied to customer credit successfully"
+                    },
+                    "422": {
+                        "description": "Validation Errors"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/customers/{id}/stats": {
+            "get": {
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Get customer analytics stats",
+                "description": "Returns customer-level analytics and order summary metrics.",
+                "operationId": "9b7fee2fbaf25afabf7d8aec340faa52",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Customer analytics retrieved successfully"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/customers/{id}/timeline": {
+            "get": {
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Get customer timeline",
+                "description": "Returns timeline items from audit logs and POS orders.",
+                "operationId": "f95b3394670a81b47e3cc8b60cfc704c",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 50
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Customer timeline retrieved successfully"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/customers/{id}/tags/attach": {
+            "post": {
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Attach customer tags",
+                "description": "Attach one or many tags to customer without removing existing tags.",
+                "operationId": "71fd506da4c15950bebf4da0c6c785d4",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "tag_ids"
+                                ],
+                                "properties": {
+                                    "tag_ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        },
+                                        "example": [
+                                            1,
+                                            2,
+                                            3
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Tags attached successfully"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/customers/{id}/tags/sync": {
+            "put": {
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Sync customer tags",
+                "description": "Replace current customer tags with provided tag ids.",
+                "operationId": "6c30ee73c22d55cca043bbe57bd7c45b",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "tag_ids"
+                                ],
+                                "properties": {
+                                    "tag_ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        },
+                                        "example": [
+                                            2,
+                                            4
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Tags synced successfully"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/customers/{id}/tags/{tagId}": {
+            "delete": {
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Detach a customer tag",
+                "description": "Detach a single tag from a customer.",
+                "operationId": "ce8a9a187f4f975d833d453ae8867489",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    },
+                    {
+                        "name": "tagId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 3
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Tag detached successfully"
                     }
                 },
                 "security": [

@@ -14,6 +14,7 @@ class Customer extends Model
 
     protected $casts = [
         'customer_status' => CustomerStatusEnum::class,
+        'extra_data' => 'array',
     ];
 
 
@@ -29,12 +30,28 @@ class Customer extends Model
         'customer_status',
         'customer_category_id',
         'customer_note',
+        'extra_data',
     ];
 
 
     public function customerCategory()
     {
         return $this->belongsTo(CustomerCategory::class, 'customer_category_id');
+    }
+
+    public function customerFinancial()
+    {
+        return $this->hasOne(CustomerFinancial::class, 'customer_id');
+    }
+
+    public function addresses()
+    {
+        return $this->hasMany(CustomerAddress::class, 'customer_id');
+    }
+
+    public function tags()
+    {
+        return $this->belongsToMany(CustomerTag::class, 'customer_tag_map', 'customer_id', 'tag_id');
     }
 
 

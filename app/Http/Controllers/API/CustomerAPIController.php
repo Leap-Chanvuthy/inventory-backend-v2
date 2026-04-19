@@ -42,6 +42,71 @@ class CustomerAPIController extends Controller
         return $this -> customerService -> deleteCustomer($id);
     }
 
+    public function posSearch(Request $request)
+    {
+        return $this->customerService->posSearch($request);
+    }
+
+    public function walkIn()
+    {
+        return $this->customerService->getWalkInCustomer();
+    }
+
+    public function profile(int $id)
+    {
+        return $this->customerService->getCustomerProfile($id);
+    }
+
+    public function setDefaultAddress(Request $request)
+    {
+        return $this->customerService->setDefaultAddress($request);
+    }
+
+    public function canPurchase(Request $request, int $id)
+    {
+        return $this->customerService->canPurchase($request, $id);
+    }
+
+    public function applySale(Request $request, int $id)
+    {
+        return $this->customerService->applySale($request, $id);
+    }
+
+    public function applyPayment(Request $request, int $id)
+    {
+        return $this->customerService->applyPayment($request, $id);
+    }
+
+    public function segmented(Request $request)
+    {
+        return $this->customerService->getSegmentedCustomers($request);
+    }
+
+    public function stats(int $id)
+    {
+        return $this->customerService->customerStats($id);
+    }
+
+    public function timeline(Request $request, int $id)
+    {
+        return $this->customerService->customerTimeline($request, $id);
+    }
+
+    public function attachTags(Request $request, int $id)
+    {
+        return $this->customerService->attachTags($request, $id);
+    }
+
+    public function syncTags(Request $request, int $id)
+    {
+        return $this->customerService->syncTags($request, $id);
+    }
+
+    public function detachTag(int $id, int $tagId)
+    {
+        return $this->customerService->detachTag($id, $tagId);
+    }
+
 
 
 

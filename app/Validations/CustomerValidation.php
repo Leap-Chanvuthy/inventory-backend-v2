@@ -19,6 +19,15 @@ class CustomerValidation {
         }
     }
 
+    private function normalizeCustomerStatus(Request $request): void
+    {
+        if ($request->filled('customer_status')) {
+            $request->merge([
+                'customer_status' => strtolower((string) $request->input('customer_status')),
+            ]);
+        }
+    }
+
     public function CreateValidation(Request $request): array
     {
         if (!$request->filled('customer_code')) {
@@ -33,6 +42,7 @@ class CustomerValidation {
         }
 
         $this->normalizeCustomerCategoryId($request);
+        $this->normalizeCustomerStatus($request);
 
         return $request->validate([
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
@@ -52,12 +62,7 @@ class CustomerValidation {
             'customer_status' => [
                 'required',
                 'string',
-                'max:255',
-                Rule::in([
-                    CustomerStatusEnum::ACTIVE,
-                    CustomerStatusEnum::INACTIVE,
-                    CustomerStatusEnum::PROSPECTIVE,
-                ]),
+                Rule::enum(CustomerStatusEnum::class),
             ],
             'customer_category_id' => [
                 'required',
@@ -73,6 +78,7 @@ class CustomerValidation {
     public function UpdateValidation(Request $request, $id): array
     {
         $this->normalizeCustomerCategoryId($request);
+        $this->normalizeCustomerStatus($request);
 
         return $request->validate([
             'image' => 'sometimes|nullable|image|mimes:jpeg,png,jpg|max:2048',
@@ -86,12 +92,7 @@ class CustomerValidation {
                 'sometimes',
                 'required',
                 'string',
-                'max:255',
-                Rule::in([
-                    CustomerStatusEnum::ACTIVE,
-                    CustomerStatusEnum::INACTIVE,
-                    CustomerStatusEnum::PROSPECTIVE,
-                ]),
+                Rule::enum(CustomerStatusEnum::class),
             ],
             'customer_category_id' => [
                 'sometimes',

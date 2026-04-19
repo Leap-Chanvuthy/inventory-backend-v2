@@ -218,6 +218,19 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:CUSTOMER'])->group(function 
 
     // Customers Routes
     Route::prefix('customers')->group(function () {
+        Route::get('/pos-search', [CustomerAPIController::class, 'posSearch']);
+        Route::get('/walk-in', [CustomerAPIController::class, 'walkIn']);
+        Route::get('/segmented', [CustomerAPIController::class, 'segmented']);
+        Route::get('/{id}/profile', [CustomerAPIController::class, 'profile']);
+        Route::get('/{id}/stats', [CustomerAPIController::class, 'stats']);
+        Route::get('/{id}/timeline', [CustomerAPIController::class, 'timeline']);
+        Route::post('/addresses/default', [CustomerAPIController::class, 'setDefaultAddress']);
+        Route::post('/{id}/credit/can-purchase', [CustomerAPIController::class, 'canPurchase']);
+        Route::post('/{id}/credit/apply-sale', [CustomerAPIController::class, 'applySale']);
+        Route::post('/{id}/credit/apply-payment', [CustomerAPIController::class, 'applyPayment']);
+        Route::post('/{id}/tags/attach', [CustomerAPIController::class, 'attachTags']);
+        Route::put('/{id}/tags/sync', [CustomerAPIController::class, 'syncTags']);
+        Route::delete('/{id}/tags/{tagId}', [CustomerAPIController::class, 'detachTag']);
         Route::get('/', [CustomerAPIController::class, 'index']);
         Route::get('/{id}', [CustomerAPIController::class, 'show']);
         Route::post('/', [CustomerAPIController::class, 'store']);

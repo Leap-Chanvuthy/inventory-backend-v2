@@ -6,6 +6,7 @@ use App\Helpers\FileUploadHelper;
 use App\Helpers\ResponseHelper;
 use App\Models\Customer;
 use App\QueryBuilders\CustomerQueryBuilder;
+use App\Validations\CustomerAdvancedValidation;
 use App\Validations\CustomerValidation;
 use Exception;
 use Illuminate\Http\Request;
@@ -16,17 +17,44 @@ class CustomerService {
     
     protected $customerBuilder;
     protected $customerValidation;
+    protected CustomerAdvancedValidation $customerAdvancedValidation;
     protected AuditLoggerService $auditLoggerService;
+    protected CustomerSearchService $customerSearchService;
+    protected CustomerResolverService $customerResolverService;
+    protected CustomerProfileService $customerProfileService;
+    protected CustomerAddressService $customerAddressService;
+    protected CustomerCreditService $customerCreditService;
+    protected CustomerTagService $customerTagService;
+    protected CustomerAnalyticsService $customerAnalyticsService;
+    protected CustomerTimelineService $customerTimelineService;
 
     public function __construct(
         CustomerQueryBuilder $customerBuilder,
         CustomerValidation $customerValidation
-        , AuditLoggerService $auditLoggerService
+        , AuditLoggerService $auditLoggerService,
+        CustomerAdvancedValidation $customerAdvancedValidation,
+        CustomerSearchService $customerSearchService,
+        CustomerResolverService $customerResolverService,
+        CustomerProfileService $customerProfileService,
+        CustomerAddressService $customerAddressService,
+        CustomerCreditService $customerCreditService,
+        CustomerTagService $customerTagService,
+        CustomerAnalyticsService $customerAnalyticsService,
+        CustomerTimelineService $customerTimelineService
     )
     {
         $this->customerBuilder = $customerBuilder;
         $this->customerValidation = $customerValidation;
         $this->auditLoggerService = $auditLoggerService;
+        $this->customerAdvancedValidation = $customerAdvancedValidation;
+        $this->customerSearchService = $customerSearchService;
+        $this->customerResolverService = $customerResolverService;
+        $this->customerProfileService = $customerProfileService;
+        $this->customerAddressService = $customerAddressService;
+        $this->customerCreditService = $customerCreditService;
+        $this->customerTagService = $customerTagService;
+        $this->customerAnalyticsService = $customerAnalyticsService;
+        $this->customerTimelineService = $customerTimelineService;
     }
 
 
@@ -37,6 +65,26 @@ class CustomerService {
             return ResponseHelper::success($customers, "Customers retrieved successfully", 200);
         } catch (Exception $e) {
             return ResponseHelper::error('Error fetching customers', 500, $e->getMessage());
+        }
+    }
+
+    public function getSegmentedCustomers(Request $request)
+    {
+        try {
+            $validated = $this->customerAdvancedValidation->validateCustomerSegmentation($request);
+
+            $segmentationRequest = new Request(array_merge(
+                $request->query(),
+                $validated
+            ));
+
+            $customers = $this->customerBuilder->segmentedBuilder($segmentationRequest);
+
+            return ResponseHelper::success($customers, 'Segmented customers retrieved successfully', 200);
+        } catch (ValidationException $ve) {
+            return ResponseHelper::validation($ve->errors(), 'Validation Errors', 422);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Error fetching segmented customers', 500, $e->getMessage());
         }
     }
 
@@ -156,6 +204,178 @@ class CustomerService {
             return ResponseHelper::success(null, "Customer deleted successfully", 200);
         } catch (Exception $e) {
             return ResponseHelper::error('Error deleting customer', 500, $e->getMessage());
+        }
+    }
+
+    public function posSearch(Request $request)
+    {
+        try {
+            $validated = $this->customerAdvancedValidation->validatePosSearch($request);
+
+            $results = $this->customerSearchService
+                ->search($validated['keyword'], (int) ($validated['limit'] ?? 15))
+                ->map(fn ($dto) => $dto->toArray())
+                ->values();
+
+            return ResponseHelper::success($results, 'POS customer search completed', 200);
+        } catch (ValidationException $ve) {
+            return ResponseHelper::validation($ve->errors(), 'Validation Errors', 422);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Error searching customers for POS', 500, $e->getMessage());
+        }
+    }
+
+    public function getWalkInCustomer()
+    {
+        try {
+            $customer = $this->customerResolverService->getOrCreateWalkIn();
+            $dto = $this->customerResolverService->toPosDTO($customer);
+
+            return ResponseHelper::success($dto->toArray(), 'Walk-in customer resolved successfully', 200);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Error resolving walk-in customer', 500, $e->getMessage());
+        }
+    }
+
+    public function getCustomerProfile(int $id)
+    {
+        try {
+            $profile = $this->customerProfileService->getProfile($id);
+
+            return ResponseHelper::success($profile->toArray(), 'Customer profile retrieved successfully', 200);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Error fetching customer profile', 500, $e->getMessage());
+        }
+    }
+
+    public function setDefaultAddress(Request $request)
+    {
+        try {
+            $validated = $this->customerAdvancedValidation->validateAddressDefaultRequest($request);
+
+            $address = $this->customerAddressService->setDefaultAddress(
+                (int) $validated['customer_id'],
+                (int) $validated['address_id']
+            );
+
+            return ResponseHelper::success($address, 'Default address updated successfully', 200);
+        } catch (ValidationException $ve) {
+            return ResponseHelper::validation($ve->errors(), 'Validation Errors', 422);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Error setting default address', 500, $e->getMessage());
+        }
+    }
+
+    public function canPurchase(Request $request, int $id)
+    {
+        try {
+            $amount = (float) $request->input('amount', 0);
+            $customer = Customer::query()->with('customerFinancial')->findOrFail($id);
+            $canPurchase = $this->customerCreditService->canPurchase($customer, $amount);
+
+            return ResponseHelper::success([
+                'customer_id' => $customer->id,
+                'amount' => $amount,
+                'can_purchase' => $canPurchase,
+            ], 'Credit purchase check completed', 200);
+        } catch (ValidationException $ve) {
+            return ResponseHelper::validation($ve->errors(), 'Validation Errors', 422);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Error checking purchase eligibility', 500, $e->getMessage());
+        }
+    }
+
+    public function applySale(Request $request, int $id)
+    {
+        try {
+            $amount = (float) $request->input('amount', 0);
+            $customer = Customer::query()->findOrFail($id);
+            $this->customerCreditService->applySale($customer, $amount);
+
+            return ResponseHelper::success([], 'Sale applied to customer credit successfully', 200);
+        } catch (ValidationException $ve) {
+            return ResponseHelper::validation($ve->errors(), 'Validation Errors', 422);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Error applying sale to customer credit', 500, $e->getMessage());
+        }
+    }
+
+    public function applyPayment(Request $request, int $id)
+    {
+        try {
+            $amount = (float) $request->input('amount', 0);
+            $customer = Customer::query()->findOrFail($id);
+            $this->customerCreditService->applyPayment($customer, $amount);
+
+            return ResponseHelper::success([], 'Payment applied to customer credit successfully', 200);
+        } catch (ValidationException $ve) {
+            return ResponseHelper::validation($ve->errors(), 'Validation Errors', 422);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Error applying payment to customer credit', 500, $e->getMessage());
+        }
+    }
+
+    public function customerStats(int $id)
+    {
+        try {
+            $stats = $this->customerAnalyticsService->getStats($id);
+
+            return ResponseHelper::success($stats->toArray(), 'Customer analytics retrieved successfully', 200);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Error fetching customer analytics', 500, $e->getMessage());
+        }
+    }
+
+    public function customerTimeline(Request $request, int $id)
+    {
+        try {
+            $limit = max(1, min((int) $request->query('limit', 50), 100));
+            $items = $this->customerTimelineService->getTimeline($id, $limit)
+                ->map(fn ($dto) => $dto->toArray())
+                ->values();
+
+            return ResponseHelper::success($items, 'Customer timeline retrieved successfully', 200);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Error fetching customer timeline', 500, $e->getMessage());
+        }
+    }
+
+    public function attachTags(Request $request, int $id)
+    {
+        try {
+            $tagIds = (array) $request->input('tag_ids', []);
+            $this->customerTagService->attachTags($id, $tagIds);
+
+            return ResponseHelper::success([], 'Tags attached successfully', 200);
+        } catch (ValidationException $ve) {
+            return ResponseHelper::validation($ve->errors(), 'Validation Errors', 422);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Error attaching tags', 500, $e->getMessage());
+        }
+    }
+
+    public function syncTags(Request $request, int $id)
+    {
+        try {
+            $tagIds = (array) $request->input('tag_ids', []);
+            $this->customerTagService->syncTags($id, $tagIds);
+
+            return ResponseHelper::success([], 'Tags synced successfully', 200);
+        } catch (ValidationException $ve) {
+            return ResponseHelper::validation($ve->errors(), 'Validation Errors', 422);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Error syncing tags', 500, $e->getMessage());
+        }
+    }
+
+    public function detachTag(int $id, int $tagId)
+    {
+        try {
+            $this->customerTagService->detachTag($id, $tagId);
+
+            return ResponseHelper::success([], 'Tag detached successfully', 200);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Error detaching tag', 500, $e->getMessage());
         }
     }
 

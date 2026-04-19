@@ -4,7 +4,7 @@ namespace App\Enums;
 
 
 enum CustomerStatusEnum : string {
-    case ACTIVE = 'ACTIVE';
-    case INACTIVE = 'INACTIVE';
-    case PROSPECTIVE = 'PROSPECTIVE';
+    case ACTIVE = 'active';
+    case INACTIVE = 'inactive';
+    case BLACKLISTED = 'blacklisted';
 }
