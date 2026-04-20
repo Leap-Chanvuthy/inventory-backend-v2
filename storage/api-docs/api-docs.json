@@ -3044,6 +3044,82 @@
                 ]
             }
         },
+        "/api/products/{id}/movements": {
+            "get": {
+                "tags": [
+                    "Products - Core"
+                ],
+                "summary": "Get product movements",
+                "description": "Returns paginated product movement records for a product. Includes UOM and creator/updater info.",
+                "operationId": "7f6417415bfdca7050d78a35a7a8a2fe",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Items per page (1-100)",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort fields: movement_date,created_at,updated_at,quantity",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[movement_type]",
+                        "in": "query",
+                        "description": "Filter by movement_type",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[direction]",
+                        "in": "query",
+                        "description": "Filter by direction",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Movements retrieved successfully"
+                    },
+                    "404": {
+                        "description": "Product not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/products/trashed": {
             "get": {
                 "tags": [

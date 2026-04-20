@@ -52,6 +52,26 @@ interface ProductAPIControllerInterface
      */
     public function show($id);
 
+   /**
+    * @OA\Get(
+    *     path="/api/products/{id}/movements",
+    *     tags={"Products - Core"},
+    *     security={{"Bearer":{}}},
+    *     summary="Get product movements",
+    *     description="Returns paginated product movement records for a product. Includes UOM and creator/updater info.",
+    *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+    *     @OA\Parameter(name="page", in="query", @OA\Schema(type="integer"), description="Page number"),
+    *     @OA\Parameter(name="per_page", in="query", @OA\Schema(type="integer"), description="Items per page (1-100)"),
+    *     @OA\Parameter(name="sort", in="query", @OA\Schema(type="string"), description="Sort fields: movement_date,created_at,updated_at,quantity"),
+    *     @OA\Parameter(name="filter[movement_type]", in="query", @OA\Schema(type="string"), description="Filter by movement_type"),
+    *     @OA\Parameter(name="filter[direction]", in="query", @OA\Schema(type="string"), description="Filter by direction"),
+    *     @OA\Response(response=200, description="Movements retrieved successfully"),
+    *     @OA\Response(response=404, description="Product not found"),
+    *     @OA\Response(response=500, description="Internal server error")
+    * )
+    */
+   public function movements($request, $productId);
+
     /**
      * @OA\Get(
      *     path="/api/products/trashed",

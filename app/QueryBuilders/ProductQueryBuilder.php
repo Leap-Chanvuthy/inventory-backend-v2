@@ -4,6 +4,7 @@ namespace App\QueryBuilders;
 
 use App\Helpers\QueryBuilderHelper;
 use App\Models\Product;
+use App\Models\ProductMovement;
 use Illuminate\Http\Request;
 use Spatie\QueryBuilder\AllowedFilter;
 use Illuminate\Database\Eloquent\Builder;
@@ -93,4 +94,60 @@ class ProductQueryBuilder
             ->paginate($perPage)
             ->appends($request->query());
     }
+
+    public function productMovementBuilder(Request $request, int $productId)
+    {
+        $perPage = (int) $request->query('per_page', 10);
+        $perPage = max(1, min($perPage, 100));
+
+        $builder = QueryBuilderHelper::build(
+            model: ProductMovement::class,
+
+            joins: [
+                ['products',               'product_movements.product_id', '=', 'products.id'],
+                ['unit_of_measurements',   'products.base_uom_id',        '=', 'unit_of_measurements.id'],
+                ['users as created_by_user','product_movements.created_by',      '=', 'created_by_user.id'],
+                ['users as last_updated_by_user','product_movements.last_updated_by', '=', 'last_updated_by_user.id'],
+            ],
+
+            selects: [
+                'product_movements.*',
+                'unit_of_measurements.name as uom_name',
+                'unit_of_measurements.symbol as uom_symbol',
+                'created_by_user.name as created_by_name',
+                'created_by_user.email as created_by_email',
+                'last_updated_by_user.name as last_updated_by_name',
+                'last_updated_by_user.email as last_updated_by_email',
+            ],
+
+            allowedFilters: [
+                AllowedFilter::exact('id'),
+                AllowedFilter::exact('product_id'),
+                AllowedFilter::exact('movement_type'),
+                AllowedFilter::exact('direction'),
+            ],
+
+            allowedSorts: [
+                'movement_date',
+                'created_at',
+                'updated_at',
+                'quantity',
+            ],
+
+            defaultSort: '-movement_date',
+
+            withRelations: [
+                // 'createdBy',
+                // 'lastUpdatedBy',
+            ],
+
+            withCounts: [],
+        );
+
+        return $builder
+            ->where('product_movements.product_id', $productId)
+            ->paginate($perPage)
+            ->appends($request->query());
+    }
+
 }

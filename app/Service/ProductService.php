@@ -64,6 +64,16 @@ class ProductService
         }
     }
     
+    public function getAllProductMovements(Request $request, $productId)
+    {
+        try {
+            $product = Product::findOrFail($productId);
+            return $this->productQueryBuilder->productMovementBuilder($request, $productId);
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+    
 
     public function getTrashedProducts(Request $request)
     {

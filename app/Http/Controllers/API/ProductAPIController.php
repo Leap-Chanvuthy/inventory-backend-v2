@@ -33,6 +33,11 @@ class ProductAPIController extends Controller
     {
         return $this->productService->getAllProducts($request);
     }
+
+    public function movements(Request $request, $productId)
+    {
+        return $this->productService->getAllProductMovements($request, $productId);
+    }
     
     public function trashed(Request $request)
     {

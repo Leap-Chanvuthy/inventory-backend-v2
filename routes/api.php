@@ -164,6 +164,7 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
 
     Route::prefix('products')->group(function () {
         Route::get('/', [ProductAPIController::class, 'index']);
+        Route::get('/{id}/movements', [ProductAPIController::class, 'movements']);
         Route::get('/trashed', [ProductAPIController::class, 'trashed']);
         Route::get('/{id}', [ProductAPIController::class, 'show']);
         Route::post('/create/external-purchase',      [ProductAPIController::class, 'storeExternalPurchase']);
