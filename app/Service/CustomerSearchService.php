@@ -55,6 +55,7 @@ class CustomerSearchService
                 phone: $this->resolveCustomerPhone($customer),
                 category: $this->resolveCustomerCategoryName($customer),
                 status: $statusValue,
+                discount_percentage: round((float) ($customer->customerCategory?->discount_percentage ?? 0), 2),
             );
         });
     }

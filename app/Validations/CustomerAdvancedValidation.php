@@ -3,6 +3,7 @@
 namespace App\Validations;
 
 use App\Enums\CustomerStatusEnum;
+use App\Enums\PaymentTermEnum;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -51,5 +52,12 @@ class CustomerAdvancedValidation
             ['amount' => $amount],
             ['amount' => ['required', 'numeric', 'min:0.01']]
         )->validate();
+    }
+
+    public function validatePaymentTerm(Request $request): array
+    {
+        return $request->validate([
+            'payment_terms' => ['required', Rule::enum(PaymentTermEnum::class)],
+        ]);
     }
 }

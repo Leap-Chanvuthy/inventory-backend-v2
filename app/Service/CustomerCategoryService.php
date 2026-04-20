@@ -36,6 +36,7 @@ class CustomerCategoryService {
                 'customer_categories.category_name',
                 'customer_categories.label_color',
                 'customer_categories.description',
+                'customer_categories.discount_percentage',
                 'customer_categories.created_at',
                 'customer_categories.updated_at',
             ],
@@ -56,6 +57,7 @@ class CustomerCategoryService {
             allowedSorts: [
                 'id',
                 'category_name',
+                'discount_percentage',
                 'created_at',
                 'updated_at',
             ],
@@ -99,7 +101,13 @@ class CustomerCategoryService {
                 'category_name' => 'required|string|max:255',
                 'label_color' => 'nullable|string|max:7',
                 'description' => 'nullable|string',
+                'discount_percentage' => 'required|numeric|min:0|max:100',
             ]);
+
+            // ensure numeric type for storage and response
+            if (isset($validated['discount_percentage'])) {
+                $validated['discount_percentage'] = (float) $validated['discount_percentage'];
+            }
 
             $category = CustomerCategory::create($validated);
 
@@ -135,7 +143,12 @@ class CustomerCategoryService {
                 'category_name' => 'sometimes|required|string|max:255',
                 'label_color' => 'nullable|string|max:7',
                 'description' => 'nullable|string',
+                'discount_percentage' => 'sometimes|required|numeric|min:0|max:100',
             ]);
+
+            if (array_key_exists('discount_percentage', $validated)) {
+                $validated['discount_percentage'] = (float) $validated['discount_percentage'];
+            }
 
             $oldSnapshot = $this->auditLoggerService->snapshotModel($category);
 

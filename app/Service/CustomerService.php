@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Helpers\FileUploadHelper;
 use App\Helpers\ResponseHelper;
+use App\Models\CustomerFinancial;
 use App\Models\Customer;
 use App\QueryBuilders\CustomerQueryBuilder;
 use App\Validations\CustomerAdvancedValidation;
@@ -24,6 +25,8 @@ class CustomerService {
     protected CustomerProfileService $customerProfileService;
     protected CustomerAddressService $customerAddressService;
     protected CustomerCreditService $customerCreditService;
+    protected CustomerPaymentService $customerPaymentService;
+    protected CustomerPricingService $customerPricingService;
     protected CustomerTagService $customerTagService;
     protected CustomerAnalyticsService $customerAnalyticsService;
     protected CustomerTimelineService $customerTimelineService;
@@ -38,6 +41,8 @@ class CustomerService {
         CustomerProfileService $customerProfileService,
         CustomerAddressService $customerAddressService,
         CustomerCreditService $customerCreditService,
+        CustomerPaymentService $customerPaymentService,
+        CustomerPricingService $customerPricingService,
         CustomerTagService $customerTagService,
         CustomerAnalyticsService $customerAnalyticsService,
         CustomerTimelineService $customerTimelineService
@@ -52,6 +57,8 @@ class CustomerService {
         $this->customerProfileService = $customerProfileService;
         $this->customerAddressService = $customerAddressService;
         $this->customerCreditService = $customerCreditService;
+        $this->customerPaymentService = $customerPaymentService;
+        $this->customerPricingService = $customerPricingService;
         $this->customerTagService = $customerTagService;
         $this->customerAnalyticsService = $customerAnalyticsService;
         $this->customerTimelineService = $customerTimelineService;
@@ -91,7 +98,12 @@ class CustomerService {
 
     public function getCustomerById($id){
         try {
-            $customer = Customer::with(['customerCategory' => fn ($q) => $q->withTrashed()])-> findOrFail($id);
+            $customer = Customer::with([
+                'customerCategory' => fn ($q) => $q->withTrashed(),
+                'customerFinancial',
+                'tags',
+                'addresses',
+                ])-> findOrFail($id);
             if (!$customer) {
                 return ResponseHelper::error('Customer not found', 404);
             }
@@ -105,6 +117,9 @@ class CustomerService {
     public function createCustomer(Request $request){
         try {
             $validated = $this -> customerValidation -> CreateValidation($request);
+            $paymentTerms = $validated['payment_terms'] ?? null;
+            unset($validated['payment_terms']);
+
             if ($request->hasFile('image')) {
                 $validated['image'] = FileUploadHelper::uploadSingle(
                     $request->file('image'),
@@ -113,6 +128,11 @@ class CustomerService {
             }
 
             $customer = Customer::create($validated);
+
+            CustomerFinancial::query()->updateOrCreate(
+                ['customer_id' => $customer->id],
+                ['payment_terms' => $paymentTerms ?? 'NET_0']
+            );
 
             // Audit: record creation
             $this->auditLoggerService->logChange(
@@ -143,6 +163,8 @@ class CustomerService {
             }
 
             $validated = $this -> customerValidation -> UpdateValidation($request, $id);
+            $paymentTerms = $validated['payment_terms'] ?? null;
+            unset($validated['payment_terms']);
 
             if ($request->hasFile('image')) {
                 $validated['image'] = FileUploadHelper::uploadSingle(
@@ -155,6 +177,14 @@ class CustomerService {
             $oldSnapshot = $this->auditLoggerService->snapshotModel($customer->load(['customerCategory']));
 
             $customer->update($validated);
+
+            if ($paymentTerms !== null) {
+                CustomerFinancial::query()->updateOrCreate(
+                    ['customer_id' => $customer->id],
+                    ['payment_terms' => $paymentTerms]
+                );
+            }
+
             $customer->refresh();
 
             // Snapshot after and log diff
@@ -270,18 +300,24 @@ class CustomerService {
     {
         try {
             $amount = (float) $request->input('amount', 0);
-            $customer = Customer::query()->with('customerFinancial')->findOrFail($id);
+            $customer = Customer::query()->with(['customerFinancial', 'customerCategory'])->findOrFail($id);
             $canPurchase = $this->customerCreditService->canPurchase($customer, $amount);
+            $discountedAmount = $this->customerPricingService->calculateDiscountedPrice($customer, $amount);
+            $paymentTerm = $this->customerPaymentService->getPaymentTerm($customer);
+            $discountPercentage = (float) ($customer->customerCategory?->discount_percentage ?? 0);
 
             return ResponseHelper::success([
                 'customer_id' => $customer->id,
                 'amount' => $amount,
+                'discount_percentage' => round($discountPercentage, 2),
+                'discounted_amount' => $discountedAmount,
+                'payment_terms' => $paymentTerm->value,
                 'can_purchase' => $canPurchase,
-            ], 'Credit purchase check completed', 200);
+            ], 'POS checkout pricing preview completed', 200);
         } catch (ValidationException $ve) {
             return ResponseHelper::validation($ve->errors(), 'Validation Errors', 422);
         } catch (Exception $e) {
-            return ResponseHelper::error('Error checking purchase eligibility', 500, $e->getMessage());
+            return ResponseHelper::error('Error generating POS checkout pricing preview', 500, $e->getMessage());
         }
     }
 
@@ -289,14 +325,22 @@ class CustomerService {
     {
         try {
             $amount = (float) $request->input('amount', 0);
-            $customer = Customer::query()->findOrFail($id);
+            $customer = Customer::query()->with(['customerFinancial', 'customerCategory'])->findOrFail($id);
             $this->customerCreditService->applySale($customer, $amount);
 
-            return ResponseHelper::success([], 'Sale applied to customer credit successfully', 200);
+            $discountedAmount = $this->customerPricingService->calculateDiscountedPrice($customer, $amount);
+            $paymentTerm = $this->customerPaymentService->getPaymentTerm($customer);
+
+            return ResponseHelper::success([
+                'customer_id' => $customer->id,
+                'amount' => $amount,
+                'discounted_amount' => $discountedAmount,
+                'payment_terms' => $paymentTerm->value,
+            ], 'Sale pricing resolved successfully', 200);
         } catch (ValidationException $ve) {
             return ResponseHelper::validation($ve->errors(), 'Validation Errors', 422);
         } catch (Exception $e) {
-            return ResponseHelper::error('Error applying sale to customer credit', 500, $e->getMessage());
+            return ResponseHelper::error('Error resolving sale pricing', 500, $e->getMessage());
         }
     }
 
@@ -304,14 +348,18 @@ class CustomerService {
     {
         try {
             $amount = (float) $request->input('amount', 0);
-            $customer = Customer::query()->findOrFail($id);
+            $customer = Customer::query()->with('customerFinancial')->findOrFail($id);
             $this->customerCreditService->applyPayment($customer, $amount);
+            $paymentTerm = $this->customerPaymentService->getPaymentTerm($customer);
 
-            return ResponseHelper::success([], 'Payment applied to customer credit successfully', 200);
+            return ResponseHelper::success([
+                'customer_id' => $customer->id,
+                'payment_terms' => $paymentTerm->value,
+            ], 'Customer payment term confirmed successfully', 200);
         } catch (ValidationException $ve) {
             return ResponseHelper::validation($ve->errors(), 'Validation Errors', 422);
         } catch (Exception $e) {
-            return ResponseHelper::error('Error applying payment to customer credit', 500, $e->getMessage());
+            return ResponseHelper::error('Error resolving customer payment term', 500, $e->getMessage());
         }
     }
 

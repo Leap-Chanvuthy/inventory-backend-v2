@@ -11,8 +11,8 @@ class CustomerProfileService
     {
         $customer = Customer::query()
             ->with([
-                'customerCategory:id,category_name,label_color',
-                'customerFinancial:id,customer_id,credit_limit,current_balance,payment_terms',
+                'customerCategory:id,category_name,label_color,discount_percentage',
+                'customerFinancial:id,customer_id,payment_terms',
                 'addresses:id,customer_id,type,address,google_map_link,is_default,created_at',
                 'tags:id,name',
             ])
@@ -27,14 +27,14 @@ class CustomerProfileService
                 'phone_number' => $customer->phone_number,
                 'status' => $customer->customer_status?->value,
                 'category' => $customer->customerCategory?->category_name,
+                'discount_percentage' => (float) ($customer->customerCategory?->discount_percentage ?? 0),
                 'note' => $customer->customer_note,
                 'extra_data' => $customer->extra_data,
             ],
             financial: $customer->customerFinancial ? [
-                'credit_limit' => (float) $customer->customerFinancial->credit_limit,
-                'current_balance' => (float) $customer->customerFinancial->current_balance,
-                'payment_terms' => $customer->customerFinancial->payment_terms,
-                'available_credit' => (float) $customer->customerFinancial->credit_limit - (float) $customer->customerFinancial->current_balance,
+                'payment_terms' => $customer->customerFinancial->payment_terms instanceof \BackedEnum
+                    ? $customer->customerFinancial->payment_terms->value
+                    : (string) $customer->customerFinancial->payment_terms,
             ] : null,
             addresses: $customer->addresses
                 ->map(fn ($address) => [

@@ -3,6 +3,7 @@
 namespace App\Validations;
 
 use App\Enums\CustomerStatusEnum;
+use App\Enums\PaymentTermEnum;
 use App\Helpers\GenerateUniqeCode;
 use App\Models\Customer;
 use Illuminate\Http\Request;
@@ -70,6 +71,7 @@ class CustomerValidation {
                 'exists:customer_categories,id',
             ],
             'customer_note' => 'nullable|string',
+            'payment_terms' => ['nullable', Rule::enum(PaymentTermEnum::class)],
         ]);
 
     }
@@ -101,6 +103,7 @@ class CustomerValidation {
                 'exists:customer_categories,id',
             ],
             'customer_note' => 'sometimes|nullable|string',
+            'payment_terms' => ['sometimes', 'required', Rule::enum(PaymentTermEnum::class)],
         ]);
     }
 

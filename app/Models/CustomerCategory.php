@@ -15,6 +15,11 @@ class CustomerCategory extends Model
         'category_name',
         'label_color',
         'description',
+        'discount_percentage',
+    ];
+
+    protected $casts = [
+        'discount_percentage' => 'float',
     ];
 
     public function customers()

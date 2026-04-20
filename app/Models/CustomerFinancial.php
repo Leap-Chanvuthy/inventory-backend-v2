@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\PaymentTermEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -11,14 +12,11 @@ class CustomerFinancial extends Model
 
     protected $fillable = [
         'customer_id',
-        'credit_limit',
-        'current_balance',
         'payment_terms',
     ];
 
     protected $casts = [
-        'credit_limit' => 'decimal:2',
-        'current_balance' => 'decimal:2',
+        'payment_terms' => PaymentTermEnum::class,
     ];
 
     public function customer()

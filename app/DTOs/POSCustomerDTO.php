@@ -9,7 +9,8 @@ class POSCustomerDTO
         public readonly string $name,
         public readonly string $phone,
         public readonly ?string $category,
-        public readonly string $available_credit,
+        public readonly float $discount_percentage,
+        public readonly string $payment_terms,
     ) {
     }
 
@@ -20,7 +21,8 @@ class POSCustomerDTO
             'name' => $this->name,
             'phone' => $this->phone,
             'category' => $this->category,
-            'available_credit' => $this->available_credit,
+            'discount_percentage' => $this->discount_percentage,
+            'payment_terms' => $this->payment_terms,
         ];
     }
 }

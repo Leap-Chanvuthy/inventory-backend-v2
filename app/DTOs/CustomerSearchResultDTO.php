@@ -10,6 +10,7 @@ class CustomerSearchResultDTO
         public readonly string $phone,
         public readonly ?string $category,
         public readonly string $status,
+        public readonly float $discount_percentage,
     ) {
     }
 
@@ -21,6 +22,7 @@ class CustomerSearchResultDTO
             'phone' => $this->phone,
             'category' => $this->category,
             'status' => $this->status,
+            'discount_percentage' => $this->discount_percentage,
         ];
     }
 }

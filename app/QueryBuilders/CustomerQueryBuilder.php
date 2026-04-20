@@ -49,6 +49,7 @@ class CustomerQueryBuilder {
                 'customers.*',
                 // Useful for UI; remove if you don't need it
                 'customer_categories.category_name as customer_category_name',
+                'customer_categories.discount_percentage as customer_category_discount_percentage',
             ],
 
             allowedFilters: [
@@ -82,6 +83,7 @@ class CustomerQueryBuilder {
                 'customer_status',
                 'customer_category_id',
                 'customer_categories.category_name',
+                'customer_categories.discount_percentage',
             ],
 
             defaultSort: '-created_at',

@@ -85,7 +85,7 @@ class CustomerSeeder extends Seeder
                     CustomerFinancial::query()->upsert(
                         $financialRows,
                         ['customer_id'],
-                        ['credit_limit', 'current_balance', 'payment_terms', 'updated_at']
+                        ['payment_terms', 'updated_at']
                     );
                 }
 
@@ -129,35 +129,21 @@ class CustomerSeeder extends Seeder
     protected function buildFinancialPayload(int $customerId, string $customerCode, string $categoryName, $now): ?array
     {
         $hash = abs(crc32($customerCode));
-        $terms = ['COD', 'Net 15', 'Net 30', 'Net 45', 'Net 60'];
+        $terms = ['NET_0', 'NET_7', 'NET_15', 'NET_30'];
 
-        $range = null;
+        $preferredTerms = 'NET_0';
         if (str_contains($categoryName, 'vip')) {
-            $range = [20000, 50000, 'Net 60'];
+            $preferredTerms = 'NET_30';
         } elseif (str_contains($categoryName, 'wholesale') || str_contains($categoryName, 'high volume')) {
-            $range = [5000, 20000, 'Net 30'];
+            $preferredTerms = 'NET_15';
         } elseif (str_contains($categoryName, 'corporate') || str_contains($categoryName, 'government')) {
-            $range = [8000, 25000, 'Net 45'];
-        } elseif (
-            (str_contains($categoryName, 'retail') || str_contains($categoryName, 'regular') || str_contains($categoryName, 'small business'))
-            && ($hash % 10) < 3
-        ) {
-            $range = [0, 500, 'COD'];
+            $preferredTerms = 'NET_30';
+        } elseif (str_contains($categoryName, 'online')) {
+            $preferredTerms = 'NET_7';
         }
-
-        if ($range === null) {
-            return null;
-        }
-
-        [$min, $max, $preferredTerms] = $range;
-        $creditLimit = (float) ($min + ($hash % (($max - $min) + 1)));
-        $balanceRatio = ($hash % 35) / 100;
-        $currentBalance = round($creditLimit * $balanceRatio, 2);
 
         return [
             'customer_id' => $customerId,
-            'credit_limit' => round($creditLimit, 2),
-            'current_balance' => $currentBalance,
             'payment_terms' => $preferredTerms ?: $terms[$hash % count($terms)],
             'created_at' => $now,
             'updated_at' => $now,

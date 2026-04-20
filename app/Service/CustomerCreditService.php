@@ -4,9 +4,8 @@ namespace App\Service;
 
 use App\Models\Customer;
 use App\Models\CustomerFinancial;
+use App\Enums\PaymentTermEnum;
 use App\Validations\CustomerAdvancedValidation;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 class CustomerCreditService
 {
@@ -18,70 +17,32 @@ class CustomerCreditService
     {
         $this->validation->validateCreditAmount($amount);
 
-        $financial = $customer->customerFinancial;
-
-        if (!$financial) {
-            return $amount <= 0;
-        }
-
-        $available = (float) $financial->credit_limit - (float) $financial->current_balance;
-
-        return $amount <= $available;
+        // Credit-limit checks are intentionally removed. Purchase eligibility
+        // is now driven by payment terms policy outside this service.
+        return $amount > 0;
     }
 
     public function applySale(Customer $customer, float $amount): void
     {
         $this->validation->validateCreditAmount($amount);
 
-        DB::transaction(function () use ($customer, $amount) {
-            $financial = $this->getLockedFinancial($customer->id);
-            $available = (float) $financial->credit_limit - (float) $financial->current_balance;
-
-            if ($amount > $available) {
-                throw ValidationException::withMessages([
-                    'credit' => ['Credit limit exceeded for this customer.'],
-                ]);
-            }
-
-            $financial->current_balance = (float) $financial->current_balance + $amount;
-            $financial->save();
-        });
+        // No-op: credit balance tracking has been removed by design.
+        $this->ensureFinancialExists($customer->id);
     }
 
     public function applyPayment(Customer $customer, float $amount): void
     {
         $this->validation->validateCreditAmount($amount);
 
-        DB::transaction(function () use ($customer, $amount) {
-            $financial = $this->getLockedFinancial($customer->id);
-
-            $newBalance = (float) $financial->current_balance - $amount;
-            $financial->current_balance = max(0, $newBalance);
-            $financial->save();
-        });
+        // No-op: credit balance tracking has been removed by design.
+        $this->ensureFinancialExists($customer->id);
     }
 
-    private function getLockedFinancial(int $customerId): CustomerFinancial
+    private function ensureFinancialExists(int $customerId): CustomerFinancial
     {
-        $financial = CustomerFinancial::query()
-            ->where('customer_id', $customerId)
-            ->lockForUpdate()
-            ->first();
-
-        if ($financial) {
-            return $financial;
-        }
-
-        CustomerFinancial::query()->create([
-            'customer_id' => $customerId,
-            'credit_limit' => 0,
-            'current_balance' => 0,
-            'payment_terms' => null,
-        ]);
-
-        return CustomerFinancial::query()
-            ->where('customer_id', $customerId)
-            ->lockForUpdate()
-            ->firstOrFail();
+        return CustomerFinancial::query()->firstOrCreate(
+            ['customer_id' => $customerId],
+            ['payment_terms' => PaymentTermEnum::NET_0->value]
+        );
     }
 }

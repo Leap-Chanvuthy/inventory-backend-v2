@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\DTOs\POSCustomerDTO;
 use App\Enums\CustomerStatusEnum;
+use App\Enums\PaymentTermEnum;
 use App\Models\Customer;
 use App\Models\CustomerCategory;
 use App\Models\CustomerFinancial;
@@ -24,6 +25,7 @@ class CustomerResolverService
                 [
                     'label_color' => '#D1D5DB',
                     'description' => 'System default category for walk-in POS customers',
+                    'discount_percentage' => 0,
                 ]
             );
 
@@ -46,9 +48,7 @@ class CustomerResolverService
             CustomerFinancial::query()->firstOrCreate(
                 ['customer_id' => $customer->id],
                 [
-                    'credit_limit' => 0,
-                    'current_balance' => 0,
-                    'payment_terms' => null,
+                    'payment_terms' => PaymentTermEnum::NET_0->value,
                 ]
             );
 
@@ -58,23 +58,20 @@ class CustomerResolverService
 
     public function toPosDTO(Customer $customer): POSCustomerDTO
     {
-        $availableCredit = '0.00';
+        $paymentTerm = $customer->customerFinancial?->payment_terms;
+        $paymentTermValue = $paymentTerm instanceof PaymentTermEnum
+            ? $paymentTerm->value
+            : (is_string($paymentTerm) ? $paymentTerm : PaymentTermEnum::NET_0->value);
 
-        if ($customer->relationLoaded('customerFinancial') && $customer->customerFinancial !== null) {
-            $availableCredit = number_format(
-                (float) $customer->customerFinancial->credit_limit - (float) $customer->customerFinancial->current_balance,
-                2,
-                '.',
-                ''
-            );
-        }
+        $discountPercentage = round((float) ($customer->customerCategory?->discount_percentage ?? 0), 2);
 
         return new POSCustomerDTO(
             id: (int) $customer->id,
             name: $this->resolveCustomerName($customer),
             phone: $this->resolveCustomerPhone($customer),
             category: $this->resolveCustomerCategoryName($customer),
-            available_credit: $availableCredit,
+            discount_percentage: $discountPercentage,
+            payment_terms: $paymentTermValue,
         );
     }
 }

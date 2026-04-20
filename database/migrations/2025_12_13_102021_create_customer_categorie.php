@@ -16,6 +16,9 @@ return new class extends Migration
             $table->string('category_name');
             $table->string('label_color')->nullable()->default('#FFFFFF');
             $table->text('description')->nullable();
+            $table->decimal('discount_percentage', 5, 2)
+                ->default(0)
+                ->comment('Default discount applied to this category');
             $table->timestamps();
             $table -> softDeletes();
         });

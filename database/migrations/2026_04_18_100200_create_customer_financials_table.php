@@ -14,9 +14,7 @@ return new class extends Migration
         Schema::create('customer_financials', function (Blueprint $table) {
             $table->id();
             $table->foreignId('customer_id')->constrained()->cascadeOnDelete();
-            $table->decimal('credit_limit', 15, 2)->default(0);
-            $table->decimal('current_balance', 15, 2)->default(0);
-            $table->string('payment_terms')->nullable();
+            $table->enum('payment_terms', ['NET_0', 'NET_7', 'NET_15', 'NET_30'])->default('NET_0');
             $table->timestamps();
 
             $table->unique('customer_id');

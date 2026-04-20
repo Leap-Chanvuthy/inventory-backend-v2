@@ -1148,23 +1148,27 @@
                 "tags": [
                     "Customers"
                 ],
-                "summary": "Get customers (pagination, filters, sorting)",
-                "description": "Retrieve a paginated list of customers. Supports filtering, sorting, and search (based on your query builder).",
-                "operationId": "ddec08530a5360b414c289a2d9fd2af7",
+                "summary": "List customers",
+                "description": "Returns paginated customers. Includes category display fields and category discount context used by frontend customer listing.",
+                "operationId": "CustomersIndex",
                 "parameters": [
                     {
                         "name": "per_page",
                         "in": "query",
-                        "description": "Number of items per page (default depends on backend)",
+                        "description": "Items per page (1..100)",
+                        "required": false,
                         "schema": {
                             "type": "integer",
-                            "example": 10
+                            "default": 10,
+                            "maximum": 100,
+                            "minimum": 1
                         }
                     },
                     {
                         "name": "filter[id]",
                         "in": "query",
-                        "description": "Filter by customer ID",
+                        "description": "Exact customer id",
+                        "required": false,
                         "schema": {
                             "type": "integer"
                         }
@@ -1172,7 +1176,8 @@
                     {
                         "name": "filter[search]",
                         "in": "query",
-                        "description": "Search by fullname, phone number, email, etc. (depends on implementation)",
+                        "description": "Search by fullname, code, phone, email, category name",
+                        "required": false,
                         "schema": {
                             "type": "string"
                         }
@@ -1180,15 +1185,22 @@
                     {
                         "name": "filter[customer_status]",
                         "in": "query",
-                        "description": "Filter by status (active, inactive, blacklisted)",
+                        "description": "Status filter",
+                        "required": false,
                         "schema": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                                "active",
+                                "inactive",
+                                "blacklisted"
+                            ]
                         }
                     },
                     {
                         "name": "filter[customer_category_id]",
                         "in": "query",
-                        "description": "Filter by customer category ID",
+                        "description": "Category id filter",
+                        "required": false,
                         "schema": {
                             "type": "integer"
                         }
@@ -1196,9 +1208,11 @@
                     {
                         "name": "sort",
                         "in": "query",
-                        "description": "Sort fields (e.g., -created_at, fullname)",
+                        "description": "Sort fields: created_at, updated_at, fullname, email_address, phone_number, customer_status, customer_category_id, customer_categories.category_name, customer_categories.discount_percentage. Prefix '-' for descending.",
+                        "required": false,
                         "schema": {
-                            "type": "string"
+                            "type": "string",
+                            "example": "-created_at"
                         }
                     }
                 ],
@@ -1218,6 +1232,26 @@
                                             "example": "Customers retrieved successfully"
                                         },
                                         "data": {
+                                            "properties": {
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Customer"
+                                                    }
+                                                },
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 53
+                                                }
+                                            },
                                             "type": "object"
                                         }
                                     },
@@ -1226,29 +1260,14 @@
                             }
                         }
                     },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
                     "500": {
-                        "description": "Error fetching customers",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "status": {
-                                            "type": "boolean",
-                                            "example": false
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Error fetching customers"
-                                        },
-                                        "errors": {
-                                            "type": "string",
-                                            "example": "Exception message here"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Error fetching customers"
                     }
                 },
                 "security": [
@@ -1261,9 +1280,9 @@
                 "tags": [
                     "Customers"
                 ],
-                "summary": "Create a new customer",
-                "description": "Create a new customer. Supports uploading image (jpg, png).",
-                "operationId": "762e17eee8eca1c3d10ea6f960dd0cb3",
+                "summary": "Create customer",
+                "description": "Creates a customer and optionally assigns payment_terms in customer_financials. If payment_terms is omitted, NET_0 is used.",
+                "operationId": "CustomersStore",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -1278,42 +1297,56 @@
                                 ],
                                 "properties": {
                                     "image": {
-                                        "description": "Customer image (jpeg, png, jpg)",
+                                        "description": "jpeg|png|jpg up to 2MB",
                                         "type": "string",
                                         "format": "binary"
                                     },
                                     "customer_code": {
-                                        "description": "Optional; auto-generated if not provided",
+                                        "description": "Optional. Auto-generated when omitted.",
                                         "type": "string",
+                                        "maxLength": 12,
                                         "example": "CUS00000001"
                                     },
                                     "fullname": {
                                         "type": "string",
+                                        "maxLength": 50,
                                         "example": "John Doe"
                                     },
                                     "email_address": {
                                         "type": "string",
-                                        "example": "john@example.com"
+                                        "maxLength": 50,
+                                        "example": "john@example.com",
+                                        "nullable": true
                                     },
                                     "phone_number": {
                                         "type": "string",
+                                        "maxLength": 50,
                                         "example": "099999999"
                                     },
                                     "social_media": {
                                         "type": "string",
-                                        "example": "https://facebook.com/john"
+                                        "maxLength": 100,
+                                        "example": "https://facebook.com/john",
+                                        "nullable": true
                                     },
                                     "customer_address": {
                                         "type": "string",
+                                        "maxLength": 255,
                                         "example": "Phnom Penh"
                                     },
                                     "google_map_link": {
                                         "type": "string",
-                                        "example": "https://maps.google.com/..."
+                                        "maxLength": 100,
+                                        "example": "https://maps.google.com/...",
+                                        "nullable": true
                                     },
                                     "customer_status": {
-                                        "description": "active | inactive | blacklisted",
                                         "type": "string",
+                                        "enum": [
+                                            "active",
+                                            "inactive",
+                                            "blacklisted"
+                                        ],
                                         "example": "active"
                                     },
                                     "customer_category_id": {
@@ -1322,7 +1355,11 @@
                                     },
                                     "customer_note": {
                                         "type": "string",
-                                        "example": "Note..."
+                                        "example": "Important customer",
+                                        "nullable": true
+                                    },
+                                    "payment_terms": {
+                                        "$ref": "#/components/schemas/PaymentTerm"
                                     }
                                 },
                                 "type": "object"
@@ -1332,74 +1369,13 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "Customer created successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "status": {
-                                            "type": "boolean",
-                                            "example": true
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Customer created successfully"
-                                        },
-                                        "data": {
-                                            "type": "object"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Customer created successfully"
                     },
                     "422": {
-                        "description": "Validation Errors",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "status": {
-                                            "type": "boolean",
-                                            "example": false
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Validation Errors"
-                                        },
-                                        "errors": {
-                                            "type": "object"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Validation Errors"
                     },
                     "500": {
-                        "description": "Error creating customer",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "status": {
-                                            "type": "boolean",
-                                            "example": false
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Error creating customer"
-                                        },
-                                        "errors": {
-                                            "type": "string",
-                                            "example": "Exception message here"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Error creating customer"
                     }
                 },
                 "security": [
@@ -1414,14 +1390,14 @@
                 "tags": [
                     "Customers"
                 ],
-                "summary": "Get a customer by ID",
-                "description": "Retrieve a single customer by specifying the customer ID.",
-                "operationId": "0d6aa0c66ba7f62be53fcd032511db5c",
+                "summary": "Get customer detail",
+                "description": "Returns customer detail by id.",
+                "operationId": "CustomersShow",
                 "parameters": [
                     {
                         "name": "id",
                         "in": "path",
-                        "description": "Customer ID",
+                        "description": "Customer id",
                         "required": true,
                         "schema": {
                             "type": "integer",
@@ -1445,65 +1421,7 @@
                                             "example": "Customer retrieved successfully"
                                         },
                                         "data": {
-                                            "properties": {
-                                                "id": {
-                                                    "type": "integer",
-                                                    "example": 1
-                                                },
-                                                "image": {
-                                                    "type": "string",
-                                                    "example": "https://api.dicebear.com/9.x/adventurer/svg?seed=1"
-                                                },
-                                                "fullname": {
-                                                    "type": "string",
-                                                    "example": "John Doe"
-                                                },
-                                                "customer_code": {
-                                                    "type": "string",
-                                                    "example": "CUS00000001"
-                                                },
-                                                "phone_number": {
-                                                    "type": "string",
-                                                    "example": "099999999"
-                                                },
-                                                "email_address": {
-                                                    "type": "string",
-                                                    "example": "john@example.com"
-                                                },
-                                                "social_media": {
-                                                    "type": "string",
-                                                    "example": "https://facebook.com/john"
-                                                },
-                                                "customer_address": {
-                                                    "type": "string",
-                                                    "example": "Phnom Penh"
-                                                },
-                                                "google_map_link": {
-                                                    "type": "string",
-                                                    "example": "https://maps.google.com/..."
-                                                },
-                                                "customer_status": {
-                                                    "type": "string",
-                                                    "example": "active"
-                                                },
-                                                "customer_category_id": {
-                                                    "type": "integer",
-                                                    "example": 1
-                                                },
-                                                "customer_note": {
-                                                    "type": "string",
-                                                    "example": "Important customer"
-                                                },
-                                                "created_at": {
-                                                    "type": "string",
-                                                    "example": "2025-01-01 08:00:00"
-                                                },
-                                                "updated_at": {
-                                                    "type": "string",
-                                                    "example": "2025-01-01 08:00:00"
-                                                }
-                                            },
-                                            "type": "object"
+                                            "$ref": "#/components/schemas/Customer"
                                         }
                                     },
                                     "type": "object"
@@ -1512,52 +1430,10 @@
                         }
                     },
                     "404": {
-                        "description": "Customer not found",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "status": {
-                                            "type": "boolean",
-                                            "example": false
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Customer not found"
-                                        },
-                                        "errors": {
-                                            "type": "string",
-                                            "example": null
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Customer not found"
                     },
                     "500": {
-                        "description": "Error fetching customer",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "status": {
-                                            "type": "boolean",
-                                            "example": false
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Error fetching customer"
-                                        },
-                                        "errors": {
-                                            "type": "string",
-                                            "example": "Exception message here"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Error fetching customer"
                     }
                 },
                 "security": [
@@ -1570,14 +1446,14 @@
                 "tags": [
                     "Customers"
                 ],
-                "summary": "Delete a customer",
-                "description": "Delete a customer by ID.",
-                "operationId": "d615b6a488e87c73b389fd141e529729",
+                "summary": "Delete customer",
+                "description": "Soft-deletes a customer record.",
+                "operationId": "CustomersDestroy",
                 "parameters": [
                     {
                         "name": "id",
                         "in": "path",
-                        "description": "Customer ID",
+                        "description": "Customer id",
                         "required": true,
                         "schema": {
                             "type": "integer",
@@ -1587,76 +1463,13 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Customer deleted successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "status": {
-                                            "type": "boolean",
-                                            "example": true
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Customer deleted successfully"
-                                        },
-                                        "data": {
-                                            "type": "object",
-                                            "example": null
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Customer deleted successfully"
                     },
                     "404": {
-                        "description": "Customer not found",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "status": {
-                                            "type": "boolean",
-                                            "example": false
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Customer not found"
-                                        },
-                                        "errors": {
-                                            "type": "string",
-                                            "example": null
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Customer not found"
                     },
                     "500": {
-                        "description": "Error deleting customer",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "status": {
-                                            "type": "boolean",
-                                            "example": false
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Error deleting customer"
-                                        },
-                                        "errors": {
-                                            "type": "string",
-                                            "example": "Exception message here"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Error deleting customer"
                     }
                 },
                 "security": [
@@ -1669,14 +1482,14 @@
                 "tags": [
                     "Customers"
                 ],
-                "summary": "Update an existing customer",
-                "description": "Update customer fields. Supports uploading image (jpg, png).",
-                "operationId": "cab7bd82482cf290c7bc760a0a43f2e0",
+                "summary": "Update customer",
+                "description": "Updates customer data. payment_terms is optional but must be a valid enum value when provided.",
+                "operationId": "CustomersUpdate",
                 "parameters": [
                     {
                         "name": "id",
                         "in": "path",
-                        "description": "Customer ID",
+                        "description": "Customer id",
                         "required": true,
                         "schema": {
                             "type": "integer",
@@ -1691,36 +1504,50 @@
                             "schema": {
                                 "properties": {
                                     "image": {
-                                        "description": "Customer image (jpeg, png, jpg)",
+                                        "description": "jpeg|png|jpg up to 2MB",
                                         "type": "string",
                                         "format": "binary"
                                     },
                                     "fullname": {
                                         "type": "string",
+                                        "maxLength": 50,
                                         "example": "Updated Name"
                                     },
                                     "email_address": {
                                         "type": "string",
-                                        "example": "updated@example.com"
+                                        "maxLength": 50,
+                                        "example": "updated@example.com",
+                                        "nullable": true
                                     },
                                     "phone_number": {
                                         "type": "string",
+                                        "maxLength": 50,
                                         "example": "099123456"
                                     },
                                     "social_media": {
                                         "type": "string",
-                                        "example": "https://facebook.com/updated"
+                                        "maxLength": 100,
+                                        "example": "https://facebook.com/updated",
+                                        "nullable": true
                                     },
                                     "customer_address": {
                                         "type": "string",
+                                        "maxLength": 255,
                                         "example": "Updated address"
                                     },
                                     "google_map_link": {
                                         "type": "string",
-                                        "example": "https://maps.google.com/..."
+                                        "maxLength": 100,
+                                        "example": "https://maps.google.com/...",
+                                        "nullable": true
                                     },
                                     "customer_status": {
                                         "type": "string",
+                                        "enum": [
+                                            "active",
+                                            "inactive",
+                                            "blacklisted"
+                                        ],
                                         "example": "inactive"
                                     },
                                     "customer_category_id": {
@@ -1729,7 +1556,11 @@
                                     },
                                     "customer_note": {
                                         "type": "string",
-                                        "example": "Updated note"
+                                        "example": "Updated note",
+                                        "nullable": true
+                                    },
+                                    "payment_terms": {
+                                        "$ref": "#/components/schemas/PaymentTerm"
                                     }
                                 },
                                 "type": "object"
@@ -1739,98 +1570,16 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Customer updated successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "status": {
-                                            "type": "boolean",
-                                            "example": true
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Customer updated successfully"
-                                        },
-                                        "data": {
-                                            "type": "object"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Customer updated successfully"
                     },
                     "404": {
-                        "description": "Customer not found",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "status": {
-                                            "type": "boolean",
-                                            "example": false
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Customer not found"
-                                        },
-                                        "errors": {
-                                            "type": "string",
-                                            "example": null
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Customer not found"
                     },
                     "422": {
-                        "description": "Validation Errors",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "status": {
-                                            "type": "boolean",
-                                            "example": false
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Validation Errors"
-                                        },
-                                        "errors": {
-                                            "type": "object"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Validation Errors"
                     },
                     "500": {
-                        "description": "Error updating customer",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "status": {
-                                            "type": "boolean",
-                                            "example": false
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Error updating customer"
-                                        },
-                                        "errors": {
-                                            "type": "string",
-                                            "example": "Exception message here"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "Error updating customer"
                     }
                 },
                 "security": [
@@ -1846,26 +1595,29 @@
                     "Customers"
                 ],
                 "summary": "POS customer search",
-                "description": "Fast customer lookup for POS by keyword (name, code, phone).",
-                "operationId": "807c6e7faf46b4b18350c3e247b40b61",
+                "description": "Fast search endpoint for POS customer picker.",
+                "operationId": "CustomersPosSearch",
                 "parameters": [
                     {
                         "name": "keyword",
                         "in": "query",
-                        "description": "Search keyword",
+                        "description": "Search text",
                         "required": true,
                         "schema": {
                             "type": "string",
+                            "maxLength": 100,
                             "example": "Sokha"
                         }
                     },
                     {
                         "name": "limit",
                         "in": "query",
-                        "description": "Max records returned (1-50)",
+                        "description": "Result size (1..20)",
                         "required": false,
                         "schema": {
                             "type": "integer",
+                            "maximum": 20,
+                            "minimum": 1,
                             "example": 15
                         }
                     }
@@ -1888,7 +1640,7 @@
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "type": "object"
+                                                "$ref": "#/components/schemas/PosCustomerSearchResult"
                                             }
                                         }
                                     },
@@ -1914,8 +1666,8 @@
                     "Customers"
                 ],
                 "summary": "Resolve walk-in customer",
-                "description": "Returns the default walk-in customer for POS checkout.",
-                "operationId": "a8421e67cb5e78f344598bab298f3f11",
+                "description": "Returns the default walk-in customer payload for POS checkout, including discount and payment_terms.",
+                "operationId": "CustomersWalkIn",
                 "responses": {
                     "200": {
                         "description": "Walk-in customer resolved successfully",
@@ -1932,7 +1684,7 @@
                                             "example": "Walk-in customer resolved successfully"
                                         },
                                         "data": {
-                                            "type": "object"
+                                            "$ref": "#/components/schemas/PosWalkInCustomer"
                                         }
                                     },
                                     "type": "object"
@@ -1953,13 +1705,14 @@
                 "tags": [
                     "Customers"
                 ],
-                "summary": "Get segmented customers",
-                "description": "Retrieve segmented customers by category, status, and tag filters.",
-                "operationId": "e83706501ba5c9f6802dc6d07acab0e7",
+                "summary": "Segmented customer listing",
+                "description": "Returns filtered customer segments for campaigning, segmentation views, and reporting.",
+                "operationId": "CustomersSegmented",
                 "parameters": [
                     {
                         "name": "category_id",
                         "in": "query",
+                        "required": false,
                         "schema": {
                             "type": "integer",
                             "example": 1
@@ -1968,8 +1721,14 @@
                     {
                         "name": "status",
                         "in": "query",
+                        "required": false,
                         "schema": {
                             "type": "string",
+                            "enum": [
+                                "active",
+                                "inactive",
+                                "blacklisted"
+                            ],
                             "example": "active"
                         }
                     },
@@ -1977,6 +1736,7 @@
                         "name": "tag_ids[]",
                         "in": "query",
                         "description": "Tag ids filter",
+                        "required": false,
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1987,8 +1747,11 @@
                     {
                         "name": "per_page",
                         "in": "query",
+                        "required": false,
                         "schema": {
                             "type": "integer",
+                            "maximum": 100,
+                            "minimum": 1,
                             "example": 10
                         }
                     }
@@ -2014,8 +1777,8 @@
                     "Customers"
                 ],
                 "summary": "Get customer profile",
-                "description": "Get aggregated customer profile including financials, addresses, and tags.",
-                "operationId": "2f048ae52388b3395d63488c1483308f",
+                "description": "Aggregated profile including basic info, category discount, payment_terms, addresses, and tags.",
+                "operationId": "CustomersProfile",
                 "parameters": [
                     {
                         "name": "id",
@@ -2029,7 +1792,27 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Customer profile retrieved successfully"
+                        "description": "Customer profile retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Customer profile retrieved successfully"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/CustomerProfile"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "404": {
                         "description": "Customer not found"
@@ -2048,8 +1831,8 @@
                     "Customers"
                 ],
                 "summary": "Set default customer address",
-                "description": "Set a billing/shipping address as default for a customer.",
-                "operationId": "b9997342ccda22d1ca572fb1527d29d5",
+                "description": "Marks one existing address as default for the target customer.",
+                "operationId": "CustomersSetDefaultAddress",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -2094,9 +1877,9 @@
                 "tags": [
                     "Customers"
                 ],
-                "summary": "Check credit purchase eligibility",
-                "description": "Checks if customer can purchase by credit for provided amount.",
-                "operationId": "97b6377a2a938755e7c30f2d4823d504",
+                "summary": "POS checkout pricing preview",
+                "description": "Despite the legacy route name, this endpoint now returns POS pricing preview with category discount and payment_terms (no credit balance mutation).",
+                "operationId": "CustomersCanPurchase",
                 "parameters": [
                     {
                         "name": "id",
@@ -2130,7 +1913,27 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Credit purchase check completed"
+                        "description": "POS checkout pricing preview completed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "POS checkout pricing preview completed"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/CustomerPricingPreview"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "422": {
                         "description": "Validation Errors"
@@ -2148,9 +1951,9 @@
                 "tags": [
                     "Customers"
                 ],
-                "summary": "Apply sale to customer credit",
-                "description": "Increases customer outstanding credit balance.",
-                "operationId": "a127b1cbea6ff617402a75812c9ee3e4",
+                "summary": "Resolve sale pricing",
+                "description": "Legacy route retained. Returns discounted_amount and payment_terms for sale flow; no credit balance write is performed in current feature logic.",
+                "operationId": "CustomersApplySale",
                 "parameters": [
                     {
                         "name": "id",
@@ -2184,7 +1987,27 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Sale applied to customer credit successfully"
+                        "description": "Sale pricing resolved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Sale pricing resolved successfully"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/CustomerSalePricing"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "422": {
                         "description": "Validation Errors"
@@ -2202,9 +2025,9 @@
                 "tags": [
                     "Customers"
                 ],
-                "summary": "Apply payment to customer credit",
-                "description": "Reduces customer outstanding credit balance.",
-                "operationId": "7552f8c42f8b7f6df3f1e69484e7698f",
+                "summary": "Confirm customer payment term",
+                "description": "Legacy route retained. Returns customer payment_terms used by checkout settlement logic.",
+                "operationId": "CustomersApplyPayment",
                 "parameters": [
                     {
                         "name": "id",
@@ -2238,7 +2061,27 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Payment applied to customer credit successfully"
+                        "description": "Customer payment term confirmed successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Customer payment term confirmed successfully"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/CustomerPaymentTermResult"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "422": {
                         "description": "Validation Errors"
@@ -2256,9 +2099,9 @@
                 "tags": [
                     "Customers"
                 ],
-                "summary": "Get customer analytics stats",
-                "description": "Returns customer-level analytics and order summary metrics.",
-                "operationId": "9b7fee2fbaf25afabf7d8aec340faa52",
+                "summary": "Customer analytics",
+                "description": "Returns aggregate customer purchase stats from POS orders.",
+                "operationId": "CustomersStats",
                 "parameters": [
                     {
                         "name": "id",
@@ -2272,7 +2115,27 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Customer analytics retrieved successfully"
+                        "description": "Customer analytics retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Customer analytics retrieved successfully"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/CustomerStats"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -2287,9 +2150,9 @@
                 "tags": [
                     "Customers"
                 ],
-                "summary": "Get customer timeline",
-                "description": "Returns timeline items from audit logs and POS orders.",
-                "operationId": "f95b3394670a81b47e3cc8b60cfc704c",
+                "summary": "Customer timeline",
+                "description": "Returns chronological items from audit and POS order sources.",
+                "operationId": "CustomersTimeline",
                 "parameters": [
                     {
                         "name": "id",
@@ -2303,16 +2166,42 @@
                     {
                         "name": "limit",
                         "in": "query",
+                        "description": "Timeline size (1..100)",
                         "required": false,
                         "schema": {
                             "type": "integer",
+                            "maximum": 100,
+                            "minimum": 1,
                             "example": 50
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Customer timeline retrieved successfully"
+                        "description": "Customer timeline retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Customer timeline retrieved successfully"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/CustomerTimelineItem"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -2327,9 +2216,9 @@
                 "tags": [
                     "Customers"
                 ],
-                "summary": "Attach customer tags",
-                "description": "Attach one or many tags to customer without removing existing tags.",
-                "operationId": "71fd506da4c15950bebf4da0c6c785d4",
+                "summary": "Attach tags",
+                "description": "Attach one or more tags without removing existing tags.",
+                "operationId": "CustomersAttachTags",
                 "parameters": [
                     {
                         "name": "id",
@@ -2370,6 +2259,9 @@
                 "responses": {
                     "200": {
                         "description": "Tags attached successfully"
+                    },
+                    "422": {
+                        "description": "Validation Errors"
                     }
                 },
                 "security": [
@@ -2384,9 +2276,9 @@
                 "tags": [
                     "Customers"
                 ],
-                "summary": "Sync customer tags",
-                "description": "Replace current customer tags with provided tag ids.",
-                "operationId": "6c30ee73c22d55cca043bbe57bd7c45b",
+                "summary": "Sync tags",
+                "description": "Replace all existing tags with provided tag ids.",
+                "operationId": "CustomersSyncTags",
                 "parameters": [
                     {
                         "name": "id",
@@ -2426,6 +2318,9 @@
                 "responses": {
                     "200": {
                         "description": "Tags synced successfully"
+                    },
+                    "422": {
+                        "description": "Validation Errors"
                     }
                 },
                 "security": [
@@ -2440,9 +2335,9 @@
                 "tags": [
                     "Customers"
                 ],
-                "summary": "Detach a customer tag",
-                "description": "Detach a single tag from a customer.",
-                "operationId": "ce8a9a187f4f975d833d453ae8867489",
+                "summary": "Detach tag",
+                "description": "Detach one tag from customer.",
+                "operationId": "CustomersDetachTag",
                 "parameters": [
                     {
                         "name": "id",
@@ -2480,9 +2375,9 @@
                 "tags": [
                     "Customer Categories"
                 ],
-                "summary": "Get all customer categories",
-                "description": "Retrieve a paginated list of customer categories.",
-                "operationId": "1393ece1c2ec6bd761cbe8d6f36d997f",
+                "summary": "List customer categories",
+                "description": "Returns a paginated list of customer categories. Useful for frontend dropdowns and discount setup pages.",
+                "operationId": "CustomerCategoriesIndex",
                 "parameters": [
                     {
                         "name": "per_page",
@@ -2517,7 +2412,7 @@
                     {
                         "name": "sort",
                         "in": "query",
-                        "description": "Sort fields: id, category_name, created_at, updated_at. Prefix with '-' for desc (e.g. -created_at).",
+                        "description": "Sort fields: id, category_name, discount_percentage, created_at, updated_at. Prefix with '-' for descending.",
                         "required": false,
                         "schema": {
                             "type": "string"
@@ -2531,7 +2426,7 @@
                             "application/json": {
                                 "schema": {
                                     "properties": {
-                                        "success": {
+                                        "status": {
                                             "type": "boolean",
                                             "example": true
                                         },
@@ -2547,6 +2442,18 @@
                                                     "items": {
                                                         "$ref": "#/components/schemas/CustomerCategory"
                                                     }
+                                                },
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 34
                                                 }
                                             },
                                             "type": "object"
@@ -2561,7 +2468,7 @@
                         "description": "Unauthenticated"
                     },
                     "403": {
-                        "description": "Forbidden (ADMIN only)"
+                        "description": "Forbidden"
                     },
                     "500": {
                         "description": "Server error"
@@ -2578,7 +2485,7 @@
                     "Customer Categories"
                 ],
                 "summary": "Create a customer category",
-                "description": "Requires auth and ADMIN role.",
+                "description": "Creates a category with optional color/description and required discount percentage range 0..100.",
                 "operationId": "CustomerCategoriesStore",
                 "requestBody": {
                     "required": true,
@@ -2586,7 +2493,8 @@
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "category_name"
+                                    "category_name",
+                                    "discount_percentage"
                                 ],
                                 "properties": {
                                     "category_name": {
@@ -2603,6 +2511,13 @@
                                         "type": "string",
                                         "example": "High value customers",
                                         "nullable": true
+                                    },
+                                    "discount_percentage": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "maximum": 100,
+                                        "minimum": 0,
+                                        "example": 10.5
                                     }
                                 },
                                 "type": "object"
@@ -2617,7 +2532,7 @@
                             "application/json": {
                                 "schema": {
                                     "properties": {
-                                        "success": {
+                                        "status": {
                                             "type": "boolean",
                                             "example": true
                                         },
@@ -2638,7 +2553,7 @@
                         "description": "Unauthenticated"
                     },
                     "403": {
-                        "description": "Forbidden (ADMIN only)"
+                        "description": "Forbidden"
                     },
                     "422": {
                         "description": "Validation error"
@@ -2660,7 +2575,7 @@
                     "Customer Categories"
                 ],
                 "summary": "Get a customer category by id",
-                "description": "Requires auth and ADMIN role.",
+                "description": "Returns one category including discount percentage.",
                 "operationId": "CustomerCategoriesShow",
                 "parameters": [
                     {
@@ -2679,7 +2594,7 @@
                             "application/json": {
                                 "schema": {
                                     "properties": {
-                                        "success": {
+                                        "status": {
                                             "type": "boolean",
                                             "example": true
                                         },
@@ -2700,7 +2615,7 @@
                         "description": "Unauthenticated"
                     },
                     "403": {
-                        "description": "Forbidden (ADMIN only)"
+                        "description": "Forbidden"
                     },
                     "404": {
                         "description": "Customer category not found"
@@ -2720,7 +2635,7 @@
                     "Customer Categories"
                 ],
                 "summary": "Delete a customer category",
-                "description": "Requires auth and ADMIN role.",
+                "description": "Soft-deletes a customer category.",
                 "operationId": "CustomerCategoriesDelete",
                 "parameters": [
                     {
@@ -2739,7 +2654,7 @@
                             "application/json": {
                                 "schema": {
                                     "properties": {
-                                        "success": {
+                                        "status": {
                                             "type": "boolean",
                                             "example": true
                                         },
@@ -2757,7 +2672,7 @@
                         "description": "Unauthenticated"
                     },
                     "403": {
-                        "description": "Forbidden (ADMIN only)"
+                        "description": "Forbidden"
                     },
                     "404": {
                         "description": "Customer category not found"
@@ -2777,7 +2692,7 @@
                     "Customer Categories"
                 ],
                 "summary": "Update a customer category",
-                "description": "Requires auth and ADMIN role.",
+                "description": "Updates any category field. discount_percentage must remain within 0..100 when provided.",
                 "operationId": "CustomerCategoriesUpdate",
                 "parameters": [
                     {
@@ -2809,6 +2724,13 @@
                                         "type": "string",
                                         "example": "Walk-in / retail customers",
                                         "nullable": true
+                                    },
+                                    "discount_percentage": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "maximum": 100,
+                                        "minimum": 0,
+                                        "example": 5
                                     }
                                 },
                                 "type": "object"
@@ -2823,7 +2745,7 @@
                             "application/json": {
                                 "schema": {
                                     "properties": {
-                                        "success": {
+                                        "status": {
                                             "type": "boolean",
                                             "example": true
                                         },
@@ -2844,7 +2766,7 @@
                         "description": "Unauthenticated"
                     },
                     "403": {
-                        "description": "Forbidden (ADMIN only)"
+                        "description": "Forbidden"
                     },
                     "404": {
                         "description": "Customer category not found"
@@ -11885,9 +11807,385 @@
     },
     "components": {
         "schemas": {
+            "PaymentTerm": {
+                "description": "Customer payment term policy.",
+                "type": "string",
+                "enum": [
+                    "NET_0",
+                    "NET_7",
+                    "NET_15",
+                    "NET_30"
+                ],
+                "example": "NET_7"
+            },
+            "Customer": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "image": {
+                        "type": "string",
+                        "example": "customers/avatar-001.png",
+                        "nullable": true
+                    },
+                    "customer_code": {
+                        "type": "string",
+                        "example": "CUS00000001"
+                    },
+                    "fullname": {
+                        "type": "string",
+                        "example": "John Doe"
+                    },
+                    "email_address": {
+                        "type": "string",
+                        "example": "john@example.com",
+                        "nullable": true
+                    },
+                    "phone_number": {
+                        "type": "string",
+                        "example": "099999999"
+                    },
+                    "social_media": {
+                        "type": "string",
+                        "example": "https://facebook.com/john",
+                        "nullable": true
+                    },
+                    "customer_address": {
+                        "type": "string",
+                        "example": "Phnom Penh"
+                    },
+                    "google_map_link": {
+                        "type": "string",
+                        "example": "https://maps.google.com/...",
+                        "nullable": true
+                    },
+                    "customer_status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "inactive",
+                            "blacklisted"
+                        ],
+                        "example": "active"
+                    },
+                    "customer_category_id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "customer_category_name": {
+                        "type": "string",
+                        "example": "VIP",
+                        "nullable": true
+                    },
+                    "customer_category_discount_percentage": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 10.5
+                    },
+                    "customer_note": {
+                        "type": "string",
+                        "example": "Important customer",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2026-04-20 10:30:00"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2026-04-20 10:30:00"
+                    }
+                },
+                "type": "object"
+            },
+            "PosCustomerSearchResult": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "John Doe"
+                    },
+                    "phone": {
+                        "type": "string",
+                        "example": "099999999"
+                    },
+                    "category": {
+                        "type": "string",
+                        "example": "VIP",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "active"
+                    },
+                    "discount_percentage": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 10.5
+                    }
+                },
+                "type": "object"
+            },
+            "PosWalkInCustomer": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Walk-in Customer"
+                    },
+                    "phone": {
+                        "type": "string",
+                        "example": "000000000"
+                    },
+                    "category": {
+                        "type": "string",
+                        "example": "Retail",
+                        "nullable": true
+                    },
+                    "discount_percentage": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 0
+                    },
+                    "payment_terms": {
+                        "$ref": "#/components/schemas/PaymentTerm"
+                    }
+                },
+                "type": "object"
+            },
+            "CustomerProfile": {
+                "properties": {
+                    "basic_info": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "customer_code": {
+                                "type": "string",
+                                "example": "CUS00000001"
+                            },
+                            "fullname": {
+                                "type": "string",
+                                "example": "John Doe"
+                            },
+                            "email_address": {
+                                "type": "string",
+                                "example": "john@example.com",
+                                "nullable": true
+                            },
+                            "phone_number": {
+                                "type": "string",
+                                "example": "099999999"
+                            },
+                            "status": {
+                                "type": "string",
+                                "example": "active"
+                            },
+                            "category": {
+                                "type": "string",
+                                "example": "VIP",
+                                "nullable": true
+                            },
+                            "discount_percentage": {
+                                "type": "number",
+                                "format": "float",
+                                "example": 10.5
+                            },
+                            "note": {
+                                "type": "string",
+                                "example": "Important customer",
+                                "nullable": true
+                            },
+                            "extra_data": {
+                                "type": "object",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "financial": {
+                        "properties": {
+                            "payment_terms": {
+                                "$ref": "#/components/schemas/PaymentTerm"
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "addresses": {
+                        "type": "array",
+                        "items": {
+                            "properties": {
+                                "id": {
+                                    "type": "integer",
+                                    "example": 12
+                                },
+                                "type": {
+                                    "type": "string",
+                                    "example": "billing",
+                                    "nullable": true
+                                },
+                                "address": {
+                                    "type": "string",
+                                    "example": "No. 99, Street 271"
+                                },
+                                "google_map_link": {
+                                    "type": "string",
+                                    "example": "https://maps.google.com/...",
+                                    "nullable": true
+                                },
+                                "is_default": {
+                                    "type": "boolean",
+                                    "example": true
+                                },
+                                "created_at": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "example": "2026-04-20 10:30:00"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {
+                            "properties": {
+                                "id": {
+                                    "type": "integer",
+                                    "example": 2
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "example": "wholesale"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "CustomerPricingPreview": {
+                "properties": {
+                    "customer_id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "amount": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 150.5
+                    },
+                    "discount_percentage": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 10.5
+                    },
+                    "discounted_amount": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 134.7
+                    },
+                    "payment_terms": {
+                        "$ref": "#/components/schemas/PaymentTerm"
+                    },
+                    "can_purchase": {
+                        "type": "boolean",
+                        "example": true
+                    }
+                },
+                "type": "object"
+            },
+            "CustomerSalePricing": {
+                "properties": {
+                    "customer_id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "amount": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 250
+                    },
+                    "discounted_amount": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 225
+                    },
+                    "payment_terms": {
+                        "$ref": "#/components/schemas/PaymentTerm"
+                    }
+                },
+                "type": "object"
+            },
+            "CustomerPaymentTermResult": {
+                "properties": {
+                    "customer_id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "payment_terms": {
+                        "$ref": "#/components/schemas/PaymentTerm"
+                    }
+                },
+                "type": "object"
+            },
+            "CustomerStats": {
+                "properties": {
+                    "total_spent": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 3500.75
+                    },
+                    "order_count": {
+                        "type": "integer",
+                        "example": 28
+                    },
+                    "last_purchase_date": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2026-04-19 16:30:00",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "CustomerTimelineItem": {
+                "properties": {
+                    "source": {
+                        "type": "string",
+                        "example": "audit"
+                    },
+                    "event": {
+                        "type": "string",
+                        "example": "customer.update"
+                    },
+                    "payload": {
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "occurred_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2026-04-20 10:35:00"
+                    }
+                },
+                "type": "object"
+            },
             "CustomerCategory": {
                 "title": "Customer Category",
-                "description": "Customer category model",
+                "description": "Customer category entity with default discount policy.",
                 "properties": {
                     "id": {
                         "type": "integer",
@@ -11906,6 +12204,14 @@
                         "type": "string",
                         "example": "High value customers",
                         "nullable": true
+                    },
+                    "discount_percentage": {
+                        "description": "Default discount percentage automatically applied in customer pricing flows.",
+                        "type": "number",
+                        "format": "float",
+                        "maximum": 100,
+                        "minimum": 0,
+                        "example": 10.5
                     },
                     "created_at": {
                         "type": "string",
@@ -12722,10 +13028,6 @@
             "description": "API Endpoints for user authentication and password reset (Accessible for: All Users)"
         },
         {
-            "name": "Customers",
-            "description": "API Endpoints for managing customers (ADMIN & VENDER ROLE)"
-        },
-        {
             "name": "Products - Core",
             "description": "Product listing and detail APIs"
         },
@@ -12792,6 +13094,10 @@
         {
             "name": "Company",
             "description": "Company"
+        },
+        {
+            "name": "Customers",
+            "description": "Customers"
         },
         {
             "name": "Customer Categories",
