@@ -117,6 +117,7 @@ class ProductHelper
         return Product::create([
             'product_name'        => $validated['product_name'],
             'product_type'        => $validated['product_type'],
+            'sale_method'         => $validated['sale_method'],
             'product_sku_code'    => $validated['product_sku_code'],
             'barcode'             => $validated['barcode']             ?? null,
             'product_description' => $validated['product_description'] ?? null,

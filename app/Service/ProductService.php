@@ -345,6 +345,9 @@ class ProductService
                 if (array_key_exists('warehouse_id', $validated)) {
                     $productData['warehouse_id'] = $validated['warehouse_id'];
                 }
+                if (array_key_exists('sale_method', $validated)) {
+                    $productData['sale_method'] = $validated['sale_method'];
+                }
 
                 if (!empty($productData)) {
                     $product->update($productData);
@@ -372,6 +375,9 @@ class ProductService
                 }
                 if (array_key_exists('warehouse_id', $validated)) {
                     $productData['warehouse_id'] = $validated['warehouse_id'];
+                }
+                if (array_key_exists('sale_method', $validated)) {
+                    $productData['sale_method'] = $validated['sale_method'];
                 }
 
                 if (!empty($productData)) {
@@ -721,6 +727,37 @@ class ProductService
                         'raw_material_id' => $item['raw_material_id'],
                         'quantity' => $item['quantity'],
                     ]);
+                }
+
+                // Update product-level fields when provided in internal update flow
+                $productData = [];
+                if (array_key_exists('product_name', $validated)) {
+                    $productData['product_name'] = $validated['product_name'];
+                }
+                if (array_key_exists('barcode', $validated)) {
+                    $productData['barcode'] = $validated['barcode'];
+                }
+                if (array_key_exists('product_description', $validated)) {
+                    $productData['product_description'] = $validated['product_description'];
+                }
+                if (array_key_exists('product_category_id', $validated)) {
+                    $productData['product_category_id'] = $validated['product_category_id'];
+                }
+                if (array_key_exists('base_uom_id', $validated)) {
+                    $productData['base_uom_id'] = $validated['base_uom_id'];
+                }
+                if (array_key_exists('supplier_id', $validated)) {
+                    $productData['supplier_id'] = $validated['supplier_id'];
+                }
+                if (array_key_exists('warehouse_id', $validated)) {
+                    $productData['warehouse_id'] = $validated['warehouse_id'];
+                }
+                if (array_key_exists('sale_method', $validated)) {
+                    $productData['sale_method'] = $validated['sale_method'];
+                }
+
+                if (!empty($productData)) {
+                    $product->update($productData);
                 }
 
                 $this->stockDeductionService->deductStock(

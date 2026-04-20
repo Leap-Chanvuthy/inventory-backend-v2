@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ProductTypeEnum;
+use App\Enums\SaleMethodEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -17,6 +18,7 @@ class Product extends Model
     protected $auditInclude = [
         'product_name',
         'product_sku_code',
+        'sale_method',
         'barcode',
         'product_description',
         'product_type',
@@ -36,10 +38,12 @@ class Product extends Model
         'base_uom_id',
         'supplier_id',
         'warehouse_id',
+        'sale_method',
     ];
 
     protected $casts = [
         'product_type' => ProductTypeEnum::class,
+        'sale_method' => SaleMethodEnum::class,
     ];
 
 

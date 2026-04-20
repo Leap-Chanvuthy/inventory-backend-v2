@@ -32,6 +32,8 @@ return new class extends Migration
                 ProductStockMovementTypeEnum::EXTERNAL_PURCHASED->value,
                 ProductStockMovementTypeEnum::INTERNAL_PRODUCED->value,
                 ProductStockMovementTypeEnum::RE_ORDER->value,
+                ProductStockMovementTypeEnum::RETURN_FROM_CUSTOMER->value,
+                ProductStockMovementTypeEnum::SALE_ORDER->value,
                 ProductStockMovementTypeEnum::SCRAP->value,
                 ProductStockMovementTypeEnum::ADJUSTMENT_IN->value,
                 ProductStockMovementTypeEnum::ADJUSTMENT_OUT->value,

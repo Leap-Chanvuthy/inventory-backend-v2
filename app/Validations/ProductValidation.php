@@ -49,6 +49,7 @@ class ProductValidation
             'barcode'             => 'nullable|string|max:255',
             'product_description' => 'nullable|string',
             'product_type'        => 'required|string|in:EXTERNAL_PURCHASED,INTERNAL_PRODUCED',
+            'sale_method'         => 'sometimes|required|string|in:FIFO,LIFO',
             'product_category_id' => 'required|exists:product_categories,id',
             'base_uom_id'         => 'required|exists:unit_of_measurements,id',
             // supplier is required only for external purchase flow; caller should set rules accordingly
@@ -129,6 +130,9 @@ class ProductValidation
             'product_status.string'      => 'Product status must be a string.',
             'product_status.in'          => 'Invalid product status. Accepted values are: DRAFT, WORK_IN_PROGRESS, PARTIALLY_COMPLETED, COMPLETED, BLOCKED.',
             'raw_materials.prohibited'   => 'Raw materials are not allowed for the external purchase flow.',
+            'sale_method.required'       => 'Sale method is required.',
+            'sale_method.string'         => 'Sale method must be a string.',
+            'sale_method.in'             => 'Invalid sale method. Accepted values are: FIFO, LIFO.',
         ];
     }
 
@@ -152,6 +156,7 @@ class ProductValidation
             'product_name'        => 'sometimes|string|max:255',
             'barcode'             => 'sometimes|nullable|string|max:255',
             'product_description' => 'sometimes|nullable|string',
+            'sale_method'         => 'required|string|in:FIFO,LIFO',
             'product_category_id' => 'sometimes|nullable|exists:product_categories,id',
             'base_uom_id'         => 'sometimes|nullable|exists:unit_of_measurements,id',
             'supplier_id'         => 'sometimes|nullable|exists:suppliers,id',

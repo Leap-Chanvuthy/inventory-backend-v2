@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\SaleMethodEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -19,6 +20,12 @@ return new class extends Migration
             $table->text('product_description')->nullable();
             $table -> enum('product_type', ['EXTERNAL_PURCHASED', 'INTERNAL_PRODUCED'])
                 ->comment('Defines whether the product is externally purchased or internally produced.');
+
+            $table->enum('sale_method', [
+                SaleMethodEnum::FIFO->value,
+                SaleMethodEnum::LIFO->value,
+            ]) -> default(SaleMethodEnum::FIFO->value)
+                ->comment('Defines the sale method for the product, either FIFO or LIFO. This determines how stock is allocated when fulfilling orders.');
 
             // Relationships
             $table->foreignId('product_category_id')
