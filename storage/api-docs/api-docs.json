@@ -3553,6 +3553,15 @@
                                         "type": "string",
                                         "example": "Sample external purchased product"
                                     },
+                                    "sale_method": {
+                                        "description": "Stock consumption method for this product.",
+                                        "type": "string",
+                                        "enum": [
+                                            "FIFO",
+                                            "LIFO"
+                                        ],
+                                        "example": "LIFO"
+                                    },
                                     "product_category_id": {
                                         "type": "integer",
                                         "example": 1
@@ -3691,6 +3700,15 @@
                                     "product_description": {
                                         "type": "string",
                                         "example": "Sample external purchased product"
+                                    },
+                                    "sale_method": {
+                                        "description": "Optional on update. When provided, updates the product stock consumption method.",
+                                        "type": "string",
+                                        "enum": [
+                                            "FIFO",
+                                            "LIFO"
+                                        ],
+                                        "example": "LIFO"
                                     },
                                     "product_category_id": {
                                         "type": "integer",
@@ -3849,6 +3867,15 @@
                                     "product_description": {
                                         "type": "string",
                                         "example": "Sample internally manufactured product for Postman test"
+                                    },
+                                    "sale_method": {
+                                        "description": "Stock consumption method for this product.",
+                                        "type": "string",
+                                        "enum": [
+                                            "FIFO",
+                                            "LIFO"
+                                        ],
+                                        "example": "LIFO"
                                     },
                                     "product_category_id": {
                                         "type": "integer",
@@ -4021,6 +4048,15 @@
                                     "product_description": {
                                         "type": "string",
                                         "example": "Sample internally manufactured product for Postman test"
+                                    },
+                                    "sale_method": {
+                                        "description": "Optional on update. When provided, updates the product stock consumption method.",
+                                        "type": "string",
+                                        "enum": [
+                                            "FIFO",
+                                            "LIFO"
+                                        ],
+                                        "example": "LIFO"
                                     },
                                     "product_category_id": {
                                         "type": "integer",
