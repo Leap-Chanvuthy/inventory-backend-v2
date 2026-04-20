@@ -20,6 +20,11 @@ class CustomerCategoryAPIController extends Controller
     {
         return $this->customerCategoryService->getAllCustomerCategories($request);
     }
+    
+    public function trashed(Request $request)
+    {
+        return $this->customerCategoryService->getTrashedCustomerCategories($request);
+    }
 
 
     public function show($id)
@@ -42,6 +47,11 @@ class CustomerCategoryAPIController extends Controller
     public function delete($id)
     {
         return $this->customerCategoryService->deleteCustomerCategory($id);
+    }
+    
+    public function restore($id)
+    {
+        return $this->customerCategoryService->restoreCustomerCategory($id);
     }
 
 }

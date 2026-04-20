@@ -211,10 +211,12 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:CUSTOMER'])->group(function 
     // Customer Categories Routes 
     Route::prefix('customer-categories')->group(function () {
         Route::get('/', [CustomerCategoryAPIController::class, 'index']);
+        Route::get('/trashed', [CustomerCategoryAPIController::class, 'trashed']);
         Route::get('/{id}', [CustomerCategoryAPIController::class, 'show']);
         Route::post('/', [CustomerCategoryAPIController::class, 'store']);
         Route::patch('/{id}', [CustomerCategoryAPIController::class, 'update']);
         Route::delete('/{id}', [CustomerCategoryAPIController::class, 'delete'] );
+        Route::patch('/{id}/restore', [CustomerCategoryAPIController::class, 'restore']);
     });
 
     // Customers Routes
@@ -233,10 +235,12 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:CUSTOMER'])->group(function 
         Route::put('/{id}/tags/sync', [CustomerAPIController::class, 'syncTags']);
         Route::delete('/{id}/tags/{tagId}', [CustomerAPIController::class, 'detachTag']);
         Route::get('/', [CustomerAPIController::class, 'index']);
+        Route::get('/trashed', [CustomerAPIController::class, 'trashed']);
         Route::get('/{id}', [CustomerAPIController::class, 'show']);
         Route::post('/', [CustomerAPIController::class, 'store']);
         Route::patch('/{id}', [CustomerAPIController::class, 'update']);
         Route::delete('/{id}' , [CustomerAPIController::class , 'destroy'] );
+        Route::patch('/{id}/restore', [CustomerAPIController::class, 'restore']);
      });
 
 });

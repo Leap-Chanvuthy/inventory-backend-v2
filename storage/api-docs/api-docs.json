@@ -1385,6 +1385,140 @@
                 ]
             }
         },
+        "/api/customers/trashed": {
+            "get": {
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "List trashed customers",
+                "description": "Returns paginated trashed customers. Includes category display fields and category discount context used by frontend customer listing.",
+                "operationId": "CustomersTrashed",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Items per page (1..100)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 10,
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "filter[id]",
+                        "in": "query",
+                        "description": "Exact customer id",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "description": "Search by fullname, code, phone, email, category name",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[customer_status]",
+                        "in": "query",
+                        "description": "Status filter",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "active",
+                                "inactive",
+                                "blacklisted"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "filter[customer_category_id]",
+                        "in": "query",
+                        "description": "Category id filter",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort fields: created_at, updated_at, fullname, email_address, phone_number, customer_status, customer_category_id, customer_categories.category_name, customer_categories.discount_percentage. Prefix '-' for descending.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "-created_at"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Customers retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Customers retrieved successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Customer"
+                                                    }
+                                                },
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 53
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "description": "Error fetching customers"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/customers/{id}": {
             "get": {
                 "tags": [
@@ -1580,6 +1714,44 @@
                     },
                     "500": {
                         "description": "Error updating customer"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/customers/{id}/restore": {
+            "delete": {
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Restore customer",
+                "description": "Restores a soft-deleted customer record.",
+                "operationId": "CustomersRestore",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Customer id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Customer restored successfully"
+                    },
+                    "404": {
+                        "description": "Customer not found"
+                    },
+                    "500": {
+                        "description": "Error restoring customer"
                     }
                 },
                 "security": [
@@ -2569,6 +2741,117 @@
                 ]
             }
         },
+        "/api/customer-categories/trashed": {
+            "get": {
+                "tags": [
+                    "Customer Categories"
+                ],
+                "summary": "List trashed customer categories",
+                "description": "Returns a paginated list of trashed customer categories. Useful for frontend dropdowns and discount setup pages.",
+                "operationId": "CustomerCategoriesTrashed",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Items per page (1..100)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 10,
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "description": "Search by category_name or description",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[id]",
+                        "in": "query",
+                        "description": "Exact match by id",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort fields: id, category_name, discount_percentage, created_at, updated_at. Prefix with '-' for descending.",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Customer categories retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Customer categories retrieved successfully"
+                                        },
+                                        "data": {
+                                            "description": "Laravel paginator payload",
+                                            "properties": {
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/CustomerCategory"
+                                                    }
+                                                },
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 34
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/customer-categories/{id}": {
             "get": {
                 "tags": [
@@ -2773,6 +3056,65 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/customer-categories/{id}/restore": {
+            "patch": {
+                "tags": [
+                    "Customer Categories"
+                ],
+                "summary": "Restore a deleted customer category",
+                "description": "Restores a soft-deleted customer category.",
+                "operationId": "CustomerCategoriesRestore",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Customer category restored successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Customer category restored successfully"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Customer category not found"
                     },
                     "500": {
                         "description": "Server error"

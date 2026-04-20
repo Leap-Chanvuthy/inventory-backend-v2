@@ -75,6 +75,16 @@ class CustomerService {
         }
     }
 
+    public function getTrashedCustomers(Request $request)
+    {
+        try {
+            $customers = $this->customerBuilder->customerBuilder($request , true);
+            return ResponseHelper::success($customers, "Trashed customers retrieved successfully", 200);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Error fetching trashed customers', 500, $e->getMessage());
+        }
+    }
+
     public function getSegmentedCustomers(Request $request)
     {
         try {
@@ -236,6 +246,37 @@ class CustomerService {
             return ResponseHelper::error('Error deleting customer', 500, $e->getMessage());
         }
     }
+
+
+    public function restoreCustomer($id){
+        try {
+            $customer = Customer::onlyTrashed()->findOrFail($id);
+            if (!$customer) {
+                return ResponseHelper::error('Customer not found', 404);
+            }
+            // Snapshot before restore
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($customer->load(['customerCategory']));
+
+            $customer->restore();
+
+            // Snapshot after and log diff
+            $newSnapshot = $this->auditLoggerService->snapshotModel($customer->fresh(['customerCategory']));
+            $this->auditLoggerService->logDiff(
+                'customer.restore',
+                Customer::class,
+                (int) $customer->id,
+                $oldSnapshot,
+                $newSnapshot,
+                null,
+                ['context' => 'customer_service']
+            );
+
+            return ResponseHelper::success($customer, "Customer restored successfully", 200);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Error restoring customer', 500, $e->getMessage());
+        }
+    }
+
 
     public function posSearch(Request $request)
     {

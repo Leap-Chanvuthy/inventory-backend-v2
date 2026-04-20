@@ -198,6 +198,47 @@ interface CustomerAPIControllerInterface
      */
     public function index(Request $request);
 
+
+    /**
+     * @OA\Get(
+     *     path="/api/customers/trashed",
+     *     operationId="CustomersTrashed",
+     *     tags={"Customers"},
+     *     security={{"Bearer":{}}},
+     *     summary="List trashed customers",
+     *     description="Returns paginated trashed customers. Includes category display fields and category discount context used by frontend customer listing.",
+     *
+     *     @OA\Parameter(name="per_page", in="query", required=false, description="Items per page (1..100)", @OA\Schema(type="integer", default=10, minimum=1, maximum=100)),
+     *     @OA\Parameter(name="filter[id]", in="query", required=false, description="Exact customer id", @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="filter[search]", in="query", required=false, description="Search by fullname, code, phone, email, category name", @OA\Schema(type="string")),
+     *     @OA\Parameter(name="filter[customer_status]", in="query", required=false, description="Status filter", @OA\Schema(type="string", enum={"active","inactive","blacklisted"})),
+     *     @OA\Parameter(name="filter[customer_category_id]", in="query", required=false, description="Category id filter", @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="sort", in="query", required=false, description="Sort fields: created_at, updated_at, fullname, email_address, phone_number, customer_status, customer_category_id, customer_categories.category_name, customer_categories.discount_percentage. Prefix '-' for descending.", @OA\Schema(type="string", example="-created_at")),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Customers retrieved successfully",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Customers retrieved successfully"),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="data", type="array", @OA\Items(ref="#/components/schemas/Customer")),
+     *                 @OA\Property(property="current_page", type="integer", example=1),
+     *                 @OA\Property(property="per_page", type="integer", example=10),
+     *                 @OA\Property(property="total", type="integer", example=53)
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=401, description="Unauthenticated"),
+     *     @OA\Response(response=403, description="Forbidden"),
+     *     @OA\Response(response=500, description="Error fetching customers")
+     * )
+     */
+    public function trashed(Request $request);
+
     /**
      * @OA\Get(
      *     path="/api/customers/{id}",
@@ -319,6 +360,24 @@ interface CustomerAPIControllerInterface
      * )
      */
     public function destroy($id);
+
+    /**
+     * @OA\Delete(
+     *     path="/api/customers/{id}/restore",
+     *     operationId="CustomersRestore",
+     *     tags={"Customers"},
+     *     security={{"Bearer":{}}},
+     *     summary="Restore customer",
+     *     description="Restores a soft-deleted customer record.",
+     *
+     *     @OA\Parameter(name="id", in="path", required=true, description="Customer id", @OA\Schema(type="integer", example=1)),
+     *
+     *     @OA\Response(response=200, description="Customer restored successfully"),
+     *     @OA\Response(response=404, description="Customer not found"),
+     *     @OA\Response(response=500, description="Error restoring customer")
+     * )
+     */
+    public function restore($id);
 
     /**
      * @OA\Get(

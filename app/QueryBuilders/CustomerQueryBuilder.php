@@ -32,12 +32,12 @@ class CustomerQueryBuilder {
         return $query->where('customers.customer_category_id', $categoryId);
     }
 
-    public function customerBuilder(Request $request)
+    public function customerBuilder(Request $request , bool $onlyTrashed = false)
     {
         $perPage = (int) $request->query('per_page', 10);
         $perPage = max(1, min($perPage, 100));
 
-        return QueryBuilderHelper::build(
+        $builder = QueryBuilderHelper::build(
             model: Customer::class,
 
             joins: [
@@ -89,23 +89,28 @@ class CustomerQueryBuilder {
             defaultSort: '-created_at',
             withRelations: [  'customerCategory' => fn ($q) => $q->withTrashed(),],
             
-        )
-        ->when($request->filled('tag_ids'), function (Builder $query) use ($request) {
-            $tagIds = array_filter((array) $request->query('tag_ids'), fn ($id) => is_numeric($id));
-            $this->filterByTags($query, array_map('intval', $tagIds));
-        })
-        ->when($request->filled('status'), function (Builder $query) use ($request) {
-            $status = CustomerStatusEnum::tryFrom(strtolower((string) $request->query('status')));
+        );
+        // ->when($request->filled('tag_ids'), function (Builder $query) use ($request) {
+        //     $tagIds = array_filter((array) $request->query('tag_ids'), fn ($id) => is_numeric($id));
+        //     $this->filterByTags($query, array_map('intval', $tagIds));
+        // })
+        // ->when($request->filled('status'), function (Builder $query) use ($request) {
+        //     $status = CustomerStatusEnum::tryFrom(strtolower((string) $request->query('status')));
 
-            if ($status) {
-                $this->filterByStatus($query, $status);
-            }
-        })
-        ->when($request->filled('category_id'), function (Builder $query) use ($request) {
-            $this->filterByCategory($query, (int) $request->query('category_id'));
-        })
-        ->paginate($perPage)
-        ->appends($request->query());
+        //     if ($status) {
+        //         $this->filterByStatus($query, $status);
+        //     }
+        // })
+        // ->when($request->filled('category_id'), function (Builder $query) use ($request) {
+        //     $this->filterByCategory($query, (int) $request->query('category_id'));
+        // })
+
+        if ($onlyTrashed) {
+            $builder = $builder->onlyTrashed();
+        }
+
+        return $builder->paginate($perPage)
+            ->appends($request->query());
     }
 
     public function segmentedBuilder(Request $request)

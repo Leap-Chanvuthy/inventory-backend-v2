@@ -94,6 +94,71 @@ interface CustomerCategoryAPIControllerInterface
      */
     public function index(Request $request);
 
+        /**
+     * @OA\Get(
+     *     path="/api/customer-categories/trashed",
+     *     operationId="CustomerCategoriesTrashed",
+     *     tags={"Customer Categories"},
+     *     security={{"Bearer":{}}},
+     *     summary="List trashed customer categories",
+     *     description="Returns a paginated list of trashed customer categories. Useful for frontend dropdowns and discount setup pages.",
+     *   @OA\Parameter(
+     *     name="per_page",
+     *     in="query",
+     *     description="Items per page (1..100)",
+     *     required=false,
+     *     @OA\Schema(type="integer", default=10, minimum=1, maximum=100)
+     *   ),
+     *   @OA\Parameter(
+     *     name="filter[search]",
+     *     in="query",
+     *     description="Search by category_name or description",
+     *     required=false,
+     *     @OA\Schema(type="string")
+     *   ),
+     *   @OA\Parameter(
+     *     name="filter[id]",
+     *     in="query",
+     *     description="Exact match by id",
+     *     required=false,
+     *     @OA\Schema(type="integer")
+     *   ),
+     *   @OA\Parameter(
+     *     name="sort",
+     *     in="query",
+     *     description="Sort fields: id, category_name, discount_percentage, created_at, updated_at. Prefix with '-' for descending.",
+     *     required=false,
+     *     @OA\Schema(type="string")
+     *   ),
+     *   @OA\Response(
+     *     response=200,
+     *     description="Customer categories retrieved successfully",
+     *     @OA\JsonContent(
+     *       type="object",
+     *       @OA\Property(property="status", type="boolean", example=true),
+     *       @OA\Property(property="message", type="string", example="Customer categories retrieved successfully"),
+     *       @OA\Property(
+     *         property="data",
+     *         type="object",
+     *         description="Laravel paginator payload",
+     *         @OA\Property(
+     *           property="data",
+     *           type="array",
+     *           @OA\Items(ref="#/components/schemas/CustomerCategory")
+     *         ),
+     *         @OA\Property(property="current_page", type="integer", example=1),
+     *         @OA\Property(property="per_page", type="integer", example=10),
+     *         @OA\Property(property="total", type="integer", example=34)
+     *       )
+     *     )
+     *   ),
+     *   @OA\Response(response=401, description="Unauthenticated"),
+     *   @OA\Response(response=403, description="Forbidden"),
+     *   @OA\Response(response=500, description="Server error")
+     * )
+     */
+    public function trashed(Request $request);
+
     /**
      * @OA\Get(
      *   path="/api/customer-categories/{id}",
@@ -234,5 +299,37 @@ interface CustomerCategoryAPIControllerInterface
      * )
      */
     public function delete($id);
+
+
+    /**
+     * @OA\Patch(
+     *   path="/api/customer-categories/{id}/restore",
+     *   operationId="CustomerCategoriesRestore",
+     *   tags={"Customer Categories"},
+     *   summary="Restore a deleted customer category",
+     *   description="Restores a soft-deleted customer category.",
+     *   security={{"Bearer":{}}},
+     *   @OA\Parameter(
+     *     name="id",
+     *     in="path",
+     *     required=true,
+     *     @OA\Schema(type="integer")
+     *   ),
+     *   @OA\Response(
+     *     response=200,
+     *     description="Customer category restored successfully",
+     *     @OA\JsonContent(
+     *       type="object",
+     *       @OA\Property(property="status", type="boolean", example=true),
+     *       @OA\Property(property="message", type="string", example="Customer category restored successfully")
+     *     )
+     *   ),
+     *   @OA\Response(response=401, description="Unauthenticated"),
+     *   @OA\Response(response=403, description="Forbidden"),
+     *   @OA\Response(response=404, description="Customer category not found"),
+     *   @OA\Response(response=500, description="Server error")
+     * )
+     */
+    public function restore($id);
 
 }

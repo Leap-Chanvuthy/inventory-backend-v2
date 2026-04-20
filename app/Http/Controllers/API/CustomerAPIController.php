@@ -23,6 +23,11 @@ class CustomerAPIController extends Controller
     {
         return $this->customerService->getCustomers($request);
     }
+    
+    public function trashed(Request $request)
+    {
+        return $this->customerService->getTrashedCustomers($request);
+    }
 
     public function show ($id){
         return $this -> customerService -> getCustomerById($id);
@@ -40,6 +45,10 @@ class CustomerAPIController extends Controller
 
     public function destroy ($id){
         return $this -> customerService -> deleteCustomer($id);
+    }
+
+    public function restore ($id){
+        return $this -> customerService -> restoreCustomer($id);
     }
 
     public function posSearch(Request $request)
