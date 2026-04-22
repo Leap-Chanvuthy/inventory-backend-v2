@@ -10,6 +10,7 @@ use App\Http\Controllers\API\ProductCategoryAPIController;
 use App\Http\Controllers\API\RawMaterialAPIController;
 use App\Http\Controllers\API\RMStockMovementAPIController;
 use App\Http\Controllers\API\RawMaterialCategoryAPIController;
+use App\Http\Controllers\API\SaleOrderAPIController;
 use App\Http\Controllers\API\SupplierAPIController;
 use App\Http\Controllers\API\TwoFactorAPIController;
 use App\Http\Controllers\API\UOMAPIController;
@@ -241,6 +242,16 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:CUSTOMER'])->group(function 
         Route::patch('/{id}', [CustomerAPIController::class, 'update']);
         Route::delete('/{id}' , [CustomerAPIController::class , 'destroy'] );
         Route::patch('/{id}/restore', [CustomerAPIController::class, 'restore']);
+     });
+
+    Route::prefix('sale-orders')->group(function () {
+        Route::get('/', [SaleOrderAPIController::class, 'index']);
+        Route::get('/{id}', [SaleOrderAPIController::class, 'show']);
+        Route::post('/', [SaleOrderAPIController::class, 'store']);
+        Route::patch('/{id}', [SaleOrderAPIController::class, 'update']);
+        Route::patch('/{id}/status', [SaleOrderAPIController::class, 'updateStatus']);
+        Route::delete('/{id}', [SaleOrderAPIController::class, 'delete']);
+        Route::get('/stock-availability/{productId}', [SaleOrderAPIController::class, 'getStockAvailability']);
      });
 
 });

@@ -7725,6 +7725,571 @@
                 ]
             }
         },
+        "/api/sale-orders": {
+            "get": {
+                "tags": [
+                    "Sale Orders"
+                ],
+                "summary": "Get all sale orders",
+                "description": "Retrieve a paginated list of sale orders.",
+                "operationId": "3c2e95c852f402ce31bb382abab41fd3",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "SO-20260422"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "-created_at"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sale orders retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Success"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed getting sale orders"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Sale Orders"
+                ],
+                "summary": "Create a new sale order",
+                "description": "Creates a new sale order in DRAFT status by default and validates product stock shortfalls.",
+                "operationId": "ef96e3123bce13649131d999408fa7a2",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "order_date",
+                                    "items"
+                                ],
+                                "properties": {
+                                    "customer_id": {
+                                        "type": "integer",
+                                        "example": 5,
+                                        "nullable": true
+                                    },
+                                    "order_date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-04-22 10:30:00"
+                                    },
+                                    "payment_status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "PAID",
+                                            "UNPAID",
+                                            "DEBT"
+                                        ],
+                                        "example": "UNPAID"
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "POS sale",
+                                        "nullable": true
+                                    },
+                                    "tax_percentage": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 0
+                                    },
+                                    "use_customer_category_discount": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "discount_percentage": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 5,
+                                        "nullable": true
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "required": [
+                                                "product_id",
+                                                "quantity"
+                                            ],
+                                            "properties": {
+                                                "product_id": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "quantity": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 2
+                                                },
+                                                "note": {
+                                                    "type": "string",
+                                                    "example": "Urgent",
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Sale order created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Sale order created successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error or insufficient stock",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Insufficient product stock"
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "product_id": {
+                                                        "type": "integer",
+                                                        "example": 10
+                                                    },
+                                                    "product_name": {
+                                                        "type": "string",
+                                                        "example": "Finished Product A"
+                                                    },
+                                                    "product_sku_code": {
+                                                        "type": "string",
+                                                        "example": "PRD-ABC-001"
+                                                    },
+                                                    "required_qty": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 200
+                                                    },
+                                                    "available_qty": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 50
+                                                    },
+                                                    "shortfall_qty": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 150
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed creating sale order"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/sale-orders/{id}": {
+            "get": {
+                "tags": [
+                    "Sale Orders"
+                ],
+                "summary": "Get sale order by ID",
+                "operationId": "0fd87efd554ebc16eac57222a87e4f11",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sale order retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Success"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Sale order not found"
+                    },
+                    "500": {
+                        "description": "Failed getting sale order"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Sale Orders"
+                ],
+                "summary": "Delete sale order",
+                "operationId": "4cbd62a0d60687a53362c2ea3c615f7a",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sale order deleted successfully"
+                    },
+                    "404": {
+                        "description": "Sale order not found"
+                    },
+                    "500": {
+                        "description": "Failed deleting sale order"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Sale Orders"
+                ],
+                "summary": "Update sale order",
+                "description": "Updates sale order details only. Order status is managed by a dedicated status endpoint. Completed sale orders cannot be updated.",
+                "operationId": "69666d554ce82a2e279261017db9ae45",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "customer_id": {
+                                        "type": "integer",
+                                        "example": 5,
+                                        "nullable": true
+                                    },
+                                    "order_date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-04-23 10:30:00"
+                                    },
+                                    "payment_status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "PAID",
+                                            "UNPAID",
+                                            "DEBT"
+                                        ],
+                                        "example": "UNPAID"
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Update sale order",
+                                        "nullable": true
+                                    },
+                                    "tax_percentage": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 0
+                                    },
+                                    "use_customer_category_discount": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "discount_percentage": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 5,
+                                        "nullable": true
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "required": [
+                                                "product_id",
+                                                "quantity"
+                                            ],
+                                            "properties": {
+                                                "product_id": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "quantity": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 3
+                                                },
+                                                "note": {
+                                                    "type": "string",
+                                                    "example": "Update item",
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Sale order updated successfully"
+                    },
+                    "422": {
+                        "description": "Validation error, insufficient stock, or completed order cannot be updated"
+                    },
+                    "404": {
+                        "description": "Sale order not found"
+                    },
+                    "500": {
+                        "description": "Failed updating sale order"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/sale-orders/{id}/status": {
+            "patch": {
+                "tags": [
+                    "Sale Orders"
+                ],
+                "summary": "Update sale order status",
+                "description": "Handles sale order status transition from DRAFT to COMPLETED path (excluding REFUNDED). Stock is deducted when status becomes COMPLETED, FIFO/LIFO is respected, consumed IN movements are flagged with is_sold=true, and payment_status can be updated in the same request.",
+                "operationId": "6f8038d57b12282910127a136bfe8ca2",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "order_status"
+                                ],
+                                "properties": {
+                                    "order_status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "DRAFT",
+                                            "PROCESSING",
+                                            "ON_HOLD",
+                                            "CANCELLED",
+                                            "COMPLETED"
+                                        ],
+                                        "example": "COMPLETED"
+                                    },
+                                    "payment_status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "PAID",
+                                            "UNPAID",
+                                            "DEBT"
+                                        ],
+                                        "example": "UNPAID"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Sale order status updated successfully"
+                    },
+                    "422": {
+                        "description": "Validation error, invalid status transition, or insufficient stock"
+                    },
+                    "404": {
+                        "description": "Sale order not found"
+                    },
+                    "500": {
+                        "description": "Failed updating sale order status"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/sale-orders/stock-availability/{productId}": {
+            "get": {
+                "tags": [
+                    "Sale Orders"
+                ],
+                "summary": "Get product stock availability",
+                "operationId": "e7bcf887f8b73f1a49de9cfa255ca56d",
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Stock availability retrieved successfully"
+                    },
+                    "404": {
+                        "description": "Product not found"
+                    },
+                    "500": {
+                        "description": "Failed getting stock availability"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/suppliers": {
             "get": {
                 "tags": [
@@ -13440,6 +14005,10 @@
         {
             "name": "Raw Material Categories",
             "description": "API Endpoints for managing raw material categories. (Accessible for: ADMIN and STOCK_CONTROLLER Users)"
+        },
+        {
+            "name": "Sale Orders",
+            "description": "API Endpoints for managing sale orders. (Only Accessible for: ADMIN and CUSTOMER Users)"
         },
         {
             "name": "Suppliers",
