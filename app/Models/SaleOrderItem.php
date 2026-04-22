@@ -9,6 +9,20 @@ class SaleOrderItem extends Model
 {
     use HasFactory;
 
+    protected $casts = [
+        'id' => 'integer',
+        'sale_order_id' => 'integer',
+        'product_id' => 'integer',
+        'quantity' => 'float',
+        'refund_quantity' => 'float',
+        'unit_price_in_usd' => 'float',
+        'unit_price_in_riel' => 'float',
+        'total_price_in_usd' => 'float',
+        'total_price_in_riel' => 'float',
+        'exchange_rate_from_usd_to_riel' => 'float',
+        'exchange_rate_from_riel_to_usd' => 'float',
+    ];
+
     protected $fillable = [
         'sale_order_id',
         'product_id',

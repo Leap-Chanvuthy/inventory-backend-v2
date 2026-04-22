@@ -33,6 +33,7 @@ class SaleOrderQueryBuilder
                 AllowedFilter::callback('search', function (Builder $query, $value) {
                     $query->where(function ($q) use ($value) {
                         $q->where('sale_orders.order_no', 'LIKE', "%{$value}%")
+                            -> orWhere('sale_orders.order_status', 'LIKE', "%{$value}%")
                             ->orWhere('customers.fullname', 'LIKE', "%{$value}%")
                             ->orWhere('customers.phone_number', 'LIKE', "%{$value}%");
                     });

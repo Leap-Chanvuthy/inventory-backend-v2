@@ -34,9 +34,22 @@ class SaleOrder extends Model
     ];
 
     protected $casts = [
+        'id' => 'integer',
+        'customer_id' => 'integer',
+        'created_by' => 'integer',
+        'last_updated_by' => 'integer',
         'order_date' => 'datetime',
         'order_status' => SaleOrderStatusEnum::class,
         'payment_status' => PaymentStatusEnum::class,
+        'tax_percentage' => 'float',
+        'tax_amount_in_usd' => 'float',
+        'tax_amount_in_riel' => 'float',
+        'sub_total_in_usd' => 'float',
+        'sub_total_in_riel' => 'float',
+        'grand_total_amount_in_usd' => 'float',
+        'grand_total_amount_in_riel' => 'float',
+        'discount_percentage' => 'float',
+        'discount_amount' => 'float',
     ];
 
 
