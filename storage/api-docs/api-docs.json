@@ -3732,6 +3732,7 @@
                                         "example": "2026-03-20T10:00:00Z"
                                     },
                                     "quantity": {
+                                        "description": "If this movement is already sold, quantity is immutable and must remain unchanged.",
                                         "type": "number",
                                         "format": "float",
                                         "example": 200
@@ -3790,33 +3791,8 @@
                             }
                         }
                     },
-                    "401": {
-                        "description": "Cannot update used stock movement",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "status": {
-                                            "type": "boolean",
-                                            "example": false
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Cannot update used stock movement"
-                                        },
-                                        "errors": {
-                                            "type": "null",
-                                            "example": null,
-                                            "nullable": true
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
                     "422": {
-                        "description": "Validation error",
+                        "description": "Validation error (includes sold-movement quantity immutable case)",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -4081,6 +4057,7 @@
                                         "example": "2026-03-20T10:00:00Z"
                                     },
                                     "quantity": {
+                                        "description": "If this movement is already sold, quantity is immutable and must remain unchanged.",
                                         "type": "number",
                                         "format": "float",
                                         "example": 100
@@ -4146,33 +4123,8 @@
                             }
                         }
                     },
-                    "401": {
-                        "description": "Cannot update used stock movement",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "status": {
-                                            "type": "boolean",
-                                            "example": false
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Cannot update used stock movement"
-                                        },
-                                        "errors": {
-                                            "type": "null",
-                                            "example": null,
-                                            "nullable": true
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
                     "422": {
-                        "description": "Validation error or insufficient stock",
+                        "description": "Validation error, sold-movement quantity immutable, or insufficient stock",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -4254,6 +4206,7 @@
                                         "example": 50
                                     },
                                     "purchase_unit_price_in_usd": {
+                                        "description": "Used directly from request for this reorder movement.",
                                         "type": "number",
                                         "format": "float",
                                         "example": 5.5
@@ -4264,6 +4217,7 @@
                                         "example": 4100
                                     },
                                     "selling_unit_price_in_usd": {
+                                        "description": "Used directly from request for this reorder movement.",
                                         "type": "number",
                                         "format": "float",
                                         "example": 7.5
@@ -4272,10 +4226,6 @@
                                         "type": "number",
                                         "format": "float",
                                         "example": 4100
-                                    },
-                                    "warehouse_id": {
-                                        "type": "integer",
-                                        "example": 1
                                     },
                                     "note": {
                                         "type": "string",
@@ -4588,6 +4538,7 @@
                                         "example": 75
                                     },
                                     "purchase_unit_price_in_usd": {
+                                        "description": "Used directly from request for this reorder movement.",
                                         "type": "number",
                                         "format": "float",
                                         "example": 5.75
@@ -4598,6 +4549,7 @@
                                         "example": 4100
                                     },
                                     "selling_unit_price_in_usd": {
+                                        "description": "Used directly from request for this reorder movement.",
                                         "type": "number",
                                         "format": "float",
                                         "example": 8
@@ -4606,10 +4558,6 @@
                                         "type": "number",
                                         "format": "float",
                                         "example": 4100
-                                    },
-                                    "warehouse_id": {
-                                        "type": "integer",
-                                        "example": 1
                                     },
                                     "note": {
                                         "type": "string",
@@ -4645,33 +4593,8 @@
                             }
                         }
                     },
-                    "401": {
-                        "description": "Cannot update used stock movement",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "status": {
-                                            "type": "boolean",
-                                            "example": false
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Cannot update used stock movement"
-                                        },
-                                        "errors": {
-                                            "type": "null",
-                                            "example": null,
-                                            "nullable": true
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
                     "422": {
-                        "description": "Validation error",
+                        "description": "Validation error (includes sold-movement quantity immutable case)",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -4757,6 +4680,7 @@
                                         "example": 4100
                                     },
                                     "raw_materials": {
+                                        "description": "Optional. Must match original product BOM formula exactly; changing BOM in reorder is not allowed.",
                                         "type": "array",
                                         "items": {
                                             "properties": {
@@ -4808,7 +4732,7 @@
                         }
                     },
                     "422": {
-                        "description": "Validation error or insufficient raw material stock",
+                        "description": "Validation error, immutable BOM violation, or insufficient raw material stock",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -5105,6 +5029,7 @@
                                         "example": "COMPLETED"
                                     },
                                     "quantity": {
+                                        "description": "If this movement is already sold, quantity is immutable and must remain unchanged.",
                                         "type": "number",
                                         "format": "float",
                                         "example": 120
@@ -5118,23 +5043,6 @@
                                         "type": "number",
                                         "format": "float",
                                         "example": 4100
-                                    },
-                                    "raw_materials": {
-                                        "type": "array",
-                                        "items": {
-                                            "properties": {
-                                                "raw_material_id": {
-                                                    "type": "integer",
-                                                    "example": 10
-                                                },
-                                                "quantity": {
-                                                    "type": "number",
-                                                    "format": "float",
-                                                    "example": 3
-                                                }
-                                            },
-                                            "type": "object"
-                                        }
                                     },
                                     "note": {
                                         "type": "string",
@@ -5170,33 +5078,8 @@
                             }
                         }
                     },
-                    "401": {
-                        "description": "Cannot update used stock movement",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "status": {
-                                            "type": "boolean",
-                                            "example": false
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Cannot update used stock movement"
-                                        },
-                                        "errors": {
-                                            "type": "null",
-                                            "example": null,
-                                            "nullable": true
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
                     "422": {
-                        "description": "Validation error or insufficient stock",
+                        "description": "Validation error, sold-movement quantity immutable, immutable BOM violation, or insufficient stock",
                         "content": {
                             "application/json": {
                                 "schema": {

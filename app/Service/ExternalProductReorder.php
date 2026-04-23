@@ -59,6 +59,7 @@ class ExternalProductReorder
 				'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
 				'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
 			]);
+			$request->request->remove('warehouse_id');
 
 			$request->merge([
 				'purchase_total_price_in_usd' => null,
@@ -77,17 +78,17 @@ class ExternalProductReorder
 				->orderBy('movement_date', 'desc')
 				->first();
 
-			if ($lastMovement) {
-				$request->merge([
-					'selling_unit_price_in_usd' => $lastMovement->selling_unit_price_in_usd ?? 0,
-					'selling_exchange_rate_from_usd_to_riel' => $lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0,
-				]);
-			} else {
-				$request->merge([
-					'selling_unit_price_in_usd' => $request->input('selling_unit_price_in_usd', 0),
-					'selling_exchange_rate_from_usd_to_riel' => $request->input('selling_exchange_rate_from_usd_to_riel', 0),
-				]);
-			}
+			$request->merge([
+				// Keep incoming financial values from request; fallback only when missing.
+				'selling_unit_price_in_usd' => $request->input(
+					'selling_unit_price_in_usd',
+					$lastMovement->selling_unit_price_in_usd ?? 0
+				),
+				'selling_exchange_rate_from_usd_to_riel' => $request->input(
+					'selling_exchange_rate_from_usd_to_riel',
+					$lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0
+				),
+			]);
 
 			CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
 
@@ -170,6 +171,7 @@ class ExternalProductReorder
 				'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
 				'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
 			]);
+			$request->request->remove('warehouse_id');
 
 			$request->merge([
 				'purchase_total_price_in_usd' => null,
@@ -184,24 +186,36 @@ class ExternalProductReorder
 			]);
 
 			if ($movement->is_sold === true) {
-				return ResponseHelper::error('Cannot update used stock movement', 401, 'The reordered product has been sold. Data cannot be updated to avoid data inconsistency.');
+				$incomingQty = $request->input('quantity');
+				$currentQty = (float) $movement->quantity;
+
+				if ($incomingQty !== null && $incomingQty !== '' && (float) $incomingQty !== $currentQty) {
+					return ResponseHelper::error(
+						'Cannot update sold movement quantity',
+						422,
+						'The reordered product has been sold. Quantity cannot be updated to avoid data inconsistency.'
+					);
+				}
+
+				// Allow updating other fields, but force quantity to current sold quantity.
+				$request->merge(['quantity' => $currentQty]);
 			}
 
 			$lastMovement = ProductMovement::where('product_id', $product->id)
 				->orderBy('movement_date', 'desc')
 				->first();
 
-			if ($lastMovement) {
-				$request->merge([
-					'selling_unit_price_in_usd' => $lastMovement->selling_unit_price_in_usd ?? 0,
-					'selling_exchange_rate_from_usd_to_riel' => $lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0,
-				]);
-			} else {
-				$request->merge([
-					'selling_unit_price_in_usd' => $request->input('selling_unit_price_in_usd', 0),
-					'selling_exchange_rate_from_usd_to_riel' => $request->input('selling_exchange_rate_from_usd_to_riel', 0),
-				]);
-			}
+			$request->merge([
+				// Keep incoming financial values from request; fallback only when missing.
+				'selling_unit_price_in_usd' => $request->input(
+					'selling_unit_price_in_usd',
+					$lastMovement->selling_unit_price_in_usd ?? 0
+				),
+				'selling_exchange_rate_from_usd_to_riel' => $request->input(
+					'selling_exchange_rate_from_usd_to_riel',
+					$lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0
+				),
+			]);
 
 			CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
 

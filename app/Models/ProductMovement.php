@@ -18,6 +18,7 @@ class ProductMovement extends Model
         'movement_type'                        => ProductStockMovementTypeEnum::class,
         'is_sold'                              => 'boolean',
         'movement_date'                        => 'datetime',
+        'quantity'                            => 'float',
 
         // purchasing price
         'purchase_unit_price_in_usd'           => 'float',

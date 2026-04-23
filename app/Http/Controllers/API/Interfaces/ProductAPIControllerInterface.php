@@ -184,7 +184,7 @@ interface ProductAPIControllerInterface
      *             @OA\Property(property="supplier_id", type="integer", example=2),
      *             @OA\Property(property="warehouse_id", type="integer", example=1),
      *             @OA\Property(property="movement_date", type="string", format="date-time", example="2026-03-20T10:00:00Z"),
-     *             @OA\Property(property="quantity", type="number", format="float", example=200),
+     *             @OA\Property(property="quantity", type="number", format="float", example=200, description="If this movement is already sold, quantity is immutable and must remain unchanged."),
      *             @OA\Property(property="purchase_unit_price_in_usd", type="number", format="float", example=5.25),
      *             @OA\Property(property="exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
      *             @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=7.0),
@@ -201,16 +201,7 @@ interface ProductAPIControllerInterface
      *             @OA\Property(property="data", type="object")
      *         )
      *     ),
-     *     @OA\Response(
-     *         response=401,
-     *         description="Cannot update used stock movement",
-     *         @OA\JsonContent(type="object",
-     *             @OA\Property(property="status", type="boolean", example=false),
-     *             @OA\Property(property="message", type="string", example="Cannot update used stock movement"),
-     *             @OA\Property(property="errors", type="null", nullable=true, example=null)
-     *         )
-     *     ),
-     *     @OA\Response(response=422, description="Validation error", @OA\JsonContent(ref="#/components/schemas/ValidationError")),
+     *     @OA\Response(response=422, description="Validation error (includes sold-movement quantity immutable case)", @OA\JsonContent(ref="#/components/schemas/ValidationError")),
      *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(ref="#/components/schemas/ApiError"))
      * )
      */
@@ -288,7 +279,7 @@ interface ProductAPIControllerInterface
      *             @OA\Property(property="supplier_id", type="integer", example=1, nullable=true),
      *             @OA\Property(property="warehouse_id", type="integer", example=1),
      *             @OA\Property(property="movement_date", type="string", format="date-time", example="2026-03-20T10:00:00Z"),
-     *             @OA\Property(property="quantity", type="number", format="float", example=100),
+     *             @OA\Property(property="quantity", type="number", format="float", example=100, description="If this movement is already sold, quantity is immutable and must remain unchanged."),
      *             @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=10),
      *             @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
      *             @OA\Property(property="raw_materials", type="array",
@@ -310,17 +301,8 @@ interface ProductAPIControllerInterface
      *         )
      *     ),
      *     @OA\Response(
-     *         response=401,
-     *         description="Cannot update used stock movement",
-     *         @OA\JsonContent(type="object",
-     *             @OA\Property(property="status", type="boolean", example=false),
-     *             @OA\Property(property="message", type="string", example="Cannot update used stock movement"),
-     *             @OA\Property(property="errors", type="null", nullable=true, example=null)
-     *         )
-     *     ),
-     *     @OA\Response(
      *         response=422,
-     *         description="Validation error or insufficient stock",
+     *         description="Validation error, sold-movement quantity immutable, or insufficient stock",
      *         @OA\JsonContent(type="object",
      *             @OA\Property(property="status", type="boolean", example=false),
      *             @OA\Property(property="message", type="string", example="Insufficient raw material stock"),
@@ -344,11 +326,10 @@ interface ProductAPIControllerInterface
         *         @OA\JsonContent(type="object",
         *             @OA\Property(property="movement_date", type="string", format="date-time", example="2026-03-20T10:00:00Z"),
         *             @OA\Property(property="quantity", type="number", format="float", example=50),
-        *             @OA\Property(property="purchase_unit_price_in_usd", type="number", format="float", example=5.5),
+        *             @OA\Property(property="purchase_unit_price_in_usd", type="number", format="float", example=5.5, description="Used directly from request for this reorder movement."),
         *             @OA\Property(property="exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
-        *             @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=7.5),
+        *             @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=7.5, description="Used directly from request for this reorder movement."),
         *             @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
-        *             @OA\Property(property="warehouse_id", type="integer", example=1),
         *             @OA\Property(property="note", type="string", example="Reorder purchase for restock")
         *         )
         *     ),
@@ -380,11 +361,10 @@ interface ProductAPIControllerInterface
         *         @OA\JsonContent(type="object",
         *             @OA\Property(property="movement_date", type="string", format="date-time", example="2026-03-20T10:00:00Z"),
         *             @OA\Property(property="quantity", type="number", format="float", example=75),
-        *             @OA\Property(property="purchase_unit_price_in_usd", type="number", format="float", example=5.75),
+        *             @OA\Property(property="purchase_unit_price_in_usd", type="number", format="float", example=5.75, description="Used directly from request for this reorder movement."),
         *             @OA\Property(property="exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
-        *             @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=8.0),
+        *             @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=8.0, description="Used directly from request for this reorder movement."),
         *             @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
-        *             @OA\Property(property="warehouse_id", type="integer", example=1),
         *             @OA\Property(property="note", type="string", example="Update reorder movement")
         *         )
         *     ),
@@ -397,16 +377,7 @@ interface ProductAPIControllerInterface
         *             @OA\Property(property="data", type="object")
         *         )
         *     ),
-        *     @OA\Response(
-        *         response=401,
-        *         description="Cannot update used stock movement",
-        *         @OA\JsonContent(type="object",
-        *             @OA\Property(property="status", type="boolean", example=false),
-        *             @OA\Property(property="message", type="string", example="Cannot update used stock movement"),
-        *             @OA\Property(property="errors", type="null", nullable=true, example=null)
-        *         )
-        *     ),
-        *     @OA\Response(response=422, description="Validation error", @OA\JsonContent(ref="#/components/schemas/ValidationError")),
+        *     @OA\Response(response=422, description="Validation error (includes sold-movement quantity immutable case)", @OA\JsonContent(ref="#/components/schemas/ValidationError")),
         *     @OA\Response(response=404, description="Movement not found", @OA\JsonContent(ref="#/components/schemas/ApiError")),
         *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(ref="#/components/schemas/ApiError"))
         * )
@@ -507,7 +478,7 @@ interface ProductAPIControllerInterface
     *             @OA\Property(property="quantity", type="number", format="float", example=100),
     *             @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=10),
     *             @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
-    *             @OA\Property(property="raw_materials", type="array",
+    *             @OA\Property(property="raw_materials", type="array", description="Optional. Must match original product BOM formula exactly; changing BOM in reorder is not allowed.",
     *                 @OA\Items(type="object",
     *                     @OA\Property(property="raw_material_id", type="integer", example=10),
     *                     @OA\Property(property="quantity", type="number", format="float", example=2)
@@ -527,7 +498,7 @@ interface ProductAPIControllerInterface
     *     ),
     *     @OA\Response(
     *         response=422,
-    *         description="Validation error or insufficient raw material stock",
+    *         description="Validation error, immutable BOM violation, or insufficient raw material stock",
     *         @OA\JsonContent(type="object",
     *             @OA\Property(property="status", type="boolean", example=false),
     *             @OA\Property(property="message", type="string", example="Insufficient raw material stock"),
@@ -552,15 +523,9 @@ interface ProductAPIControllerInterface
     *         @OA\JsonContent(type="object",
     *             @OA\Property(property="movement_date", type="string", format="date-time", example="2026-03-20T10:00:00Z"),
     *             @OA\Property(property="product_status", type="string", format="text", example="COMPLETED"),
-    *             @OA\Property(property="quantity", type="number", format="float", example=120),
+    *             @OA\Property(property="quantity", type="number", format="float", example=120, description="If this movement is already sold, quantity is immutable and must remain unchanged."),
     *             @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=11),
     *             @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
-    *             @OA\Property(property="raw_materials", type="array",
-    *                 @OA\Items(type="object",
-    *                     @OA\Property(property="raw_material_id", type="integer", example=10),
-    *                     @OA\Property(property="quantity", type="number", format="float", example=3)
-    *                 )
-    *             ),
     *             @OA\Property(property="note", type="string", example="Update reorder (internal)")
     *         )
     *     ),
@@ -574,17 +539,8 @@ interface ProductAPIControllerInterface
     *         )
     *     ),
     *     @OA\Response(
-    *         response=401,
-    *         description="Cannot update used stock movement",
-    *         @OA\JsonContent(type="object",
-    *             @OA\Property(property="status", type="boolean", example=false),
-    *             @OA\Property(property="message", type="string", example="Cannot update used stock movement"),
-    *             @OA\Property(property="errors", type="null", nullable=true, example=null)
-    *         )
-    *     ),
-    *     @OA\Response(
     *         response=422,
-    *         description="Validation error or insufficient stock",
+    *         description="Validation error, sold-movement quantity immutable, immutable BOM violation, or insufficient stock",
     *         @OA\JsonContent(type="object",
     *             @OA\Property(property="status", type="boolean", example=false),
     *             @OA\Property(property="message", type="string", example="Insufficient raw material stock"),

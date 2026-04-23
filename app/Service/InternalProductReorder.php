@@ -42,12 +42,24 @@ class InternalProductReorder
 		try {
 			$product = Product::findOrFail($productId);
 
-			$requestBomItems = $request->input('raw_materials', []);
-			if (empty($requestBomItems)) {
-				$request->merge([
-					'raw_materials' => $this->getDefaultBomFromProduct($product),
-				]);
+			// BOM is immutable for reorder flow: always use product formula.
+			$defaultBom = $this->getDefaultBomFromProduct($product);
+			if (empty($defaultBom)) {
+				return ResponseHelper::error(
+					'Product BOM not found',
+					422,
+					'This product has no BOM formula to run internal production reorder.'
+				);
 			}
+			$incomingBom = $request->input('raw_materials');
+			if (is_array($incomingBom) && !empty($incomingBom) && $this->isDifferentBom($incomingBom, $defaultBom)) {
+				return ResponseHelper::error(
+					'BOM cannot be changed in reorder',
+					422,
+					'Reorder must use the original product BOM formula.'
+				);
+			}
+			$request->merge(['raw_materials' => $defaultBom]);
 
 			$rules = $this->productValidation->createInternalManufacturingMovementRules();
 			$validator = Validator::make($request->all(), $rules);
@@ -93,22 +105,23 @@ class InternalProductReorder
 				->orderBy('movement_date', 'desc')
 				->first();
 
-			if ($lastMovement) {
-				$request->merge([
-					'selling_unit_price_in_usd' => $lastMovement->selling_unit_price_in_usd ?? 0,
-					'selling_exchange_rate_from_usd_to_riel' => $lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0,
-				]);
-			} else {
-				$request->merge([
-					'selling_unit_price_in_usd' => $request->input('selling_unit_price_in_usd', 0),
-					'selling_exchange_rate_from_usd_to_riel' => $request->input('selling_exchange_rate_from_usd_to_riel', 0),
-				]);
-			}
+			$request->merge([
+				// Keep incoming financial values from request; fallback only when missing.
+				'selling_unit_price_in_usd' => $request->input(
+					'selling_unit_price_in_usd',
+					$lastMovement->selling_unit_price_in_usd ?? 0
+				),
+				'selling_exchange_rate_from_usd_to_riel' => $request->input(
+					'selling_exchange_rate_from_usd_to_riel',
+					$lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0
+				),
+			]);
 
 			CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
 
 			$bomItems = $request->input('raw_materials', []);
-			$shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems);
+			$movementDate = $request->input('movement_date', now()->toDateTimeString());
+			$shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems, $movementDate);
 			if (!empty($shortfalls)) {
 				return ResponseHelper::error('Insufficient raw material stock', 422, $shortfalls);
 			}
@@ -222,19 +235,31 @@ class InternalProductReorder
 				return ResponseHelper::error('Cannot update finalized reorder', 401, 'The reorder has been finalized and can no longer be updated.');
 			}
 
-			$requestBomItems = $request->input('raw_materials', []);
-			if (empty($requestBomItems)) {
-				$request->merge([
-					'raw_materials' => $productReorder->bomItems()
-						->get(['raw_material_id', 'quantity'])
-						->map(fn($item) => [
-							'raw_material_id' => (int) $item->raw_material_id,
-							'quantity' => (float) $item->quantity,
-						])
-						->values()
-						->all(),
-				]);
+			// BOM is immutable for reorder flow: always use stored reorder snapshot.
+			$lockedBom = $productReorder->bomItems()
+				->get(['raw_material_id', 'quantity'])
+				->map(fn($item) => [
+					'raw_material_id' => (int) $item->raw_material_id,
+					'quantity' => (float) $item->quantity,
+				])
+				->values()
+				->all();
+			if (empty($lockedBom)) {
+				return ResponseHelper::error(
+					'Reorder BOM not found',
+					422,
+					'This reorder has no BOM snapshot and cannot be updated.'
+				);
 			}
+			$incomingBom = $request->input('raw_materials');
+			if (is_array($incomingBom) && !empty($incomingBom) && $this->isDifferentBom($incomingBom, $lockedBom)) {
+				return ResponseHelper::error(
+					'BOM cannot be changed in reorder',
+					422,
+					'Reorder must keep the original BOM formula.'
+				);
+			}
+			$request->merge(['raw_materials' => $lockedBom]);
 
 			$rules = $this->productValidation->createInternalManufacturingMovementRules();
 			$validator = Validator::make($request->all(), $rules);
@@ -276,24 +301,36 @@ class InternalProductReorder
 			]);
 
 			if ($movement->is_sold === true) {
-				return ResponseHelper::error('Cannot update used stock movement', 401, 'The reordered product has been sold. Data cannot be updated to avoid data inconsistency.');
+				$incomingQty = $request->input('quantity');
+				$currentQty = (float) $movement->quantity;
+
+				if ($incomingQty !== null && $incomingQty !== '' && (float) $incomingQty !== $currentQty) {
+					return ResponseHelper::error(
+						'Cannot update sold movement quantity',
+						422,
+						'The reordered product has been sold. Quantity cannot be updated to avoid data inconsistency.'
+					);
+				}
+
+				// Allow updating other fields, but force quantity to current sold quantity.
+				$request->merge(['quantity' => $currentQty]);
 			}
 
 			$lastMovement = ProductMovement::where('product_id', $product->id)
 				->orderBy('movement_date', 'desc')
 				->first();
 
-			if ($lastMovement) {
-				$request->merge([
-					'selling_unit_price_in_usd' => $lastMovement->selling_unit_price_in_usd ?? 0,
-					'selling_exchange_rate_from_usd_to_riel' => $lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0,
-				]);
-			} else {
-				$request->merge([
-					'selling_unit_price_in_usd' => $request->input('selling_unit_price_in_usd', 0),
-					'selling_exchange_rate_from_usd_to_riel' => $request->input('selling_exchange_rate_from_usd_to_riel', 0),
-				]);
-			}
+			$request->merge([
+				// Keep incoming financial values from request; fallback only when missing.
+				'selling_unit_price_in_usd' => $request->input(
+					'selling_unit_price_in_usd',
+					$lastMovement->selling_unit_price_in_usd ?? 0
+				),
+				'selling_exchange_rate_from_usd_to_riel' => $request->input(
+					'selling_exchange_rate_from_usd_to_riel',
+					$lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0
+				),
+			]);
 
 			CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
 
@@ -329,7 +366,10 @@ class InternalProductReorder
 				$rebuildIds = array_values(array_unique(array_merge($deletedRawMaterialIds, $existingBomRawMaterialIds)));
 				$this->stockDeductionService->rebuildInUsedFlags($rebuildIds);
 
-				$shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems);
+				$shortfalls = $this->stockDeductionService->validateSufficientStock(
+					$bomItems,
+					$validated['movement_date'] ?? null
+				);
 				if (!empty($shortfalls)) {
 					DB::rollBack();
 					return ResponseHelper::error('Insufficient raw material stock', 422, $shortfalls);
@@ -528,5 +568,23 @@ class InternalProductReorder
 	private function buildReorderReferenceToken(int $movementId): string
 	{
 		return "REORDER_MOVEMENT_ID:{$movementId}";
+	}
+
+	private function isDifferentBom(array $incomingBom, array $expectedBom): bool
+	{
+		$normalize = function (array $items): array {
+			return collect($items)
+				->map(function ($item) {
+					return [
+						'raw_material_id' => (int) ($item['raw_material_id'] ?? 0),
+						'quantity' => round((float) ($item['quantity'] ?? 0), 4),
+					];
+				})
+				->sortBy('raw_material_id')
+				->values()
+				->all();
+		};
+
+		return $normalize($incomingBom) !== $normalize($expectedBom);
 	}
 }

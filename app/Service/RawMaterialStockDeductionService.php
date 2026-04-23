@@ -19,7 +19,7 @@ class RawMaterialStockDeductionService
     // Returns an array of shortfall details; empty array = all stock OK.
     // ─────────────────────────────────────────────────────────────────────────
 
-    public function validateSufficientStock(array $bomItems): array
+    public function validateSufficientStock(array $bomItems, ?string $asOfMovementDate = null): array
     {
         $shortfalls = [];
 
@@ -29,7 +29,7 @@ class RawMaterialStockDeductionService
 
             $rawMaterial = RawMaterial::findOrFail($rawMaterialId);
 
-            $availableQty = $this->getAvailableStock($rawMaterialId, $rawMaterial->production_method);
+            $availableQty = $this->getAvailableStock($rawMaterialId, $asOfMovementDate);
 
             if ($availableQty < $requiredQty) {
                 $shortfalls[] = [
@@ -48,8 +48,8 @@ class RawMaterialStockDeductionService
 
     // ─────────────────────────────────────────────────────────────────────────
     // Public: deduct stock for all BOM items (must run inside a DB transaction).
-    // Creates PRODUCTION_RECEIPT OUT movements and marks fully consumed
-    // IN batches with in_used = true.
+    // Creates PRODUCTION_RECEIPT OUT movements and marks consumed IN batches
+    // with in_used = true (including partially consumed batches).
     // ─────────────────────────────────────────────────────────────────────────
 
     public function deductStock(
@@ -65,14 +65,18 @@ class RawMaterialStockDeductionService
 
             $rawMaterial = RawMaterial::findOrFail($rawMaterialId);
 
-            $inMovements = $this->getOrderedInMovements($rawMaterialId, $rawMaterial->production_method);
+            $inMovements = $this->getOrderedInMovements($rawMaterialId, $rawMaterial->production_method, $movementDate);
 
-            foreach ($inMovements as $inMovement) {
+            foreach ($inMovements as $batch) {
                 if ($remaining <= 0) {
                     break;
                 }
 
-                $batchAvailable = (float) $inMovement->quantity;
+                $inMovement = $batch['movement'];
+                $batchAvailable = (float) $batch['available_quantity'];
+                if ($batchAvailable <= 0) {
+                    continue;
+                }
                 $consume        = min($batchAvailable, $remaining);
 
                 // Create PRODUCTION_RECEIPT OUT record for the consumed portion
@@ -94,8 +98,8 @@ class RawMaterialStockDeductionService
                     'note'                         => $this->buildConsumptionNote($productId, $referenceToken),
                 ]);
 
-                // Mark batch as fully consumed when the entire qty is used
-                if ($consume >= $batchAvailable) {
+                // Mark batch as used when any quantity is consumed.
+                if ($consume > 0) {
                     $inMovement->update(['in_used' => true]);
                 }
 
@@ -135,13 +139,14 @@ class RawMaterialStockDeductionService
                 continue;
             }
 
-            // Reset all IN rows first, then mark fully consumed rows again.
+            // Reset all IN rows first, then mark used rows again.
             RMStockMovement::where('raw_material_id', $rawMaterialId)
                 ->where('direction', StockDirectionEnum::IN->value)
                 ->update(['in_used' => false]);
 
             $remainingOut = (float) RMStockMovement::where('raw_material_id', $rawMaterialId)
                 ->where('direction', StockDirectionEnum::OUT->value)
+                ->where('movement_type', RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value)
                 ->sum('quantity');
 
             if ($remainingOut <= 0) {
@@ -155,7 +160,7 @@ class RawMaterialStockDeductionService
             $inRows = RMStockMovement::where('raw_material_id', $rawMaterialId)
                 ->where('direction', StockDirectionEnum::IN->value)
                 ->orderBy('movement_date', $order)
-                ->orderBy('id', 'asc')
+                ->orderBy('id', $order)
                 ->get(['id', 'quantity']);
 
             foreach ($inRows as $inRow) {
@@ -164,14 +169,11 @@ class RawMaterialStockDeductionService
                 }
 
                 $inQty = (float) $inRow->quantity;
-                if ($remainingOut >= $inQty) {
+                $consume = min($inQty, $remainingOut);
+                if ($consume > 0) {
                     RMStockMovement::where('id', $inRow->id)->update(['in_used' => true]);
-                    $remainingOut -= $inQty;
-                    continue;
+                    $remainingOut -= $consume;
                 }
-
-                // Partially consumed batch stays in_used=false for current stock algorithm.
-                break;
             }
         }
     }
@@ -183,40 +185,63 @@ class RawMaterialStockDeductionService
     /**
      * Sum available (not fully consumed) IN stock for a raw material.
      */
-    private function getAvailableStock(int $rawMaterialId, mixed $productionMethod): float
+    private function getAvailableStock(int $rawMaterialId, ?string $asOfMovementDate = null): float
     {
-        // Compute net available stock as total IN minus total OUT. Using the
-        // net balances ensures partial consumption of IN batches is handled
-        // correctly when updating/rebuilding movements.
-        $totalIn = RMStockMovement::where('raw_material_id', $rawMaterialId)
-            ->where('direction', StockDirectionEnum::IN->value)
-            ->sum('quantity');
+        // Compute net available stock as total IN minus total OUT. When an
+        // as-of date is supplied, only movements on/before that moment are
+        // considered to avoid consuming future stock.
+        $totalInQuery = RMStockMovement::where('raw_material_id', $rawMaterialId)
+            ->where('direction', StockDirectionEnum::IN->value);
+        $this->applyAsOfMovementDateFilter($totalInQuery, $asOfMovementDate);
+        $totalIn = $totalInQuery->sum('quantity');
 
-        $totalOut = RMStockMovement::where('raw_material_id', $rawMaterialId)
-            ->where('direction', StockDirectionEnum::OUT->value)
-            ->sum('quantity');
+        $totalOutQuery = RMStockMovement::where('raw_material_id', $rawMaterialId)
+            ->where('direction', StockDirectionEnum::OUT->value);
+        $this->applyAsOfMovementDateFilter($totalOutQuery, $asOfMovementDate);
+        $totalOut = $totalOutQuery->sum('quantity');
 
         return max(0, (float) $totalIn - (float) $totalOut);
     }
 
     /**
      * Return IN movements ordered by FIFO (oldest first) or LIFO (newest first),
-     * only considering batches not yet fully consumed.
+     * with reconstructed remaining quantity per batch based on current OUT totals.
      */
-    private function getOrderedInMovements(int $rawMaterialId, mixed $productionMethod)
+    private function getOrderedInMovements(int $rawMaterialId, mixed $productionMethod, ?string $asOfMovementDate = null)
     {
         $methodValue = is_object($productionMethod) ? $productionMethod->value : (string) $productionMethod;
 
         $order = strtoupper($methodValue) === 'LIFO' ? 'desc' : 'asc';
 
-        return RMStockMovement::where('raw_material_id', $rawMaterialId)
+        $inMovementsQuery = RMStockMovement::where('raw_material_id', $rawMaterialId)
             ->where('direction', StockDirectionEnum::IN->value)
-            ->where(function ($query) {
-                $query->where('in_used', false)
-                    ->orWhereNull('in_used');
-            })
             ->orderBy('movement_date', $order)
-            ->get();
+            ->orderBy('id', $order);
+        $this->applyAsOfMovementDateFilter($inMovementsQuery, $asOfMovementDate);
+        $inMovements = $inMovementsQuery->get();
+
+        $remainingOutQuery = RMStockMovement::where('raw_material_id', $rawMaterialId)
+            ->where('direction', StockDirectionEnum::OUT->value)
+            ->where('movement_type', RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value);
+        $this->applyAsOfMovementDateFilter($remainingOutQuery, $asOfMovementDate);
+        $remainingOut = (float) $remainingOutQuery->sum('quantity');
+
+        $batches = [];
+        foreach ($inMovements as $inMovement) {
+            $inQty = (float) $inMovement->quantity;
+            $consumed = min($inQty, $remainingOut);
+            $available = $inQty - $consumed;
+            $remainingOut -= $consumed;
+
+            if ($available > 0) {
+                $batches[] = [
+                    'movement' => $inMovement,
+                    'available_quantity' => $available,
+                ];
+            }
+        }
+
+        return collect($batches);
     }
 
     private function buildConsumptionNote(int $productId, ?string $referenceToken = null): string
@@ -228,5 +253,17 @@ class RawMaterialStockDeductionService
         }
 
         return $note;
+    }
+
+    private function applyAsOfMovementDateFilter($query, ?string $asOfMovementDate): void
+    {
+        if (empty($asOfMovementDate)) {
+            return;
+        }
+
+        $query->where(function ($q) use ($asOfMovementDate) {
+            $q->whereNull('movement_date')
+                ->orWhere('movement_date', '<=', $asOfMovementDate);
+        });
     }
 }

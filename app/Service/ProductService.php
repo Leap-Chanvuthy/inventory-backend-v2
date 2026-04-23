@@ -264,9 +264,20 @@ class ProductService
                 'last_updated_by' => $this->getCurrentUserHelper->getUserId(),
             ]);
 
-            // Block updates for movements that have been used/sold
+            // If movement is sold, quantity becomes immutable. Other fields remain updatable.
             if ($movement->is_sold === true) {
-                return ResponseHelper::error('Cannot update used stock movement', 401, 'The product movement has been sold. Data cannot be updated to avoid data inconsistency.');
+                $incomingQty = $request->input('quantity');
+                $currentQty = (float) $movement->quantity;
+
+                if ($incomingQty !== null && $incomingQty !== '' && (float) $incomingQty !== $currentQty) {
+                    return ResponseHelper::error(
+                        'Cannot update sold movement quantity',
+                        422,
+                        'The first product movement has been sold. Quantity data cannot be updated to avoid data inconsistency.'
+                    );
+                }
+
+                $request->merge(['quantity' => $currentQty]);
             }
 
             // Ensure selling-side fields exist (derive from last movement if present)
@@ -274,17 +285,17 @@ class ProductService
                 ->orderBy('movement_date', 'desc')
                 ->first();
 
-            if ($lastMovement) {
-                $request->merge([
-                    'selling_unit_price_in_usd' => $lastMovement->selling_unit_price_in_usd ?? 0,
-                    'selling_exchange_rate_from_usd_to_riel' => $lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0,
-                ]);
-            } else {
-                $request->merge([
-                    'selling_unit_price_in_usd' => $request->input('selling_unit_price_in_usd', 0),
-                    'selling_exchange_rate_from_usd_to_riel' => $request->input('selling_exchange_rate_from_usd_to_riel', 0),
-                ]);
-            }
+            $request->merge([
+                // Keep incoming financial values from request; fallback only when missing.
+                'selling_unit_price_in_usd' => $request->input(
+                    'selling_unit_price_in_usd',
+                    $lastMovement->selling_unit_price_in_usd ?? 0
+                ),
+                'selling_exchange_rate_from_usd_to_riel' => $request->input(
+                    'selling_exchange_rate_from_usd_to_riel',
+                    $lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0
+                ),
+            ]);
 
             CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
 
@@ -469,8 +480,9 @@ class ProductService
             }
 
             // Check raw material availability (FIFO/LIFO) before opening the transaction
-            $bomItems   = $request->input('raw_materials', []);
-            $shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems);
+            $bomItems = $request->input('raw_materials', []);
+            $movementDate = $request->input('movement_date', now()->toDateTimeString());
+            $shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems, $movementDate);
 
             if (!empty($shortfalls)) {
                 return ResponseHelper::error(
@@ -564,18 +576,20 @@ class ProductService
                 ->orderBy('movement_date', 'asc')
                 ->firstOrFail();
 
+            $currentBom = ProductRawMaterial::where('product_id', $product->id)
+                ->get(['raw_material_id', 'quantity'])
+                ->map(fn ($item) => [
+                    'raw_material_id' => (int) $item->raw_material_id,
+                    'quantity' => (float) $item->quantity,
+                ])
+                ->values()
+                ->all();
+
             // Default update payload to existing product BOM if BOM omitted
             $requestBomItems = $request->input('raw_materials', []);
             if (empty($requestBomItems)) {
                 $request->merge([
-                    'raw_materials' => ProductRawMaterial::where('product_id', $product->id)
-                        ->get(['raw_material_id', 'quantity'])
-                        ->map(fn ($item) => [
-                            'raw_material_id' => (int) $item->raw_material_id,
-                            'quantity' => (float) $item->quantity,
-                        ])
-                        ->values()
-                        ->all(),
+                    'raw_materials' => $currentBom,
                 ]);
             }
 
@@ -623,9 +637,32 @@ class ProductService
                 'last_updated_by' => $this->getCurrentUserHelper->getUserId(),
             ]);
 
-            // Block updates for movements that have been used/sold
+            // If movement is sold, quantity becomes immutable. Other fields remain updatable.
             if ($movement->is_sold === true) {
-                return ResponseHelper::error('Cannot update used stock movement', 401, 'The product movement has been sold. Data cannot be updated to avoid data inconsistency.');
+                $incomingQty = $request->input('quantity');
+                $currentQty = (float) $movement->quantity;
+                $incomingBomItems = $request->input('raw_materials', []);
+
+                if ($incomingQty !== null && $incomingQty !== '' && (float) $incomingQty !== $currentQty) {
+                    return ResponseHelper::error(
+                        'Cannot update sold movement quantity',
+                        422,
+                        'The first product movement has been sold. Quantity data cannot be updated to avoid data inconsistency.'
+                    );
+                }
+
+                if (!empty($incomingBomItems) && $this->isDifferentBom($incomingBomItems, $currentBom)) {
+                    return ResponseHelper::error(
+                        'Cannot update sold movement BOM',
+                        422,
+                        'The first product movement has been sold. BOM data cannot be updated to avoid production line and BOM inconsistency.'
+                    );
+                }
+
+                $request->merge([
+                    'quantity' => $currentQty,
+                    'raw_materials' => $currentBom,
+                ]);
             }
 
             // Ensure selling-side fields exist (derive from last movement if present)
@@ -633,17 +670,17 @@ class ProductService
                 ->orderBy('movement_date', 'desc')
                 ->first();
 
-            if ($lastMovement) {
-                $request->merge([
-                    'selling_unit_price_in_usd' => $lastMovement->selling_unit_price_in_usd ?? 0,
-                    'selling_exchange_rate_from_usd_to_riel' => $lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0,
-                ]);
-            } else {
-                $request->merge([
-                    'selling_unit_price_in_usd' => $request->input('selling_unit_price_in_usd', 0),
-                    'selling_exchange_rate_from_usd_to_riel' => $request->input('selling_exchange_rate_from_usd_to_riel', 0),
-                ]);
-            }
+            $request->merge([
+                // Keep incoming financial values from request; fallback only when missing.
+                'selling_unit_price_in_usd' => $request->input(
+                    'selling_unit_price_in_usd',
+                    $lastMovement->selling_unit_price_in_usd ?? 0
+                ),
+                'selling_exchange_rate_from_usd_to_riel' => $request->input(
+                    'selling_exchange_rate_from_usd_to_riel',
+                    $lastMovement->selling_exchange_rate_from_usd_to_riel ?? 0
+                ),
+            ]);
 
             CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
 
@@ -715,7 +752,10 @@ class ProductService
                 $rebuildIds = array_values(array_unique(array_merge($deletedRawMaterialIds, $existingBomRawMaterialIds)));
                 $this->stockDeductionService->rebuildInUsedFlags($rebuildIds);
 
-                $shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems);
+                $shortfalls = $this->stockDeductionService->validateSufficientStock(
+                    $bomItems,
+                    $validated['movement_date'] ?? null
+                );
                 if (!empty($shortfalls)) {
                     DB::rollBack();
                     return ResponseHelper::error('Insufficient raw material stock', 422, $shortfalls);
@@ -882,6 +922,24 @@ class ProductService
         } catch (Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
         }
+    }
+
+    private function isDifferentBom(array $incomingBom, array $expectedBom): bool
+    {
+        $normalize = function (array $items): array {
+            return collect($items)
+                ->map(function ($item) {
+                    return [
+                        'raw_material_id' => (int) ($item['raw_material_id'] ?? 0),
+                        'quantity' => round((float) ($item['quantity'] ?? 0), 4),
+                    ];
+                })
+                ->sortBy('raw_material_id')
+                ->values()
+                ->all();
+        };
+
+        return $normalize($incomingBom) !== $normalize($expectedBom);
     }
 
     // Image upload and fresh-loading helpers moved to ProductHelper.
