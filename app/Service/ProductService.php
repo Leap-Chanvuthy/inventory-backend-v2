@@ -126,7 +126,23 @@ class ProductService
             // Get P&L data for the product
             $productPnL = $this->productPnLService->getProductPnL($product->id);
 
+            // Frontend helper: expose sold state of the initial stock movement
+            // (EXTERNAL_PURCHASED or INTERNAL_PRODUCED) so UI doesn't need to scan all movements.
+            $productTypeValue = ($product->product_type instanceof \BackedEnum)
+                ? $product->product_type->value
+                : (string) $product->product_type;
+            $initialMovementType = $productTypeValue === \App\Enums\ProductTypeEnum::INTERNAL_PRODUCED->value
+                ? \App\Enums\ProductStockMovementTypeEnum::INTERNAL_PRODUCED->value
+                : \App\Enums\ProductStockMovementTypeEnum::EXTERNAL_PURCHASED->value;
+
+            $initialMovement = \App\Models\ProductMovement::where('product_id', $product->id)
+                ->where('movement_type', $initialMovementType)
+                ->orderBy('movement_date', 'asc')
+                ->orderBy('id', 'asc')
+                ->first();
+
             return ResponseHelper::success([
+                'is_sold' => (bool) ($initialMovement->is_sold ?? false),
                 'product' => $product,
                 'current_qty_in_stock' => $currentQtyInStock,
                 'product_stock_status' => $productStockStatus,
@@ -248,6 +264,10 @@ class ProductService
                 'direction' => \App\Enums\StockDirectionEnum::IN->value,
                 'movement_type' => \App\Enums\ProductStockMovementTypeEnum::EXTERNAL_PURCHASED->value,
                 'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
+                'product_status' => $request->input(
+                    'product_status',
+                    is_object($movement->product_status) ? $movement->product_status->value : (string) $movement->product_status
+                ),
             ]);
 
             // Only accept USD unit price + USD->Riel exchange rate as inputs; compute everything else from quantity.
@@ -397,6 +417,7 @@ class ProductService
 
                 $movement->update([
                     'quantity' => $validated['quantity'],
+                    'product_status' => $validated['product_status'] ?? (is_object($movement->product_status) ? $movement->product_status->value : (string) $movement->product_status),
                     'direction' => \App\Enums\StockDirectionEnum::IN->value,
                     'movement_type' => \App\Enums\ProductStockMovementTypeEnum::EXTERNAL_PURCHASED->value,
                     'movement_date' => $validated['movement_date'],
@@ -637,8 +658,10 @@ class ProductService
                 'last_updated_by' => $this->getCurrentUserHelper->getUserId(),
             ]);
 
+            $isSoldInternalMovement = ($movement->is_sold === true);
+
             // If movement is sold, quantity becomes immutable. Other fields remain updatable.
-            if ($movement->is_sold === true) {
+            if ($isSoldInternalMovement) {
                 $incomingQty = $request->input('quantity');
                 $currentQty = (float) $movement->quantity;
                 $incomingBomItems = $request->input('raw_materials', []);
@@ -726,47 +749,56 @@ class ProductService
             DB::beginTransaction();
             try {
                 $referenceToken = $this->productHelper->buildReorderReferenceToken((int) $movement->id);
-                $deletedRawMaterialIds = $this->stockDeductionService->deleteReorderConsumptionMovementsByToken($referenceToken);
 
-                // Also delete legacy production consumption movements that were created
-                // without a reorder token (created by initial production flow).
-                $legacyNote = "Consumed for product ID {$product->id}";
-                $legacyMovements = RMStockMovement::where('direction', \App\Enums\StockDirectionEnum::OUT->value)
-                    ->where('movement_type', \App\Enums\RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value)
-                    ->where('note', 'like', '%' . $legacyNote . '%')
-                    ->get(['id', 'raw_material_id']);
+                // For sold internal movement:
+                // - quantity is already locked
+                // - BOM is already locked
+                // - do not touch historical raw-material deductions
+                // This keeps production-line history consistent and still allows
+                // product metadata / pricing updates.
+                if (!$isSoldInternalMovement) {
+                    $deletedRawMaterialIds = $this->stockDeductionService->deleteReorderConsumptionMovementsByToken($referenceToken);
 
-                if ($legacyMovements->isNotEmpty()) {
-                    $legacyRawIds = $legacyMovements->pluck('raw_material_id')->unique()->values()->all();
-                    RMStockMovement::whereIn('id', $legacyMovements->pluck('id')->all())->delete();
-                    $deletedRawMaterialIds = array_values(array_unique(array_merge($deletedRawMaterialIds, $legacyRawIds)));
-                }
+                    // Also delete legacy production consumption movements that were created
+                    // without a reorder token (created by initial production flow).
+                    $legacyNote = "Consumed for product ID {$product->id}";
+                    $legacyMovements = RMStockMovement::where('direction', \App\Enums\StockDirectionEnum::OUT->value)
+                        ->where('movement_type', \App\Enums\RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value)
+                        ->where('note', 'like', '%' . $legacyNote . '%')
+                        ->get(['id', 'raw_material_id']);
 
-                $existingBomRawMaterialIds = ProductRawMaterial::where('product_id', $product->id)
-                    ->pluck('raw_material_id')
-                    ->all();
+                    if ($legacyMovements->isNotEmpty()) {
+                        $legacyRawIds = $legacyMovements->pluck('raw_material_id')->unique()->values()->all();
+                        RMStockMovement::whereIn('id', $legacyMovements->pluck('id')->all())->delete();
+                        $deletedRawMaterialIds = array_values(array_unique(array_merge($deletedRawMaterialIds, $legacyRawIds)));
+                    }
 
-                // Remove existing BOM pivot rows then re-insert from request
-                ProductRawMaterial::where('product_id', $product->id)->delete();
+                    $existingBomRawMaterialIds = ProductRawMaterial::where('product_id', $product->id)
+                        ->pluck('raw_material_id')
+                        ->all();
 
-                $rebuildIds = array_values(array_unique(array_merge($deletedRawMaterialIds, $existingBomRawMaterialIds)));
-                $this->stockDeductionService->rebuildInUsedFlags($rebuildIds);
+                    // Remove existing BOM pivot rows then re-insert from request
+                    ProductRawMaterial::where('product_id', $product->id)->delete();
 
-                $shortfalls = $this->stockDeductionService->validateSufficientStock(
-                    $bomItems,
-                    $validated['movement_date'] ?? null
-                );
-                if (!empty($shortfalls)) {
-                    DB::rollBack();
-                    return ResponseHelper::error('Insufficient raw material stock', 422, $shortfalls);
-                }
+                    $rebuildIds = array_values(array_unique(array_merge($deletedRawMaterialIds, $existingBomRawMaterialIds)));
+                    $this->stockDeductionService->rebuildInUsedFlags($rebuildIds);
 
-                foreach ($bomItems as $item) {
-                    ProductRawMaterial::create([
-                        'product_id' => $product->id,
-                        'raw_material_id' => $item['raw_material_id'],
-                        'quantity' => $item['quantity'],
-                    ]);
+                    $shortfalls = $this->stockDeductionService->validateSufficientStock(
+                        $bomItems,
+                        $validated['movement_date'] ?? null
+                    );
+                    if (!empty($shortfalls)) {
+                        DB::rollBack();
+                        return ResponseHelper::error('Insufficient raw material stock', 422, $shortfalls);
+                    }
+
+                    foreach ($bomItems as $item) {
+                        ProductRawMaterial::create([
+                            'product_id' => $product->id,
+                            'raw_material_id' => $item['raw_material_id'],
+                            'quantity' => $item['quantity'],
+                        ]);
+                    }
                 }
 
                 // Update product-level fields when provided in internal update flow
@@ -800,16 +832,19 @@ class ProductService
                     $product->update($productData);
                 }
 
-                $this->stockDeductionService->deductStock(
-                    $bomItems,
-                    $product->id,
-                    (int) $validated['last_updated_by'],
-                    $validated['movement_date'],
-                    $referenceToken
-                );
+                if (!$isSoldInternalMovement) {
+                    $this->stockDeductionService->deductStock(
+                        $bomItems,
+                        $product->id,
+                        (int) $validated['last_updated_by'],
+                        $validated['movement_date'],
+                        $referenceToken
+                    );
+                }
 
                 $movement->update([
                     'quantity' => $validated['quantity'],
+                    'product_status' => $validated['product_status'] ?? (is_object($movement->product_status) ? $movement->product_status->value : (string) $movement->product_status),
                     'direction' => \App\Enums\StockDirectionEnum::IN->value,
                     'movement_type' => \App\Enums\ProductStockMovementTypeEnum::INTERNAL_PRODUCED->value,
                     'movement_date' => $validated['movement_date'],

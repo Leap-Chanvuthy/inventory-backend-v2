@@ -68,6 +68,7 @@ class ProductValidation
     {
         return [
             'quantity'                           => 'required|numeric|min:0.0001',
+            'product_status'                     => 'sometimes|required|string|in:DRAFT,WORK_IN_PROGRESS,PARTIALLY_COMPLETED,COMPLETED,BLOCKED',
 
             // Purchase pricing (user supplies unit price + exchange rate; totals are derived)
             'purchase_unit_price_in_usd'         => 'required|numeric|min:0',
