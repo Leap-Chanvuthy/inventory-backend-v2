@@ -137,8 +137,8 @@ class ProductQueryBuilder
             defaultSort: '-movement_date',
 
             withRelations: [
-                // 'createdBy',
-                // 'lastUpdatedBy',
+                'createdBy',
+                'lastUpdatedBy',
             ],
 
             withCounts: [],
