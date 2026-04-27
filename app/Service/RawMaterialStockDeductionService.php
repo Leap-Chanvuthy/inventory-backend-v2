@@ -29,7 +29,9 @@ class RawMaterialStockDeductionService
 
             $rawMaterial = RawMaterial::findOrFail($rawMaterialId);
 
-            $availableQty = $this->getAvailableStock($rawMaterialId, $asOfMovementDate);
+            // Availability is always calculated as net stock:
+            // SUM(IN direction qty) - SUM(OUT direction qty), without movement-date filtering.
+            $availableQty = $this->getAvailableStock($rawMaterialId);
 
             if ($availableQty < $requiredQty) {
                 $shortfalls[] = [
@@ -65,7 +67,7 @@ class RawMaterialStockDeductionService
 
             $rawMaterial = RawMaterial::findOrFail($rawMaterialId);
 
-            $inMovements = $this->getOrderedInMovements($rawMaterialId, $rawMaterial->production_method, $movementDate);
+            $inMovements = $this->getOrderedInMovements($rawMaterialId, $rawMaterial->production_method);
 
             foreach ($inMovements as $batch) {
                 if ($remaining <= 0) {
@@ -146,7 +148,6 @@ class RawMaterialStockDeductionService
 
             $remainingOut = (float) RMStockMovement::where('raw_material_id', $rawMaterialId)
                 ->where('direction', StockDirectionEnum::OUT->value)
-                ->where('movement_type', RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value)
                 ->sum('quantity');
 
             if ($remainingOut <= 0) {
@@ -185,19 +186,17 @@ class RawMaterialStockDeductionService
     /**
      * Sum available (not fully consumed) IN stock for a raw material.
      */
-    private function getAvailableStock(int $rawMaterialId, ?string $asOfMovementDate = null): float
+    public function getAvailableStock(int $rawMaterialId, ?string $asOfMovementDate = null): float
     {
-        // Compute net available stock as total IN minus total OUT. When an
-        // as-of date is supplied, only movements on/before that moment are
-        // considered to avoid consuming future stock.
+        // Compute net available stock as total IN minus total OUT.
+        // Movement date is intentionally ignored to keep availability
+        // consistent across detail/list/manufacturing flows.
         $totalInQuery = RMStockMovement::where('raw_material_id', $rawMaterialId)
             ->where('direction', StockDirectionEnum::IN->value);
-        $this->applyAsOfMovementDateFilter($totalInQuery, $asOfMovementDate);
         $totalIn = $totalInQuery->sum('quantity');
 
         $totalOutQuery = RMStockMovement::where('raw_material_id', $rawMaterialId)
             ->where('direction', StockDirectionEnum::OUT->value);
-        $this->applyAsOfMovementDateFilter($totalOutQuery, $asOfMovementDate);
         $totalOut = $totalOutQuery->sum('quantity');
 
         return max(0, (float) $totalIn - (float) $totalOut);
@@ -207,7 +206,7 @@ class RawMaterialStockDeductionService
      * Return IN movements ordered by FIFO (oldest first) or LIFO (newest first),
      * with reconstructed remaining quantity per batch based on current OUT totals.
      */
-    private function getOrderedInMovements(int $rawMaterialId, mixed $productionMethod, ?string $asOfMovementDate = null)
+    private function getOrderedInMovements(int $rawMaterialId, mixed $productionMethod)
     {
         $methodValue = is_object($productionMethod) ? $productionMethod->value : (string) $productionMethod;
 
@@ -217,13 +216,10 @@ class RawMaterialStockDeductionService
             ->where('direction', StockDirectionEnum::IN->value)
             ->orderBy('movement_date', $order)
             ->orderBy('id', $order);
-        $this->applyAsOfMovementDateFilter($inMovementsQuery, $asOfMovementDate);
         $inMovements = $inMovementsQuery->get();
 
         $remainingOutQuery = RMStockMovement::where('raw_material_id', $rawMaterialId)
-            ->where('direction', StockDirectionEnum::OUT->value)
-            ->where('movement_type', RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value);
-        $this->applyAsOfMovementDateFilter($remainingOutQuery, $asOfMovementDate);
+            ->where('direction', StockDirectionEnum::OUT->value);
         $remainingOut = (float) $remainingOutQuery->sum('quantity');
 
         $batches = [];
@@ -255,15 +251,4 @@ class RawMaterialStockDeductionService
         return $note;
     }
 
-    private function applyAsOfMovementDateFilter($query, ?string $asOfMovementDate): void
-    {
-        if (empty($asOfMovementDate)) {
-            return;
-        }
-
-        $query->where(function ($q) use ($asOfMovementDate) {
-            $q->whereNull('movement_date')
-                ->orWhere('movement_date', '<=', $asOfMovementDate);
-        });
-    }
 }

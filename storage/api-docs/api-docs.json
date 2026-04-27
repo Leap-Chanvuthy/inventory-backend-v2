@@ -3697,6 +3697,18 @@
                                         "type": "string",
                                         "example": "Test Update 3"
                                     },
+                                    "product_status": {
+                                        "description": "Optional on update. When provided, updates movement product status.",
+                                        "type": "string",
+                                        "enum": [
+                                            "DRAFT",
+                                            "WORK_IN_PROGRESS",
+                                            "PARTIALLY_COMPLETED",
+                                            "COMPLETED",
+                                            "BLOCKED"
+                                        ],
+                                        "example": "COMPLETED"
+                                    },
                                     "product_description": {
                                         "type": "string",
                                         "example": "Sample external purchased product"
@@ -4018,7 +4030,15 @@
                                         "example": "Test Internal Product"
                                     },
                                     "product_status": {
+                                        "description": "Updates movement product status.",
                                         "type": "string",
+                                        "enum": [
+                                            "DRAFT",
+                                            "WORK_IN_PROGRESS",
+                                            "PARTIALLY_COMPLETED",
+                                            "COMPLETED",
+                                            "BLOCKED"
+                                        ],
                                         "example": "COMPLETED"
                                     },
                                     "product_description": {
@@ -5558,6 +5578,81 @@
                 ]
             }
         },
+        "/api/product-categories/trashed": {
+            "get": {
+                "tags": [
+                    "Product Categories"
+                ],
+                "summary": "Get all trashed product categories",
+                "description": "Retrieve a paginated list of trashed product categories.",
+                "operationId": "3314c07165f767920812b272c3ec689d",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Number of categories per page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "description": "Search product categories by category name",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": ""
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort product categories by a field (created_at, updated_at, category_name)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "-created_at"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Trashed product categories retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Trashed product categories retrieved successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed fetching trashed product categories"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/product-categories/{id}": {
             "get": {
                 "tags": [
@@ -5769,6 +5864,64 @@
                     },
                     "500": {
                         "description": "Failed updating product category"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/product-categories/{id}/restore": {
+            "patch": {
+                "tags": [
+                    "Product Categories"
+                ],
+                "summary": "Restore a deleted product category",
+                "description": "Restore a specific deleted product category by its ID.",
+                "operationId": "c761c105963753ff063a6571fe10ffc2",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Product Category ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Product category restored successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Product category restored successfully"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Product category not found"
+                    },
+                    "500": {
+                        "description": "Failed restoring product category"
                     }
                 },
                 "security": [

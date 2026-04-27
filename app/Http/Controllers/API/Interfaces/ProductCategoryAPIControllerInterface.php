@@ -60,6 +60,56 @@ interface ProductCategoryAPIControllerInterface
      */
     public function index();
 
+        /**
+     * @OA\Get(
+     *     path="/api/product-categories/trashed",
+     *     tags={"Product Categories"},
+     *     security={{"Bearer":{}}},
+     *     summary="Get all trashed product categories",
+     *     description="Retrieve a paginated list of trashed product categories.",
+     *
+     *     @OA\Parameter(
+     *         name="per_page",
+     *         in="query",
+     *         required=false,
+     *         description="Number of categories per page",
+     *         @OA\Schema(type="integer", example=10)
+     *     ),
+     *
+     *     @OA\Parameter(
+     *         name="filter[search]",
+     *         in="query",
+     *         description="Search product categories by category name",
+     *         required=false,
+     *         @OA\Schema(type="string", example="")
+     *     ),
+     *
+     *     @OA\Parameter(
+     *         name="sort",
+     *         in="query",
+     *         description="Sort product categories by a field (created_at, updated_at, category_name)",
+     *         required=false,
+     *         @OA\Schema(type="string", example="-created_at")
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Trashed product categories retrieved successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Trashed product categories retrieved successfully"),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=500,
+     *         description="Failed fetching trashed product categories"
+     *     )
+     * )
+     */
+    public function trashed();
+
 
     /**
      * @OA\Get(
@@ -249,4 +299,44 @@ interface ProductCategoryAPIControllerInterface
      * )
      */
     public function delete($id);
+
+    /**
+     * @OA\Patch(
+     *     path="/api/product-categories/{id}/restore",
+     *     tags={"Product Categories"},
+     *     security={{"Bearer":{}}},
+     *     summary="Restore a deleted product category",
+     *     description="Restore a specific deleted product category by its ID.",
+     *
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="Product Category ID",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Product category restored successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Product category restored successfully"),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=404,
+     *         description="Product category not found"
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=500,
+     *         description="Failed restoring product category"
+     *     )
+     * )
+     */
+    public function restore($id);
+
 }

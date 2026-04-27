@@ -500,10 +500,10 @@ class ProductService
                 return ResponseHelper::validation($errors, 'Validation Error');
             }
 
-            // Check raw material availability (FIFO/LIFO) before opening the transaction
+            // Check raw material availability before opening the transaction.
+            // Availability uses net stock (SUM(IN) - SUM(OUT)) without movement-date filtering.
             $bomItems = $request->input('raw_materials', []);
-            $movementDate = $request->input('movement_date', now()->toDateTimeString());
-            $shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems, $movementDate);
+            $shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems);
 
             if (!empty($shortfalls)) {
                 return ResponseHelper::error(
@@ -783,10 +783,7 @@ class ProductService
                     $rebuildIds = array_values(array_unique(array_merge($deletedRawMaterialIds, $existingBomRawMaterialIds)));
                     $this->stockDeductionService->rebuildInUsedFlags($rebuildIds);
 
-                    $shortfalls = $this->stockDeductionService->validateSufficientStock(
-                        $bomItems,
-                        $validated['movement_date'] ?? null
-                    );
+                    $shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems);
                     if (!empty($shortfalls)) {
                         DB::rollBack();
                         return ResponseHelper::error('Insufficient raw material stock', 422, $shortfalls);

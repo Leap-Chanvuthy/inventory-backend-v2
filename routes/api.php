@@ -157,10 +157,12 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
 
     Route::prefix('product-categories')->group(function () {
         Route::get('/', [ProductCategoryAPIController::class, 'index']);
+        Route::get('/trashed', [ProductCategoryAPIController::class, 'trashed']);
         Route::get('/{id}', [ProductCategoryAPIController::class, 'show']);
         Route::post('/', [ProductCategoryAPIController::class, 'store']);
         Route::patch('/{id}', [ProductCategoryAPIController::class, 'update']);
         Route::delete('/{id}', [ProductCategoryAPIController::class, 'delete'] );
+        Route::patch('/{id}/restore', [ProductCategoryAPIController::class, 'restore']);
     });
 
     Route::prefix('products')->group(function () {

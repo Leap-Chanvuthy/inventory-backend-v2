@@ -120,8 +120,7 @@ class InternalProductReorder
 			CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
 
 			$bomItems = $request->input('raw_materials', []);
-			$movementDate = $request->input('movement_date', now()->toDateTimeString());
-			$shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems, $movementDate);
+			$shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems);
 			if (!empty($shortfalls)) {
 				return ResponseHelper::error('Insufficient raw material stock', 422, $shortfalls);
 			}
@@ -366,10 +365,7 @@ class InternalProductReorder
 				$rebuildIds = array_values(array_unique(array_merge($deletedRawMaterialIds, $existingBomRawMaterialIds)));
 				$this->stockDeductionService->rebuildInUsedFlags($rebuildIds);
 
-				$shortfalls = $this->stockDeductionService->validateSufficientStock(
-					$bomItems,
-					$validated['movement_date'] ?? null
-				);
+				$shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems);
 				if (!empty($shortfalls)) {
 					DB::rollBack();
 					return ResponseHelper::error('Insufficient raw material stock', 422, $shortfalls);

@@ -22,50 +22,78 @@ class ProductCategoryService {
         $this->auditLoggerService = $auditLoggerService;
     }
 
+    public function productCategoryBuilder(Request $request, bool $onlyTrashed = false)
+    {
+        $perPage = (int) $request->query('per_page', 10);
+        $perPage = max(1, min($perPage, 100));
 
-    public function productBuilder (){
-        return QueryBuilderHelper::build(
+        $builder = QueryBuilderHelper::build(
             model: ProductCategory::class,
-            joins: [],
-            selects: [
-                'product_categories.id',
-                'product_categories.category_name',
-                'product_categories.label_color',
-                'product_categories.description',
-                'product_categories.created_at',
-                'product_categories.updated_at',
+
+            joins: [
             ],
+
+            selects: [
+                'product_categories.*',
+            ],
+
             allowedFilters: [
                 AllowedFilter::exact('id'),
                 AllowedFilter::exact('label_color'),
 
                 AllowedFilter::callback('search', function (Builder $query, $value) {
                     $query->where(function ($q) use ($value) {
-                        $q->where('product_categories.category_name', 'LIKE', "%{$value}%");
+                      $q->where('product_categories.category_name', 'LIKE', "%{$value}%");
                     });
                 }),
+
+                AllowedFilter::callback('category_name', function (Builder $query, $value) {
+                    $query->where('product_categories.category_name', 'LIKE', "%{$value}%");
+                }),
             ],
+
             allowedSorts: [
+                'category_name',
                 'created_at',
                 'updated_at',
-                'category_name',
+                'deleted_at',
             ],
-            withCounts: [
-                'products',
+
+            defaultSort: '-created_at',
+
+            withRelations: [
             ],
+
+            withCounts: [],
         );
 
+        if ($onlyTrashed) {
+            $builder = $builder->onlyTrashed();
+        }
+
+        return $builder
+            ->paginate($perPage)
+            ->appends($request->query());
     }
 
 
     public function getAllProductCategories (Request $request){
         try{
-            $perPage = $request -> input('per_page' , 10);
-            $categories = $this -> productBuilder() -> paginate($perPage);
+            $categories = $this -> productCategoryBuilder($request);
 
             return ResponseHelper::success($categories , 'Product categories retrieved successfully' , 200);
         }catch (Exception $e){
             return ResponseHelper::error('Failed to fetch product categories: ', 500 , $e->getMessage());
+        }
+    }
+
+
+    public function getTrashedProductCategories(Request $request){
+        try{
+            $categories = $this -> productCategoryBuilder($request , true);
+            return ResponseHelper::success($categories , 'Trashed product categories retrieved successfully' , 200);
+        }catch (Exception $e){
+            return ResponseHelper::error('Failed to fetch trashed product categories: ', 500 , $e->getMessage());
         }
     }
 
@@ -176,5 +204,36 @@ class ProductCategoryService {
             return ResponseHelper::error('Failed to delete product category: ', 500, $e->getMessage());
         }
     }
+
+
+    public function restoreProductCategory ($id){
+        try{
+            $category = ProductCategory::onlyTrashed()->findOrFail($id);
+            if (!$category) {
+                return ResponseHelper::error('Product category not found', 404);
+            }
+
+            $oldSnapshot = $this->auditLoggerService->snapshotModel($category);
+
+            $category -> restore();
+
+            $newSnapshot = $this->auditLoggerService->snapshotModel($category->fresh());
+
+            $this->auditLoggerService->logDiff(
+                'product_category.restore',
+                ProductCategory::class,
+                (int) $category->id,
+                $oldSnapshot,
+                $newSnapshot,
+                null,
+                ['context' => 'product_category_service']
+            );
+
+            return ResponseHelper::success($category , 'Product category restored successfully' , 200);
+        } catch (Exception $e){
+            return ResponseHelper::error('Failed to restore product category: ', 500, $e->getMessage());
+        }
+    }
+
     
 }

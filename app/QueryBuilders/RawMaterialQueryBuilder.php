@@ -14,6 +14,19 @@ class RawMaterialQueryBuilder {
     {
         $perPage = (int) $request->query('per_page', 10);
         $perPage = max(1, min($perPage, 100));
+        $stockQtyExpression = "(
+            SELECT COALESCE(
+                SUM(
+                    CASE
+                        WHEN rm_stock_movements.direction = 'OUT' THEN -rm_stock_movements.quantity
+                        ELSE rm_stock_movements.quantity
+                    END
+                ),
+                0
+            )
+            FROM rm_stock_movements
+            WHERE rm_stock_movements.raw_material_id = raw_materials.id
+        )";
 
         $builder = QueryBuilderHelper::build(
             model: RawMaterial::class,
@@ -34,11 +47,16 @@ class RawMaterialQueryBuilder {
                 'warehouses.warehouse_name as warehouse_name',
                 'unit_of_measurements.name as uom_name',
                 // Current quantity in stock (sum of stock movements: IN as +, OUT as -)
-                \DB::raw("(
-                    SELECT COALESCE(SUM(CASE WHEN rm_stock_movements.direction = 'OUT' THEN -rm_stock_movements.quantity ELSE rm_stock_movements.quantity END), 0)
-                    FROM rm_stock_movements
-                    WHERE rm_stock_movements.raw_material_id = raw_materials.id
-                ) as current_qty_in_stock"),
+                \DB::raw("{$stockQtyExpression} as current_qty_in_stock"),
+                // Explicit field alias requested by frontend/clients.
+                \DB::raw("{$stockQtyExpression} as stock_availability"),
+                \DB::raw("
+                    CASE
+                        WHEN {$stockQtyExpression} <= 0 THEN 'OUT_OF_STOCK'
+                        WHEN {$stockQtyExpression} <= COALESCE(raw_materials.minimum_stock_level, 0) THEN 'LOW_STOCK'
+                        ELSE 'IN_STOCK'
+                    END as stock_availability_status
+                "),
             ],
 
             allowedFilters: [
@@ -83,6 +101,8 @@ class RawMaterialQueryBuilder {
                 'supplier_id',
                 'warehouse_id',
                 'base_uom_id',
+                'current_qty_in_stock',
+                'stock_availability',
             ],
 
             defaultSort: '-created_at',

@@ -26,18 +26,21 @@ class RawMaterialService
     protected GetCurrentUserHelper $getCurrentUserHelper;
     protected RawMaterialQueryBuilder $rawMaterialQueryBuilder;
     protected AuditLoggerService $auditLoggerService;
+    protected RawMaterialStockDeductionService $stockDeductionService;
 
     public function __construct(
         RMValidation $rmValidation,
         RawMaterialQueryBuilder $rawMaterialQueryBuilder,
         GetCurrentUserHelper $getCurrentUserHelper,
-        AuditLoggerService $auditLoggerService
+        AuditLoggerService $auditLoggerService,
+        RawMaterialStockDeductionService $stockDeductionService
         )
     {
         $this -> rmValidation = $rmValidation;
         $this -> rawMaterialQueryBuilder = $rawMaterialQueryBuilder;
         $this -> getCurrentUserHelper = $getCurrentUserHelper;
         $this -> auditLoggerService = $auditLoggerService;
+        $this -> stockDeductionService = $stockDeductionService;
     }
 
     // Get all raw materials with filtering, sorting, and pagination
@@ -74,12 +77,9 @@ class RawMaterialService
 
             
                         
-            // Calculate current quantity in stock
-            $currentQtyInStock = 0;
-            foreach ($rawMaterial->rm_stock_movements as $movement) {
-                $qty = (float) ($movement->quantity ?? 0);
-                $currentQtyInStock += ($movement->direction === 'OUT') ? (-$qty) : $qty;
-            }
+            // Unified stock calculation: SUM(IN direction qty) - SUM(OUT direction qty)
+            // without movement-date filtering, aligned with manufacturing validation.
+            $currentQtyInStock = $this->stockDeductionService->getAvailableStock((int) $rawMaterial->id);
 
             // Find stock status
             $isExpired = false;
@@ -789,13 +789,9 @@ class RawMaterialService
             $rules['note'] = 'required|string';
             $validated = Validator::make($request->all(), $rules)->validate();
 
-            // Check the qty in stock to avoid quantity is duduction over qty
-            // Calculate current quantity in stock
-            $currentQtyInStock = 0;
-            foreach ($rawMaterial->rm_stock_movements as $movement) {
-                $qty = (float) ($movement->quantity ?? 0);
-                $currentQtyInStock += ($movement->direction === 'OUT') ? (-$qty) : $qty;
-            }
+            // Use the same net stock calculation used by manufacturing:
+            // SUM(IN direction qty) - SUM(OUT direction qty)
+            $currentQtyInStock = $this->stockDeductionService->getAvailableStock((int) $rawMaterial->id);
 
             if ($currentQtyInStock < $validated['quantity']) {
                 return ResponseHelper::error('Insuffiecient stock quantity', 401, [

@@ -21,6 +21,11 @@ class ProductCategoryAPIController extends Controller
         return $this->productCategoryService->getAllProductCategories($request);
     }
 
+    public function trashed(Request $request)
+    {
+        return $this->productCategoryService->getTrashedProductCategories($request);
+    }
+
 
     public function show($id)
     {
@@ -42,6 +47,11 @@ class ProductCategoryAPIController extends Controller
     public function delete($id)
     {
         return $this->productCategoryService->deleteProductCategory($id);
+    }
+
+    public function restore($id)
+    {
+        return $this->productCategoryService->restoreProductCategory($id);
     }
     
 }
