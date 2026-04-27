@@ -64,7 +64,9 @@ class ProductCategoryService {
             withRelations: [
             ],
 
-            withCounts: [],
+            withCounts: [
+                'products'
+            ],
         );
 
         if ($onlyTrashed) {

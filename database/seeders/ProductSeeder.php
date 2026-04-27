@@ -94,7 +94,9 @@ class ProductSeeder extends Seeder
                 ProductRawMaterial::create([
                     'product_id'      => $product->id,
                     'raw_material_id' => $item['raw_material_id'],
-                    'quantity'        => $item['quantity'],
+                    'quantity' => $item['quantity'],
+                    'quantity_per_unit' => $item['quantity'],
+                    'scrap_percentage' => 0,
                 ]);
             }
 
@@ -133,6 +135,8 @@ class ProductSeeder extends Seeder
                     'product_reorder_id' => $productReorder->id,
                     'raw_material_id' => $item['raw_material_id'],
                     'quantity' => $item['quantity'],
+                    'quantity_per_unit' => $item['quantity'],
+                    'scrap_percentage' => 0,
                 ]);
             }
 

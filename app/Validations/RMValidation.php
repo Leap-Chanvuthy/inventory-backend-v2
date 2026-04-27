@@ -109,7 +109,7 @@ class RMValidation {
                 if (!$request->filled('movement_type')) {
                     $request->merge(['movement_type' => 'PURCHASE']);
                 }
-                return 'required|in:PURCHASE,RE_ORDER,PRODUCTION_SCRAP,PRODUCTION_RECEIPT,ADJUSTMENT_IN,ADJUSTMENT_OUT';
+                return 'required|in:PURCHASE,RE_ORDER,PRODUCTION_SCRAP,PRODUCTION_RECEIPT,MANUFACTURING,SCRAP,ADJUSTMENT_IN,ADJUSTMENT_OUT';
             })(),
             'unit_price_in_usd' => 'required|numeric|min:0',
             'total_value_in_usd' => 'nullable|numeric|min:0',

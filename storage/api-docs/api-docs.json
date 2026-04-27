@@ -3903,6 +3903,7 @@
                                         "example": 4100
                                     },
                                     "raw_materials": {
+                                        "description": "Per-unit BOM. For each item, required_qty = production_qty × quantity_per_unit and scrap_qty = required_qty × scrap_percentage / 100.",
                                         "type": "array",
                                         "items": {
                                             "properties": {
@@ -3910,10 +3911,15 @@
                                                     "type": "integer",
                                                     "example": 10
                                                 },
-                                                "quantity": {
+                                                "quantity_per_unit": {
                                                     "type": "number",
                                                     "format": "float",
                                                     "example": 2
+                                                },
+                                                "scrap_percentage": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 5
                                                 }
                                             },
                                             "type": "object"
@@ -3945,6 +3951,38 @@
                                             "example": "Product created successfully"
                                         },
                                         "data": {
+                                            "properties": {
+                                                "product": {
+                                                    "type": "object"
+                                                },
+                                                "materials": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "raw_material_id": {
+                                                                "type": "integer",
+                                                                "example": 10
+                                                            },
+                                                            "required_qty": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 200
+                                                            },
+                                                            "scrap_qty": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 10
+                                                            },
+                                                            "total_consumption": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 210
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
                                             "type": "object"
                                         }
                                     },
@@ -4008,6 +4046,7 @@
                     "Products - Internal Manufacturing"
                 ],
                 "summary": "Update initial internally manufactured movement",
+                "description": "BOM can be modified only when the initial INTERNAL_PRODUCED movement has not been sold yet. If sold, BOM and quantity are locked and only safe metadata/pricing fields can be updated.",
                 "operationId": "b57a6cd31d0c45cb37ed00deeb55165e",
                 "parameters": [
                     {
@@ -4100,10 +4139,15 @@
                                                     "type": "integer",
                                                     "example": 10
                                                 },
-                                                "quantity": {
+                                                "quantity_per_unit": {
                                                     "type": "number",
                                                     "format": "float",
                                                     "example": 3
+                                                },
+                                                "scrap_percentage": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 8
                                                 }
                                             },
                                             "type": "object"
@@ -4135,6 +4179,38 @@
                                             "example": "Product updated successfully"
                                         },
                                         "data": {
+                                            "properties": {
+                                                "movement": {
+                                                    "type": "object"
+                                                },
+                                                "materials": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "raw_material_id": {
+                                                                "type": "integer",
+                                                                "example": 10
+                                                            },
+                                                            "required_qty": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 300
+                                                            },
+                                                            "scrap_qty": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 24
+                                                            },
+                                                            "total_consumption": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 324
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
                                             "type": "object"
                                         }
                                     },
@@ -4699,8 +4775,8 @@
                                         "format": "float",
                                         "example": 4100
                                     },
-                                    "raw_materials": {
-                                        "description": "Optional. Must match original product BOM formula exactly; changing BOM in reorder is not allowed.",
+                                    "bom_override": {
+                                        "description": "Optional scrap override for this reorder transaction only. BOM structure and quantity_per_unit remain locked.",
                                         "type": "array",
                                         "items": {
                                             "properties": {
@@ -4708,10 +4784,10 @@
                                                     "type": "integer",
                                                     "example": 10
                                                 },
-                                                "quantity": {
+                                                "scrap_percentage": {
                                                     "type": "number",
                                                     "format": "float",
-                                                    "example": 2
+                                                    "example": 8
                                                 }
                                             },
                                             "type": "object"
@@ -4743,6 +4819,42 @@
                                             "example": "Product reordered (internal manufacturing) successfully"
                                         },
                                         "data": {
+                                            "properties": {
+                                                "movement": {
+                                                    "type": "object"
+                                                },
+                                                "product_reorder_id": {
+                                                    "type": "integer",
+                                                    "example": 12
+                                                },
+                                                "materials": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "raw_material_id": {
+                                                                "type": "integer",
+                                                                "example": 10
+                                                            },
+                                                            "required_qty": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 200
+                                                            },
+                                                            "scrap_qty": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 16
+                                                            },
+                                                            "total_consumption": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 216
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
                                             "type": "object"
                                         }
                                     },
@@ -5064,6 +5176,24 @@
                                         "format": "float",
                                         "example": 4100
                                     },
+                                    "bom_override": {
+                                        "description": "Optional scrap override for this reorder update only.",
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "raw_material_id": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "scrap_percentage": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 6
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
                                     "note": {
                                         "type": "string",
                                         "example": "Update reorder (internal)"
@@ -5090,6 +5220,38 @@
                                             "example": "Product reorder (internal manufacturing) updated successfully"
                                         },
                                         "data": {
+                                            "properties": {
+                                                "movement": {
+                                                    "type": "object"
+                                                },
+                                                "materials": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "raw_material_id": {
+                                                                "type": "integer",
+                                                                "example": 10
+                                                            },
+                                                            "required_qty": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 240
+                                                            },
+                                                            "scrap_qty": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 14.4
+                                                            },
+                                                            "total_consumption": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 254.4
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
                                             "type": "object"
                                         }
                                     },

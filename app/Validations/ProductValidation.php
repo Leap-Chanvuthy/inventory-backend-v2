@@ -116,7 +116,8 @@ class ProductValidation
             // Bill of materials
             'raw_materials'                              => 'required|array|min:1',
             'raw_materials.*.raw_material_id'            => 'required|exists:raw_materials,id|distinct',
-            'raw_materials.*.quantity'                   => 'required|numeric|min:0.0001',
+            'raw_materials.*.quantity_per_unit'          => 'required|numeric|min:0.0001',
+            'raw_materials.*.scrap_percentage'           => 'nullable|numeric|min:0|max:100',
         ];
     }
 

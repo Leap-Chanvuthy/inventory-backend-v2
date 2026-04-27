@@ -7,10 +7,7 @@ use App\Helpers\GetCurrentUserHelper;
 use App\Helpers\ResponseHelper;
 use App\Helpers\ProductHelper;
 use App\Models\Product;
-use App\Models\ProductRawMaterial;
 use App\Models\ProductMovement;
-use App\Models\ProductReorder;
-use App\Models\ReorderProductRawMaterial;
 use App\Models\RMStockMovement;
 use App\QueryBuilders\ProductQueryBuilder;
 use App\Validations\ProductValidation;
@@ -25,7 +22,7 @@ class ProductService
     protected ProductValidation               $productValidation;
     protected ProductQueryBuilder             $productQueryBuilder;
     protected ProductMovementService          $productMovementService;
-    protected RawMaterialStockDeductionService $stockDeductionService;
+    protected ManufacturingService            $manufacturingService;
     protected GetCurrentUserHelper            $getCurrentUserHelper;
     protected ProductPnLService               $productPnLService;
     protected ProductHelper                   $productHelper;
@@ -35,7 +32,7 @@ class ProductService
         ProductValidation                $productValidation,
         ProductQueryBuilder              $productQueryBuilder,
         ProductMovementService           $productMovementService,
-        RawMaterialStockDeductionService $stockDeductionService,
+        ManufacturingService             $manufacturingService,
         GetCurrentUserHelper             $getCurrentUserHelper,
         ProductPnLService                $productPnLService,
         ProductHelper                    $productHelper,
@@ -44,7 +41,7 @@ class ProductService
         $this->productValidation       = $productValidation;
         $this->productQueryBuilder     = $productQueryBuilder;
         $this->productMovementService  = $productMovementService;
-        $this->stockDeductionService   = $stockDeductionService;
+        $this->manufacturingService    = $manufacturingService;
         $this->getCurrentUserHelper    = $getCurrentUserHelper;
         $this->productPnLService       = $productPnLService;
         $this->productHelper          = $productHelper;
@@ -99,7 +96,7 @@ class ProductService
                         ->with(['createdBy', 'lastUpdatedBy']);
                 },
                 'productImages',
-                'productRawMaterials.rawMaterial', // Eager load raw material details for BOM
+                'productRawMaterials.rawMaterial.uom',
             ])->findOrFail($id);
 
             if (!$product) {
@@ -123,6 +120,44 @@ class ProductService
             // Determine stock status (simple): OUT_OF_STOCK or IN_STOCK
             $productStockStatus = $currentQtyInStock <= 0 ? 'OUT_OF_STOCK' : 'IN_STOCK';
 
+            // Enrich BOM raw materials with live stock availability for update/reorder UI.
+            $rawMaterialIds = $product->productRawMaterials
+                ->pluck('raw_material_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            if (!empty($rawMaterialIds)) {
+                $totalInByRawMaterial = RMStockMovement::query()
+                    ->whereIn('raw_material_id', $rawMaterialIds)
+                    ->where('direction', 'IN')
+                    ->select('raw_material_id', DB::raw('SUM(quantity) as total_in'))
+                    ->groupBy('raw_material_id')
+                    ->pluck('total_in', 'raw_material_id');
+
+                $totalOutByRawMaterial = RMStockMovement::query()
+                    ->whereIn('raw_material_id', $rawMaterialIds)
+                    ->where('direction', 'OUT')
+                    ->select('raw_material_id', DB::raw('SUM(quantity) as total_out'))
+                    ->groupBy('raw_material_id')
+                    ->pluck('total_out', 'raw_material_id');
+
+                foreach ($product->productRawMaterials as $bomItem) {
+                    if (!$bomItem->rawMaterial) {
+                        continue;
+                    }
+
+                    $rawMaterialId = (int) $bomItem->raw_material_id;
+                    $totalIn = (float) ($totalInByRawMaterial[$rawMaterialId] ?? 0);
+                    $totalOut = (float) ($totalOutByRawMaterial[$rawMaterialId] ?? 0);
+                    $currentQty = round(max(0, $totalIn - $totalOut) , 2);
+
+                    $bomItem->rawMaterial->setAttribute('current_qty_in_stock', $currentQty);
+                    $bomItem->rawMaterial->setAttribute('stock_availability', $currentQty);
+                }
+            }
+
             // Get P&L data for the product
             $productPnL = $this->productPnLService->getProductPnL($product->id);
 
@@ -141,16 +176,17 @@ class ProductService
                 ->orderBy('id', 'asc')
                 ->first();
 
+            $isInitialMovementSold = (bool) ($initialMovement->is_sold ?? false);
+
             return ResponseHelper::success([
-                'is_sold' => (bool) ($initialMovement->is_sold ?? false),
+                'is_sold' => $isInitialMovementSold,
+                'allow_bom_update' => !$isInitialMovementSold,
                 'product' => $product,
                 'current_qty_in_stock' => $currentQtyInStock,
                 'product_stock_status' => $productStockStatus,
                 'total_count_by_movement_type' => $totalCountByMovementType,
                 'product_pnl' => $productPnL,
             ]);
-
-            return ResponseHelper::success(['product' => $product]);
         } catch (Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
         }
@@ -481,6 +517,13 @@ class ProductService
             // Only selling side needs derivation; purchase is already 0
             CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
 
+            // Normalize BOM to per-unit contract before validating.
+            $request->merge([
+                'raw_materials' => $this->manufacturingService->normalizeBomItems(
+                    $request->input('raw_materials', [])
+                ),
+            ]);
+
             // Ensure supplier is not required for internal manufacturing
             $productRules = $this->productValidation->createProductRules($request);
             $productRules['supplier_id'] = 'nullable|exists:suppliers,id';
@@ -503,7 +546,9 @@ class ProductService
             // Check raw material availability before opening the transaction.
             // Availability uses net stock (SUM(IN) - SUM(OUT)) without movement-date filtering.
             $bomItems = $request->input('raw_materials', []);
-            $shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems);
+            $productionQuantity = (float) $request->input('quantity', 0);
+            $consumptionPlan = $this->manufacturingService->buildConsumptionPlan($bomItems, $productionQuantity);
+            $shortfalls = $this->manufacturingService->validateSufficientStockForPlan($consumptionPlan);
 
             if (!empty($shortfalls)) {
                 return ResponseHelper::error(
@@ -513,7 +558,7 @@ class ProductService
                 );
             }
 
-            $result = DB::transaction(function () use ($request, $bomItems) {
+            $result = DB::transaction(function () use ($request, $bomItems, $consumptionPlan) {
                 $userId       = $this->getCurrentUserHelper->getUserId();
                 $movementDate = $request->input('movement_date', now()->toDateTimeString());
 
@@ -521,13 +566,7 @@ class ProductService
                 $product = $this->productHelper->createProductRecord($request, $this->productValidation);
 
                 // 2) Persist BOM pivot records
-                foreach ($bomItems as $item) {
-                    ProductRawMaterial::create([
-                        'product_id'      => $product->id,
-                        'raw_material_id' => $item['raw_material_id'],
-                        'quantity'        => $item['quantity'],
-                    ]);
-                }
+                $this->manufacturingService->replaceProductBom($product->id, $bomItems);
 
                 // 3) Re-validate movement fields inside transaction for a clean array
                 $movementValidated = Validator::make(
@@ -543,25 +582,20 @@ class ProductService
                 );
 
                 // 5) Deduct raw material stock respecting FIFO/LIFO
-                $this->stockDeductionService->deductStock(
-                    $bomItems,
+                $referenceToken = $this->productHelper->buildReorderReferenceToken((int) $movement->id);
+                $this->manufacturingService->deductStockForPlan(
+                    $consumptionPlan,
                     $product->id,
                     $userId,
-                    $movementDate
+                    $movementDate,
+                    $referenceToken
                 );
 
                 // 6) Upload and store product images
                 ProductHelper::handleImageUpload($request, $product);
 
                 $freshProduct = ProductHelper::freshProduct($product);
-                $freshBom = ProductRawMaterial::where('product_id', $product->id)
-                    ->get(['raw_material_id', 'quantity'])
-                    ->map(fn ($item) => [
-                        'raw_material_id' => (int) $item->raw_material_id,
-                        'quantity' => (float) $item->quantity,
-                    ])
-                    ->values()
-                    ->all();
+                $freshBom = $this->manufacturingService->getProductBom($product->id);
 
                 $this->auditLoggerService->logChange(
                     'product.create.internal',
@@ -577,7 +611,10 @@ class ProductService
                     ['context' => 'product_service']
                 );
 
-                return ResponseHelper::success(['product' => $freshProduct], 'Product created successfully', 201);
+                return ResponseHelper::success([
+                    'product' => $freshProduct,
+                    'materials' => $this->manufacturingService->extractMaterialsSummary($consumptionPlan),
+                ], 'Product created successfully', 201);
             });
 
             return $result;
@@ -597,14 +634,7 @@ class ProductService
                 ->orderBy('movement_date', 'asc')
                 ->firstOrFail();
 
-            $currentBom = ProductRawMaterial::where('product_id', $product->id)
-                ->get(['raw_material_id', 'quantity'])
-                ->map(fn ($item) => [
-                    'raw_material_id' => (int) $item->raw_material_id,
-                    'quantity' => (float) $item->quantity,
-                ])
-                ->values()
-                ->all();
+            $currentBom = $this->manufacturingService->getProductBom((int) $product->id);
 
             // Default update payload to existing product BOM if BOM omitted
             $requestBomItems = $request->input('raw_materials', []);
@@ -613,6 +643,13 @@ class ProductService
                     'raw_materials' => $currentBom,
                 ]);
             }
+
+            // Normalize BOM to per-unit contract before validating.
+            $request->merge([
+                'raw_materials' => $this->manufacturingService->normalizeBomItems(
+                    $request->input('raw_materials', [])
+                ),
+            ]);
 
             // Validate incoming request body for internal manufacturing movement update
             $rules = $this->productValidation->createInternalManufacturingMovementRules();
@@ -674,7 +711,7 @@ class ProductService
                     );
                 }
 
-                if (!empty($incomingBomItems) && $this->isDifferentBom($incomingBomItems, $currentBom)) {
+                if (!empty($incomingBomItems) && $this->manufacturingService->isDifferentBom($incomingBomItems, $currentBom)) {
                     return ResponseHelper::error(
                         'Cannot update sold movement BOM',
                         422,
@@ -734,14 +771,7 @@ class ProductService
             $oldSnapshot = [
                 'product' => $this->auditLoggerService->snapshotModel($product),
                 'movement' => $this->auditLoggerService->snapshotModel($movement),
-                'bom' => ProductRawMaterial::where('product_id', $product->id)
-                    ->get(['raw_material_id', 'quantity'])
-                    ->map(fn ($item) => [
-                        'raw_material_id' => (int) $item->raw_material_id,
-                        'quantity' => (float) $item->quantity,
-                    ])
-                    ->values()
-                    ->all(),
+                'bom' => $this->manufacturingService->getProductBom((int) $product->id),
             ];
 
             $bomItems = $validated['raw_materials'] ?? [];
@@ -749,6 +779,7 @@ class ProductService
             DB::beginTransaction();
             try {
                 $referenceToken = $this->productHelper->buildReorderReferenceToken((int) $movement->id);
+                $consumptionPlan = [];
 
                 // For sold internal movement:
                 // - quantity is already locked
@@ -757,45 +788,40 @@ class ProductService
                 // This keeps production-line history consistent and still allows
                 // product metadata / pricing updates.
                 if (!$isSoldInternalMovement) {
-                    $deletedRawMaterialIds = $this->stockDeductionService->deleteReorderConsumptionMovementsByToken($referenceToken);
+                    $deletedRawMaterialIds = $this->manufacturingService->deleteConsumptionMovementsByToken($referenceToken);
+                    $legacyRawIds = $this->manufacturingService->deleteLegacyConsumptionMovementsForProduct((int) $product->id);
 
-                    // Also delete legacy production consumption movements that were created
-                    // without a reorder token (created by initial production flow).
-                    $legacyNote = "Consumed for product ID {$product->id}";
-                    $legacyMovements = RMStockMovement::where('direction', \App\Enums\StockDirectionEnum::OUT->value)
-                        ->where('movement_type', \App\Enums\RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value)
-                        ->where('note', 'like', '%' . $legacyNote . '%')
-                        ->get(['id', 'raw_material_id']);
-
-                    if ($legacyMovements->isNotEmpty()) {
-                        $legacyRawIds = $legacyMovements->pluck('raw_material_id')->unique()->values()->all();
-                        RMStockMovement::whereIn('id', $legacyMovements->pluck('id')->all())->delete();
-                        $deletedRawMaterialIds = array_values(array_unique(array_merge($deletedRawMaterialIds, $legacyRawIds)));
-                    }
-
-                    $existingBomRawMaterialIds = ProductRawMaterial::where('product_id', $product->id)
+                    $existingBomRawMaterialIds = collect($currentBom)
                         ->pluck('raw_material_id')
+                        ->map(fn ($id) => (int) $id)
+                        ->values()
                         ->all();
 
-                    // Remove existing BOM pivot rows then re-insert from request
-                    ProductRawMaterial::where('product_id', $product->id)->delete();
+                    $incomingBomRawMaterialIds = collect($bomItems)
+                        ->pluck('raw_material_id')
+                        ->map(fn ($id) => (int) $id)
+                        ->values()
+                        ->all();
 
-                    $rebuildIds = array_values(array_unique(array_merge($deletedRawMaterialIds, $existingBomRawMaterialIds)));
-                    $this->stockDeductionService->rebuildInUsedFlags($rebuildIds);
+                    $rebuildIds = array_values(array_unique(array_merge(
+                        $deletedRawMaterialIds,
+                        $legacyRawIds,
+                        $existingBomRawMaterialIds,
+                        $incomingBomRawMaterialIds
+                    )));
+                    $this->manufacturingService->rebuildInUsedFlags($rebuildIds);
 
-                    $shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems);
+                    $consumptionPlan = $this->manufacturingService->buildConsumptionPlan(
+                        $bomItems,
+                        (float) ($validated['quantity'] ?? 0)
+                    );
+                    $shortfalls = $this->manufacturingService->validateSufficientStockForPlan($consumptionPlan);
                     if (!empty($shortfalls)) {
                         DB::rollBack();
                         return ResponseHelper::error('Insufficient raw material stock', 422, $shortfalls);
                     }
 
-                    foreach ($bomItems as $item) {
-                        ProductRawMaterial::create([
-                            'product_id' => $product->id,
-                            'raw_material_id' => $item['raw_material_id'],
-                            'quantity' => $item['quantity'],
-                        ]);
-                    }
+                    $this->manufacturingService->replaceProductBom((int) $product->id, $bomItems);
                 }
 
                 // Update product-level fields when provided in internal update flow
@@ -830,8 +856,8 @@ class ProductService
                 }
 
                 if (!$isSoldInternalMovement) {
-                    $this->stockDeductionService->deductStock(
-                        $bomItems,
+                    $this->manufacturingService->deductStockForPlan(
+                        $consumptionPlan,
                         $product->id,
                         (int) $validated['last_updated_by'],
                         $validated['movement_date'],
@@ -875,14 +901,7 @@ class ProductService
             $newSnapshot = [
                 'product' => $this->auditLoggerService->snapshotModel($product->fresh()),
                 'movement' => $this->auditLoggerService->snapshotModel($movement),
-                'bom' => ProductRawMaterial::where('product_id', $product->id)
-                    ->get(['raw_material_id', 'quantity'])
-                    ->map(fn ($item) => [
-                        'raw_material_id' => (int) $item->raw_material_id,
-                        'quantity' => (float) $item->quantity,
-                    ])
-                    ->values()
-                    ->all(),
+                'bom' => $this->manufacturingService->getProductBom((int) $product->id),
             ];
 
             $this->auditLoggerService->logDiff(
@@ -895,7 +914,17 @@ class ProductService
                 ['context' => 'product_service']
             );
 
-            return ResponseHelper::success($movement, 'Product updated successfully', 201);
+            $materials = $this->manufacturingService->extractMaterialsSummary(
+                $this->manufacturingService->buildConsumptionPlan(
+                    $this->manufacturingService->getProductBom((int) $product->id),
+                    (float) ($movement->quantity ?? 0)
+                )
+            );
+
+            return ResponseHelper::success([
+                'movement' => $movement,
+                'materials' => $materials,
+            ], 'Product updated successfully', 201);
         } catch (ValidationException $e) {
             return ResponseHelper::validation($e->errors(), 'Validation Error');
         } catch (Exception $e) {
@@ -954,24 +983,6 @@ class ProductService
         } catch (Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
         }
-    }
-
-    private function isDifferentBom(array $incomingBom, array $expectedBom): bool
-    {
-        $normalize = function (array $items): array {
-            return collect($items)
-                ->map(function ($item) {
-                    return [
-                        'raw_material_id' => (int) ($item['raw_material_id'] ?? 0),
-                        'quantity' => round((float) ($item['quantity'] ?? 0), 4),
-                    ];
-                })
-                ->sortBy('raw_material_id')
-                ->values()
-                ->all();
-        };
-
-        return $normalize($incomingBom) !== $normalize($expectedBom);
     }
 
     // Image upload and fresh-loading helpers moved to ProductHelper.

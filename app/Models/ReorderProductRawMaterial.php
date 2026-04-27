@@ -13,10 +13,14 @@ class ReorderProductRawMaterial extends Model
         'product_reorder_id',
         'raw_material_id',
         'quantity',
+        'quantity_per_unit',
+        'scrap_percentage',
     ];
 
     protected $casts = [
         'quantity' => 'float',
+        'quantity_per_unit' => 'float',
+        'scrap_percentage' => 'float',
     ];
 
     public function productReorder()

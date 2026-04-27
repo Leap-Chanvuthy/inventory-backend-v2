@@ -48,6 +48,8 @@ class RMStockMovementFactory extends Factory
             RawMaterialStockMovementTypeEnum::ADJUSTMENT_IN->value => 'IN',
             RawMaterialStockMovementTypeEnum::PRODUCTION_SCRAP->value => 'OUT',
             RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value => 'OUT',
+            RawMaterialStockMovementTypeEnum::SCRAP->value => 'OUT',
+            RawMaterialStockMovementTypeEnum::MANUFACTURING->value => 'OUT',
             RawMaterialStockMovementTypeEnum::ADJUSTMENT_OUT->value => 'OUT',
             default => 'IN',
         };
@@ -79,6 +81,8 @@ class RMStockMovementFactory extends Factory
         $zeroPriceTypes = [
             RawMaterialStockMovementTypeEnum::PRODUCTION_SCRAP->value,
             RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value,
+            RawMaterialStockMovementTypeEnum::SCRAP->value,
+            RawMaterialStockMovementTypeEnum::MANUFACTURING->value,
             RawMaterialStockMovementTypeEnum::ADJUSTMENT_OUT->value,
         ];
 

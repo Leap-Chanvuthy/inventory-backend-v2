@@ -6,7 +6,6 @@ use App\Enums\RawMaterialStockMovementTypeEnum;
 use App\Enums\StockDirectionEnum;
 use App\Models\RawMaterial;
 use App\Models\RMStockMovement;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Handles FIFO / LIFO raw material stock check and deduction
@@ -50,8 +49,8 @@ class RawMaterialStockDeductionService
 
     // ─────────────────────────────────────────────────────────────────────────
     // Public: deduct stock for all BOM items (must run inside a DB transaction).
-    // Creates PRODUCTION_RECEIPT OUT movements and marks consumed IN batches
-    // with in_used = true (including partially consumed batches).
+    // Creates OUT movements for production receipt/scrap consumption and marks
+    // consumed IN batches with in_used = true (including partially consumed batches).
     // ─────────────────────────────────────────────────────────────────────────
 
     public function deductStock(
@@ -59,8 +58,11 @@ class RawMaterialStockDeductionService
         int    $productId,
         int    $userId,
         string $movementDate,
-        ?string $referenceToken = null
+        ?string $referenceToken = null,
+        ?string $movementType = null
     ): void {
+        $resolvedMovementType = $movementType ?: RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value;
+
         foreach ($bomItems as $item) {
             $rawMaterialId = (int) $item['raw_material_id'];
             $remaining     = (float) $item['quantity'];
@@ -81,12 +83,12 @@ class RawMaterialStockDeductionService
                 }
                 $consume        = min($batchAvailable, $remaining);
 
-                // Create PRODUCTION_RECEIPT OUT record for the consumed portion
+                // Create OUT record for the consumed portion.
                 RMStockMovement::create([
                     'raw_material_id'              => $rawMaterialId,
                     'quantity'                     => $consume,
                     'direction'                    => StockDirectionEnum::OUT->value,
-                    'movement_type'                => RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value,
+                    'movement_type'                => $resolvedMovementType,
                     'in_used'                      => false,
                     'movement_date'                => $movementDate,
                     'unit_price_in_usd'            => $inMovement->unit_price_in_usd,
@@ -113,10 +115,17 @@ class RawMaterialStockDeductionService
     /**
      * Delete reorder-created OUT movements by token and return affected raw material IDs.
      */
-    public function deleteReorderConsumptionMovementsByToken(string $referenceToken): array
+    public function deleteReorderConsumptionMovementsByToken(string $referenceToken, ?array $movementTypes = null): array
     {
+        $movementTypes = $movementTypes ?? [
+            RawMaterialStockMovementTypeEnum::MANUFACTURING->value,
+            RawMaterialStockMovementTypeEnum::SCRAP->value,
+            RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value,
+            RawMaterialStockMovementTypeEnum::PRODUCTION_SCRAP->value,
+        ];
+
         $movements = RMStockMovement::where('direction', StockDirectionEnum::OUT->value)
-            ->where('movement_type', RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value)
+            ->whereIn('movement_type', $movementTypes)
             ->where('note', 'like', '%' . $referenceToken . '%')
             ->get(['id', 'raw_material_id']);
 

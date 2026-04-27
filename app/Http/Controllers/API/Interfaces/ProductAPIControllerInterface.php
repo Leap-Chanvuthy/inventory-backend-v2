@@ -229,10 +229,11 @@ interface ProductAPIControllerInterface
         *             @OA\Property(property="quantity", type="number", format="float", example=100),
         *             @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=10),
         *             @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
-        *             @OA\Property(property="raw_materials", type="array",
+        *             @OA\Property(property="raw_materials", type="array", description="Per-unit BOM. For each item, required_qty = production_qty × quantity_per_unit and scrap_qty = required_qty × scrap_percentage / 100.",
         *                 @OA\Items(type="object",
         *                     @OA\Property(property="raw_material_id", type="integer", example=10),
-        *                     @OA\Property(property="quantity", type="number", format="float", example=2)
+        *                     @OA\Property(property="quantity_per_unit", type="number", format="float", example=2),
+        *                     @OA\Property(property="scrap_percentage", type="number", format="float", example=5)
         *                 )
         *             ),
         *             @OA\Property(property="note", type="string", example="BOM-based manufactured product")
@@ -244,7 +245,17 @@ interface ProductAPIControllerInterface
         *         @OA\JsonContent(type="object",
         *             @OA\Property(property="status", type="boolean", example=true),
         *             @OA\Property(property="message", type="string", example="Product created successfully"),
-        *             @OA\Property(property="data", type="object")
+        *             @OA\Property(property="data", type="object",
+        *                 @OA\Property(property="product", type="object"),
+        *                 @OA\Property(property="materials", type="array",
+        *                     @OA\Items(type="object",
+        *                         @OA\Property(property="raw_material_id", type="integer", example=10),
+        *                         @OA\Property(property="required_qty", type="number", format="float", example=200),
+        *                         @OA\Property(property="scrap_qty", type="number", format="float", example=10),
+        *                         @OA\Property(property="total_consumption", type="number", format="float", example=210)
+        *                     )
+        *                 )
+        *             )
         *         )
         *     ),
         *     @OA\Response(
@@ -267,6 +278,7 @@ interface ProductAPIControllerInterface
      *     tags={"Products - Internal Manufacturing"},
      *     security={{"Bearer":{}}},
      *     summary="Update initial internally manufactured movement",
+     *     description="BOM can be modified only when the initial INTERNAL_PRODUCED movement has not been sold yet. If sold, BOM and quantity are locked and only safe metadata/pricing fields can be updated.",
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
      *     @OA\RequestBody(
      *         required=true,
@@ -286,7 +298,8 @@ interface ProductAPIControllerInterface
      *             @OA\Property(property="raw_materials", type="array",
      *                 @OA\Items(type="object",
      *                     @OA\Property(property="raw_material_id", type="integer", example=10),
-     *                     @OA\Property(property="quantity", type="number", format="float", example=3)
+     *                     @OA\Property(property="quantity_per_unit", type="number", format="float", example=3),
+     *                     @OA\Property(property="scrap_percentage", type="number", format="float", example=8)
      *                 )
      *             ),
      *             @OA\Property(property="note", type="string", example="BOM-based manufactured product")
@@ -298,7 +311,17 @@ interface ProductAPIControllerInterface
      *         @OA\JsonContent(type="object",
      *             @OA\Property(property="status", type="boolean", example=true),
      *             @OA\Property(property="message", type="string", example="Product updated successfully"),
-     *             @OA\Property(property="data", type="object")
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="movement", type="object"),
+     *                 @OA\Property(property="materials", type="array",
+     *                     @OA\Items(type="object",
+     *                         @OA\Property(property="raw_material_id", type="integer", example=10),
+     *                         @OA\Property(property="required_qty", type="number", format="float", example=300),
+     *                         @OA\Property(property="scrap_qty", type="number", format="float", example=24),
+     *                         @OA\Property(property="total_consumption", type="number", format="float", example=324)
+     *                     )
+     *                 )
+     *             )
      *         )
      *     ),
      *     @OA\Response(
@@ -479,10 +502,10 @@ interface ProductAPIControllerInterface
     *             @OA\Property(property="quantity", type="number", format="float", example=100),
     *             @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=10),
     *             @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
-    *             @OA\Property(property="raw_materials", type="array", description="Optional. Must match original product BOM formula exactly; changing BOM in reorder is not allowed.",
+    *             @OA\Property(property="bom_override", type="array", description="Optional scrap override for this reorder transaction only. BOM structure and quantity_per_unit remain locked.",
     *                 @OA\Items(type="object",
     *                     @OA\Property(property="raw_material_id", type="integer", example=10),
-    *                     @OA\Property(property="quantity", type="number", format="float", example=2)
+    *                     @OA\Property(property="scrap_percentage", type="number", format="float", example=8)
     *                 )
     *             ),
     *             @OA\Property(property="note", type="string", example="BOM-based reorder for restock")
@@ -494,7 +517,18 @@ interface ProductAPIControllerInterface
     *         @OA\JsonContent(type="object",
     *             @OA\Property(property="status", type="boolean", example=true),
     *             @OA\Property(property="message", type="string", example="Product reordered (internal manufacturing) successfully"),
-    *             @OA\Property(property="data", type="object")
+    *             @OA\Property(property="data", type="object",
+    *                 @OA\Property(property="movement", type="object"),
+    *                 @OA\Property(property="product_reorder_id", type="integer", example=12),
+    *                 @OA\Property(property="materials", type="array",
+    *                     @OA\Items(type="object",
+    *                         @OA\Property(property="raw_material_id", type="integer", example=10),
+    *                         @OA\Property(property="required_qty", type="number", format="float", example=200),
+    *                         @OA\Property(property="scrap_qty", type="number", format="float", example=16),
+    *                         @OA\Property(property="total_consumption", type="number", format="float", example=216)
+    *                     )
+    *                 )
+    *             )
     *         )
     *     ),
     *     @OA\Response(
@@ -527,6 +561,12 @@ interface ProductAPIControllerInterface
     *             @OA\Property(property="quantity", type="number", format="float", example=120, description="If this movement is already sold, quantity is immutable and must remain unchanged."),
     *             @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=11),
     *             @OA\Property(property="selling_exchange_rate_from_usd_to_riel", type="number", format="float", example=4100),
+    *             @OA\Property(property="bom_override", type="array", description="Optional scrap override for this reorder update only.",
+    *                 @OA\Items(type="object",
+    *                     @OA\Property(property="raw_material_id", type="integer", example=10),
+    *                     @OA\Property(property="scrap_percentage", type="number", format="float", example=6)
+    *                 )
+    *             ),
     *             @OA\Property(property="note", type="string", example="Update reorder (internal)")
     *         )
     *     ),
@@ -536,7 +576,17 @@ interface ProductAPIControllerInterface
     *         @OA\JsonContent(type="object",
     *             @OA\Property(property="status", type="boolean", example=true),
     *             @OA\Property(property="message", type="string", example="Product reorder (internal manufacturing) updated successfully"),
-    *             @OA\Property(property="data", type="object")
+    *             @OA\Property(property="data", type="object",
+    *                 @OA\Property(property="movement", type="object"),
+    *                 @OA\Property(property="materials", type="array",
+    *                     @OA\Items(type="object",
+    *                         @OA\Property(property="raw_material_id", type="integer", example=10),
+    *                         @OA\Property(property="required_qty", type="number", format="float", example=240),
+    *                         @OA\Property(property="scrap_qty", type="number", format="float", example=14.4),
+    *                         @OA\Property(property="total_consumption", type="number", format="float", example=254.4)
+    *                     )
+    *                 )
+    *             )
     *         )
     *     ),
     *     @OA\Response(

@@ -19,7 +19,10 @@ return new class extends Migration
             $table->id();
             $table->foreignId('product_reorder_id')->constrained('product_reorders')->cascadeOnDelete()->cascadeOnUpdate();
             $table->foreignId('raw_material_id')->constrained('raw_materials')->restrictOnDelete()->cascadeOnUpdate();
-            $table->decimal('quantity', 15, 4);
+            $table->decimal('quantity_per_unit', 15, 4)->default(0);
+            $table->decimal('scrap_percentage', 5, 2)->default(0);
+            // Legacy compatibility for code paths still reading/writing `quantity`.
+            $table->decimal('quantity', 15, 4)->default(0);
             $table->timestamps();
 
             $table->index(['product_reorder_id', 'raw_material_id'], 'idx_rprm_reorder_raw');

@@ -7,9 +7,7 @@ use App\Helpers\GetCurrentUserHelper;
 use App\Helpers\ResponseHelper;
 use App\Models\Product;
 use App\Models\ProductMovement;
-use App\Models\ProductRawMaterial;
 use App\Models\ProductReorder;
-use App\Models\ReorderProductRawMaterial;
 use App\Models\RMStockMovement;
 use App\Validations\ProductValidation;
 use Exception;
@@ -21,18 +19,18 @@ use Illuminate\Validation\ValidationException;
 class InternalProductReorder
 {
 	protected ProductValidation $productValidation;
-	protected RawMaterialStockDeductionService $stockDeductionService;
+	protected ManufacturingService $manufacturingService;
 	protected GetCurrentUserHelper $getCurrentUserHelper;
 	protected AuditLoggerService $auditLoggerService;
 
 	public function __construct(
 		ProductValidation $productValidation,
-		RawMaterialStockDeductionService $stockDeductionService,
+		ManufacturingService $manufacturingService,
 		GetCurrentUserHelper $getCurrentUserHelper,
 		AuditLoggerService $auditLoggerService
 	) {
 		$this->productValidation = $productValidation;
-		$this->stockDeductionService = $stockDeductionService;
+		$this->manufacturingService = $manufacturingService;
 		$this->getCurrentUserHelper = $getCurrentUserHelper;
 		$this->auditLoggerService = $auditLoggerService;
 	}
@@ -42,24 +40,25 @@ class InternalProductReorder
 		try {
 			$product = Product::findOrFail($productId);
 
-			// BOM is immutable for reorder flow: always use product formula.
-			$defaultBom = $this->getDefaultBomFromProduct($product);
-			if (empty($defaultBom)) {
-				return ResponseHelper::error(
-					'Product BOM not found',
-					422,
-					'This product has no BOM formula to run internal production reorder.'
-				);
-			}
-			$incomingBom = $request->input('raw_materials');
-			if (is_array($incomingBom) && !empty($incomingBom) && $this->isDifferentBom($incomingBom, $defaultBom)) {
-				return ResponseHelper::error(
-					'BOM cannot be changed in reorder',
-					422,
-					'Reorder must use the original product BOM formula.'
-				);
-			}
-			$request->merge(['raw_materials' => $defaultBom]);
+				// Reorder keeps BOM structure locked; only scrap percentage can be overridden.
+				$defaultBom = $this->getDefaultBomFromProduct($product);
+				if (empty($defaultBom)) {
+					return ResponseHelper::error(
+						'Product BOM not found',
+						422,
+						'This product has no BOM formula to run internal production reorder.'
+					);
+				}
+
+				$resolvedBom = $this->resolveLockedReorderBom($request, $defaultBom);
+				if (isset($resolvedBom['response'])) {
+					return $resolvedBom['response'];
+				}
+
+				$bomItems = $resolvedBom['bom'] ?? [];
+				$request->merge([
+					'raw_materials' => $bomItems,
+				]);
 
 			$rules = $this->productValidation->createInternalManufacturingMovementRules();
 			$validator = Validator::make($request->all(), $rules);
@@ -119,8 +118,11 @@ class InternalProductReorder
 
 			CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
 
-			$bomItems = $request->input('raw_materials', []);
-			$shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems);
+				$consumptionPlan = $this->manufacturingService->buildConsumptionPlan(
+					$bomItems,
+					(float) $request->input('quantity', 0)
+				);
+			$shortfalls = $this->manufacturingService->validateSufficientStockForPlan($consumptionPlan);
 			if (!empty($shortfalls)) {
 				return ResponseHelper::error('Insufficient raw material stock', 422, $shortfalls);
 			}
@@ -129,7 +131,7 @@ class InternalProductReorder
 			$validated['created_by'] = $validated['created_by'] ?? $this->getCurrentUserHelper->getUserId();
 			$validated['last_updated_by'] = $validated['last_updated_by'] ?? $this->getCurrentUserHelper->getUserId();
 
-			$movement = DB::transaction(function () use ($validated, $product, $bomItems) {
+			$movement = DB::transaction(function () use ($validated, $product, $bomItems, $consumptionPlan) {
 				$userId = $this->getCurrentUserHelper->getUserId();
 				$movementDate = $validated['movement_date'] ?? now()->toDateTimeString();
 
@@ -167,18 +169,12 @@ class InternalProductReorder
 					'notes' => $validated['note'] ?? null,
 				]);
 
-				foreach ($bomItems as $item) {
-					ReorderProductRawMaterial::create([
-						'product_reorder_id' => $productReorder->id,
-						'raw_material_id' => $item['raw_material_id'],
-						'quantity' => $item['quantity'],
-					]);
-				}
+				$this->manufacturingService->replaceReorderBom($productReorder, $bomItems);
 
 				$referenceToken = $this->buildReorderReferenceToken((int) $movement->id);
 
-				$this->stockDeductionService->deductStock(
-					$bomItems,
+				$this->manufacturingService->deductStockForPlan(
+					$consumptionPlan,
 					$product->id,
 					$userId,
 					$movementDate,
@@ -204,7 +200,11 @@ class InternalProductReorder
 				['context' => 'internal_reorder_service']
 			);
 
-			return ResponseHelper::success($movement, 'Product reordered (internal manufacturing) successfully', 201);
+				return ResponseHelper::success([
+					'movement' => $movement['movement'] ?? null,
+					'product_reorder_id' => $movement['product_reorder_id'] ?? null,
+					'materials' => $this->manufacturingService->extractMaterialsSummary($consumptionPlan),
+				], 'Product reordered (internal manufacturing) successfully', 201);
 		} catch (ValidationException $e) {
 			return ResponseHelper::validation($e->errors(), 'Validation Error');
 		} catch (Exception $e) {
@@ -234,31 +234,25 @@ class InternalProductReorder
 				return ResponseHelper::error('Cannot update finalized reorder', 401, 'The reorder has been finalized and can no longer be updated.');
 			}
 
-			// BOM is immutable for reorder flow: always use stored reorder snapshot.
-			$lockedBom = $productReorder->bomItems()
-				->get(['raw_material_id', 'quantity'])
-				->map(fn($item) => [
-					'raw_material_id' => (int) $item->raw_material_id,
-					'quantity' => (float) $item->quantity,
-				])
-				->values()
-				->all();
-			if (empty($lockedBom)) {
-				return ResponseHelper::error(
-					'Reorder BOM not found',
-					422,
-					'This reorder has no BOM snapshot and cannot be updated.'
-				);
-			}
-			$incomingBom = $request->input('raw_materials');
-			if (is_array($incomingBom) && !empty($incomingBom) && $this->isDifferentBom($incomingBom, $lockedBom)) {
-				return ResponseHelper::error(
-					'BOM cannot be changed in reorder',
-					422,
-					'Reorder must keep the original BOM formula.'
-				);
-			}
-			$request->merge(['raw_materials' => $lockedBom]);
+				// Reorder keeps BOM structure locked; only scrap percentage can be overridden.
+				$lockedBom = $this->manufacturingService->getReorderBom($productReorder);
+				if (empty($lockedBom)) {
+					return ResponseHelper::error(
+						'Reorder BOM not found',
+						422,
+						'This reorder has no BOM snapshot and cannot be updated.'
+					);
+				}
+
+				$resolvedBom = $this->resolveLockedReorderBom($request, $lockedBom);
+				if (isset($resolvedBom['response'])) {
+					return $resolvedBom['response'];
+				}
+
+				$bomItems = $resolvedBom['bom'] ?? [];
+				$request->merge([
+					'raw_materials' => $bomItems,
+				]);
 
 			$rules = $this->productValidation->createInternalManufacturingMovementRules();
 			$validator = Validator::make($request->all(), $rules);
@@ -299,9 +293,10 @@ class InternalProductReorder
 				'last_updated_by' => $this->getCurrentUserHelper->getUserId(),
 			]);
 
-			if ($movement->is_sold === true) {
-				$incomingQty = $request->input('quantity');
-				$currentQty = (float) $movement->quantity;
+				$isSoldReorderMovement = ($movement->is_sold === true);
+				if ($isSoldReorderMovement) {
+					$incomingQty = $request->input('quantity');
+					$currentQty = (float) $movement->quantity;
 
 				if ($incomingQty !== null && $incomingQty !== '' && (float) $incomingQty !== $currentQty) {
 					return ResponseHelper::error(
@@ -311,9 +306,21 @@ class InternalProductReorder
 					);
 				}
 
-				// Allow updating other fields, but force quantity to current sold quantity.
-				$request->merge(['quantity' => $currentQty]);
-			}
+					if ($this->manufacturingService->isDifferentBom($bomItems, $lockedBom)) {
+						return ResponseHelper::error(
+							'Cannot update sold movement BOM',
+							422,
+							'The reordered product has been sold. BOM data cannot be updated to avoid inventory inconsistency.'
+						);
+					}
+
+					// Allow safe metadata/pricing updates only.
+					$bomItems = $this->manufacturingService->normalizeBomItems($lockedBom);
+					$request->merge([
+						'quantity' => $currentQty,
+						'raw_materials' => $bomItems,
+					]);
+				}
 
 			$lastMovement = ProductMovement::where('product_id', $product->id)
 				->orderBy('movement_date', 'desc')
@@ -339,53 +346,60 @@ class InternalProductReorder
 
 			$oldSnapshot = [
 				'movement' => $this->auditLoggerService->snapshotModel($movement),
-				'bom' => $productReorder->bomItems()
-					->get(['raw_material_id', 'quantity'])
-					->map(fn($item) => [
-						'raw_material_id' => (int) $item->raw_material_id,
-						'quantity' => (float) $item->quantity,
-					])
-					->values()
-					->all(),
+				'bom' => $this->manufacturingService->getReorderBom($productReorder),
 			];
 
-			$bomItems = $validated['raw_materials'] ?? [];
+				$bomItems = $validated['raw_materials'] ?? [];
+				$consumptionPlan = [];
 
-			DB::beginTransaction();
-			try {
-				$referenceToken = $this->buildReorderReferenceToken((int) $movement->id);
-				$deletedRawMaterialIds = $this->stockDeductionService->deleteReorderConsumptionMovementsByToken($referenceToken);
+				DB::beginTransaction();
+				try {
+					$referenceToken = $this->buildReorderReferenceToken((int) $movement->id);
+					if (!$isSoldReorderMovement) {
+						$deletedRawMaterialIds = $this->manufacturingService->deleteConsumptionMovementsByToken($referenceToken);
 
-				$existingBomRawMaterialIds = $productReorder->bomItems()
-					->pluck('raw_material_id')
-					->all();
+						$existingBomRawMaterialIds = $productReorder->bomItems()
+							->pluck('raw_material_id')
+							->all();
 
-				$productReorder->bomItems()->delete();
+						$incomingBomRawMaterialIds = collect($bomItems)
+							->pluck('raw_material_id')
+							->map(fn ($id) => (int) $id)
+							->values()
+							->all();
 
-				$rebuildIds = array_values(array_unique(array_merge($deletedRawMaterialIds, $existingBomRawMaterialIds)));
-				$this->stockDeductionService->rebuildInUsedFlags($rebuildIds);
+						$rebuildIds = array_values(array_unique(array_merge(
+							$deletedRawMaterialIds,
+							$existingBomRawMaterialIds,
+							$incomingBomRawMaterialIds
+						)));
+						$this->manufacturingService->rebuildInUsedFlags($rebuildIds);
 
-				$shortfalls = $this->stockDeductionService->validateSufficientStock($bomItems);
-				if (!empty($shortfalls)) {
-					DB::rollBack();
-					return ResponseHelper::error('Insufficient raw material stock', 422, $shortfalls);
-				}
+						$consumptionPlan = $this->manufacturingService->buildConsumptionPlan(
+							$bomItems,
+							(float) ($validated['quantity'] ?? 0)
+						);
+						$shortfalls = $this->manufacturingService->validateSufficientStockForPlan($consumptionPlan);
+						if (!empty($shortfalls)) {
+							DB::rollBack();
+							return ResponseHelper::error('Insufficient raw material stock', 422, $shortfalls);
+						}
 
-				foreach ($bomItems as $item) {
-					ReorderProductRawMaterial::create([
-						'product_reorder_id' => $productReorder->id,
-						'raw_material_id' => $item['raw_material_id'],
-						'quantity' => $item['quantity'],
-					]);
-				}
+						$this->manufacturingService->replaceReorderBom($productReorder, $bomItems);
 
-				$this->stockDeductionService->deductStock(
-					$bomItems,
-					$product->id,
-					(int) $validated['last_updated_by'],
-					$validated['movement_date'],
-					$referenceToken
-				);
+						$this->manufacturingService->deductStockForPlan(
+							$consumptionPlan,
+							$product->id,
+							(int) $validated['last_updated_by'],
+							$validated['movement_date'],
+							$referenceToken
+						);
+					} else {
+						$consumptionPlan = $this->manufacturingService->buildConsumptionPlan(
+							$bomItems,
+							(float) ($validated['quantity'] ?? 0)
+						);
+					}
 
 				$movement->update([
 					'quantity' => $validated['quantity'],
@@ -422,14 +436,7 @@ class InternalProductReorder
 
 			$newSnapshot = [
 				'movement' => $this->auditLoggerService->snapshotModel($movement),
-				'bom' => $productReorder->bomItems()
-					->get(['raw_material_id', 'quantity'])
-					->map(fn($item) => [
-						'raw_material_id' => (int) $item->raw_material_id,
-						'quantity' => (float) $item->quantity,
-					])
-					->values()
-					->all(),
+				'bom' => $this->manufacturingService->getReorderBom($productReorder),
 			];
 
 			$this->auditLoggerService->logDiff(
@@ -442,7 +449,10 @@ class InternalProductReorder
 				['context' => 'internal_reorder_service']
 			);
 
-			return ResponseHelper::success($movement, 'Product reorder (internal manufacturing) updated successfully', 201);
+				return ResponseHelper::success([
+					'movement' => $movement,
+					'materials' => $this->manufacturingService->extractMaterialsSummary($consumptionPlan),
+				], 'Product reorder (internal manufacturing) updated successfully', 201);
 		} catch (ValidationException $e) {
 			return ResponseHelper::validation($e->errors(), 'Validation Error');
 		} catch (Exception $e) {
@@ -519,7 +529,7 @@ class InternalProductReorder
 			if ($productReorder) {
 				$referenceToken = $this->buildReorderReferenceToken((int) $movement->id);
 				// delete RM stock movements created for this reorder (if any)
-				$this->stockDeductionService->deleteReorderConsumptionMovementsByToken($referenceToken);
+				$this->manufacturingService->deleteConsumptionMovementsByToken($referenceToken);
 
 				// delete BOM snapshot items
 				$productReorder->bomItems()->delete();
@@ -546,41 +556,200 @@ class InternalProductReorder
 			return ResponseHelper::error($e->getMessage(), 500);
 		}
 	}
+	private function resolveLockedReorderBom(Request $request, array $lockedBom): array
+	{
+		$normalizedLockedBom = $this->manufacturingService->normalizeBomItems($lockedBom);
+		$incomingBom = $request->input('raw_materials');
+		$incomingBomOverride = $request->input('bom_override');
 
+		$hasIncomingBom = is_array($incomingBom) && !empty($incomingBom);
+		$hasBomOverride = is_array($incomingBomOverride) && !empty($incomingBomOverride);
 
+		if ($hasIncomingBom && $hasBomOverride) {
+			return [
+				'response' => ResponseHelper::validation([
+					'bom_override' => ['Provide either raw_materials or bom_override, not both.'],
+				], 'Validation Error'),
+			];
+		}
+
+		if ($hasIncomingBom) {
+			$normalizedIncomingBom = $this->manufacturingService->normalizeBomItems($incomingBom);
+			if ($this->isLockedBomStructureDifferent($normalizedIncomingBom, $normalizedLockedBom)) {
+				return [
+					'response' => ResponseHelper::error(
+						'BOM cannot be changed in reorder',
+						422,
+						'Reorder must keep the original raw materials and quantity per unit. Only scrap percentage can be changed.'
+					),
+				];
+			}
+
+			$incomingByRawMaterial = collect($normalizedIncomingBom)
+				->keyBy('raw_material_id');
+
+			$resolvedBom = collect($normalizedLockedBom)
+				->map(function (array $item) use ($incomingByRawMaterial) {
+					$incomingItem = $incomingByRawMaterial->get((int) $item['raw_material_id']);
+					$scrapPercentage = isset($incomingItem['scrap_percentage'])
+						? (float) $incomingItem['scrap_percentage']
+						: (float) $item['scrap_percentage'];
+
+					return [
+						'raw_material_id' => (int) $item['raw_material_id'],
+						'quantity_per_unit' => round((float) $item['quantity_per_unit'], 4),
+						'scrap_percentage' => round(max(0, min(100, $scrapPercentage)), 4),
+					];
+				})
+				->values()
+				->all();
+
+			return ['bom' => $resolvedBom];
+		}
+
+		if ($hasBomOverride) {
+			$normalizedOverrideResult = $this->normalizeBomOverrideItems($incomingBomOverride);
+			if (!empty($normalizedOverrideResult['errors'])) {
+				return [
+					'response' => ResponseHelper::validation($normalizedOverrideResult['errors'], 'Validation Error'),
+				];
+			}
+
+			$normalizedOverrides = $normalizedOverrideResult['items'] ?? [];
+			$lockedRawMaterialIds = collect($normalizedLockedBom)
+				->pluck('raw_material_id')
+				->map(fn ($id) => (int) $id)
+				->all();
+
+			$unknownOverrideRawMaterialIds = collect($normalizedOverrides)
+				->pluck('raw_material_id')
+				->map(fn ($id) => (int) $id)
+				->filter(fn ($id) => !in_array($id, $lockedRawMaterialIds, true))
+				->values()
+				->all();
+
+			if (!empty($unknownOverrideRawMaterialIds)) {
+				return [
+					'response' => ResponseHelper::error(
+						'BOM cannot be changed in reorder',
+						422,
+						'Reorder BOM override contains raw materials that are not in the locked BOM.'
+					),
+				];
+			}
+
+			$overrideByRawMaterial = collect($normalizedOverrides)
+				->keyBy('raw_material_id');
+
+			$resolvedBom = collect($normalizedLockedBom)
+				->map(function (array $item) use ($overrideByRawMaterial) {
+					$overrideItem = $overrideByRawMaterial->get((int) $item['raw_material_id']);
+					$scrapPercentage = isset($overrideItem['scrap_percentage'])
+						? (float) $overrideItem['scrap_percentage']
+						: (float) $item['scrap_percentage'];
+
+					return [
+						'raw_material_id' => (int) $item['raw_material_id'],
+						'quantity_per_unit' => round((float) $item['quantity_per_unit'], 4),
+						'scrap_percentage' => round(max(0, min(100, $scrapPercentage)), 4),
+					];
+				})
+				->values()
+				->all();
+
+			return ['bom' => $resolvedBom];
+		}
+
+		return ['bom' => $normalizedLockedBom];
+	}
+
+	private function isLockedBomStructureDifferent(array $incomingBom, array $lockedBom): bool
+	{
+		$incomingByRawMaterial = collect($incomingBom)->keyBy('raw_material_id');
+		$lockedByRawMaterial = collect($lockedBom)->keyBy('raw_material_id');
+
+		if ($incomingByRawMaterial->count() !== $lockedByRawMaterial->count()) {
+			return true;
+		}
+
+		foreach ($lockedByRawMaterial as $rawMaterialId => $lockedItem) {
+			if (!$incomingByRawMaterial->has($rawMaterialId)) {
+				return true;
+			}
+
+			$incomingItem = $incomingByRawMaterial->get($rawMaterialId);
+			$incomingQtyPerUnit = (float) ($incomingItem['quantity_per_unit'] ?? 0);
+			$lockedQtyPerUnit = (float) ($lockedItem['quantity_per_unit'] ?? 0);
+
+			if (abs($incomingQtyPerUnit - $lockedQtyPerUnit) > 0.0001) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private function normalizeBomOverrideItems(array $bomOverride): array
+	{
+		$normalizedItems = [];
+		$errors = [];
+		$seenRawMaterialIds = [];
+
+		foreach ($bomOverride as $index => $item) {
+			$rawMaterialId = (int) ($item['raw_material_id'] ?? 0);
+			$hasRawMaterialId = array_key_exists('raw_material_id', $item);
+			$hasScrapPercentage = array_key_exists('scrap_percentage', $item);
+			$scrapPercentageRaw = $item['scrap_percentage'] ?? null;
+
+			if (!$hasRawMaterialId || $rawMaterialId <= 0) {
+				$errors["bom_override.{$index}.raw_material_id"][] = 'The raw_material_id field is required.';
+			}
+
+			if (!$hasScrapPercentage) {
+				$errors["bom_override.{$index}.scrap_percentage"][] = 'The scrap_percentage field is required.';
+			} elseif (!is_numeric($scrapPercentageRaw)) {
+				$errors["bom_override.{$index}.scrap_percentage"][] = 'The scrap_percentage must be a number.';
+			} else {
+				$scrapPercentage = (float) $scrapPercentageRaw;
+				if ($scrapPercentage < 0 || $scrapPercentage > 100) {
+					$errors["bom_override.{$index}.scrap_percentage"][] = 'The scrap_percentage must be between 0 and 100.';
+				}
+			}
+
+			if ($rawMaterialId > 0) {
+				if (in_array($rawMaterialId, $seenRawMaterialIds, true)) {
+					$errors["bom_override.{$index}.raw_material_id"][] = 'Duplicate raw_material_id is not allowed.';
+				} else {
+					$seenRawMaterialIds[] = $rawMaterialId;
+				}
+			}
+
+			if (
+				$hasRawMaterialId &&
+				$rawMaterialId > 0 &&
+				$hasScrapPercentage &&
+				is_numeric($scrapPercentageRaw)
+			) {
+				$normalizedItems[] = [
+					'raw_material_id' => $rawMaterialId,
+					'scrap_percentage' => round(max(0, min(100, (float) $scrapPercentageRaw)), 4),
+				];
+			}
+		}
+
+		return [
+			'items' => $normalizedItems,
+			'errors' => $errors,
+		];
+	}
 
 	private function getDefaultBomFromProduct(Product $product): array
 	{
-		return ProductRawMaterial::where('product_id', $product->id)
-			->get(['raw_material_id', 'quantity'])
-			->map(fn($item) => [
-				'raw_material_id' => (int) $item->raw_material_id,
-				'quantity' => (float) $item->quantity,
-			])
-			->values()
-			->all();
+		return $this->manufacturingService->getProductBom((int) $product->id);
 	}
 
 	private function buildReorderReferenceToken(int $movementId): string
 	{
 		return "REORDER_MOVEMENT_ID:{$movementId}";
-	}
-
-	private function isDifferentBom(array $incomingBom, array $expectedBom): bool
-	{
-		$normalize = function (array $items): array {
-			return collect($items)
-				->map(function ($item) {
-					return [
-						'raw_material_id' => (int) ($item['raw_material_id'] ?? 0),
-						'quantity' => round((float) ($item['quantity'] ?? 0), 4),
-					];
-				})
-				->sortBy('raw_material_id')
-				->values()
-				->all();
-		};
-
-		return $normalize($incomingBom) !== $normalize($expectedBom);
 	}
 }

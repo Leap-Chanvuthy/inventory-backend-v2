@@ -65,6 +65,8 @@ class RMStockMovementService
             $zeroPriceTypes = [
                 RawMaterialStockMovementTypeEnum::PRODUCTION_SCRAP->value,
                 RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value,
+                RawMaterialStockMovementTypeEnum::SCRAP->value,
+                RawMaterialStockMovementTypeEnum::MANUFACTURING->value,
                 RawMaterialStockMovementTypeEnum::ADJUSTMENT_OUT->value,
             ];
 
