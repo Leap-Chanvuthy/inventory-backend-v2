@@ -8040,11 +8040,28 @@
                                         "format": "float",
                                         "example": 0
                                     },
+                                    "discount_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "AUTO",
+                                            "MANUAL"
+                                        ],
+                                        "example": "AUTO"
+                                    },
+                                    "discount_value": {
+                                        "description": "Used when discount_type=MANUAL. Percentage value 0-100.",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 5,
+                                        "nullable": true
+                                    },
                                     "use_customer_category_discount": {
+                                        "description": "Legacy compatibility field.",
                                         "type": "boolean",
                                         "example": true
                                     },
                                     "discount_percentage": {
+                                        "description": "Legacy compatibility field.",
                                         "type": "number",
                                         "format": "float",
                                         "example": 5,
@@ -8266,7 +8283,7 @@
                     "Sale Orders"
                 ],
                 "summary": "Update sale order",
-                "description": "Updates sale order details only. Order status is managed by a dedicated status endpoint. Completed sale orders cannot be updated.",
+                "description": "DRAFT orders support full edits. PROCESSING/ON_HOLD/COMPLETED only allow payment updates. CANCELLED/REFUNDED are locked.",
                 "operationId": "69666d554ce82a2e279261017db9ae45",
                 "parameters": [
                     {
@@ -8314,11 +8331,28 @@
                                         "format": "float",
                                         "example": 0
                                     },
+                                    "discount_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "AUTO",
+                                            "MANUAL"
+                                        ],
+                                        "example": "AUTO"
+                                    },
+                                    "discount_value": {
+                                        "description": "Used when discount_type=MANUAL. Percentage value 0-100.",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 5,
+                                        "nullable": true
+                                    },
                                     "use_customer_category_discount": {
+                                        "description": "Legacy compatibility field.",
                                         "type": "boolean",
                                         "example": true
                                     },
                                     "discount_percentage": {
+                                        "description": "Legacy compatibility field.",
                                         "type": "number",
                                         "format": "float",
                                         "example": 5,
@@ -8368,6 +8402,42 @@
                     },
                     "500": {
                         "description": "Failed updating sale order"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/sale-orders/{id}/refunds": {
+            "get": {
+                "tags": [
+                    "Sale Orders"
+                ],
+                "summary": "Get refund history for a sale order",
+                "operationId": "7737059980f62a9fc75726577fd17cbd",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Refund history retrieved successfully"
+                    },
+                    "404": {
+                        "description": "Sale order not found"
+                    },
+                    "500": {
+                        "description": "Failed getting refund history"
                     }
                 },
                 "security": [
@@ -8443,6 +8513,183 @@
                     },
                     "500": {
                         "description": "Failed updating sale order status"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/sale-orders/{id}/refund": {
+            "patch": {
+                "tags": [
+                    "Sale Orders"
+                ],
+                "summary": "Process sale order refund",
+                "description": "Refund is allowed only when sale order status is COMPLETED. Each line can either return to stock or be scrapped. Refund quantity is tracked per sale order item.",
+                "operationId": "3de047898126df0b4f62554da8942f4e",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "reason_type",
+                                    "reason",
+                                    "items"
+                                ],
+                                "properties": {
+                                    "refund_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "CASH_REFUND",
+                                            "PARTIAL_REFUND",
+                                            "DISCOUNT_COMPENSATION"
+                                        ],
+                                        "example": "CASH_REFUND"
+                                    },
+                                    "refund_method": {
+                                        "type": "string",
+                                        "enum": [
+                                            "CASH",
+                                            "BANK_TRANSFER",
+                                            "STORE_CREDIT",
+                                            "DISCOUNT_COMPENSATION"
+                                        ],
+                                        "example": "CASH"
+                                    },
+                                    "reason_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "PRODUCT_ISSUE",
+                                            "CUSTOMER_SATISFACTION",
+                                            "COMPENSATION",
+                                            "OTHER"
+                                        ],
+                                        "example": "PRODUCT_ISSUE"
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "example": "Product damaged"
+                                    },
+                                    "processed_at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-04-28 15:00:00",
+                                        "nullable": true
+                                    },
+                                    "movement_date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-04-28 15:00:00",
+                                        "nullable": true
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Customer returned damaged products",
+                                        "nullable": true
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "required": [
+                                                "sale_order_item_id",
+                                                "quantity"
+                                            ],
+                                            "properties": {
+                                                "sale_order_item_id": {
+                                                    "type": "integer",
+                                                    "example": 12
+                                                },
+                                                "product_id": {
+                                                    "description": "Optional fallback matcher when sale_order_item_id is not provided.",
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "quantity": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 1
+                                                },
+                                                "process_return": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                },
+                                                "process_refund": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                },
+                                                "is_resellable": {
+                                                    "type": "boolean",
+                                                    "example": true,
+                                                    "nullable": true
+                                                },
+                                                "return_action": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "RETURN_TO_STOCK",
+                                                        "SCRAP",
+                                                        "NO_RETURN"
+                                                    ],
+                                                    "example": "RETURN_TO_STOCK"
+                                                },
+                                                "refund_percentage": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 100,
+                                                    "nullable": true
+                                                },
+                                                "refund_amount_override_in_usd": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 20,
+                                                    "nullable": true
+                                                },
+                                                "reason": {
+                                                    "type": "string",
+                                                    "example": "Customer changed mind",
+                                                    "nullable": true
+                                                },
+                                                "note": {
+                                                    "type": "string",
+                                                    "example": "Returned item damaged / expired / not resellable",
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Sale order refund processed successfully"
+                    },
+                    "422": {
+                        "description": "Validation error or order not eligible for refund"
+                    },
+                    "404": {
+                        "description": "Sale order not found"
+                    },
+                    "500": {
+                        "description": "Failed processing refund"
                     }
                 },
                 "security": [

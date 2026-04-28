@@ -14,6 +14,7 @@ class SaleOrderItem extends Model
         'sale_order_id' => 'integer',
         'product_id' => 'integer',
         'quantity' => 'float',
+        'returned_quantity' => 'float',
         'refund_quantity' => 'float',
         'unit_price_in_usd' => 'float',
         'unit_price_in_riel' => 'float',
@@ -27,6 +28,7 @@ class SaleOrderItem extends Model
         'sale_order_id',
         'product_id',
         'quantity',
+        'returned_quantity',
         'refund_quantity',
         'unit_price_in_usd',
         'unit_price_in_riel',
@@ -45,6 +47,11 @@ class SaleOrderItem extends Model
     public function product()
     {
         return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    public function refundItems()
+    {
+        return $this->hasMany(SaleOrderRefundItem::class, 'sale_order_item_id');
     }
 
 }

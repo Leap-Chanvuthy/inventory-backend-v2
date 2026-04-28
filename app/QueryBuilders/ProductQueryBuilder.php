@@ -8,6 +8,7 @@ use App\Models\ProductMovement;
 use Illuminate\Http\Request;
 use Spatie\QueryBuilder\AllowedFilter;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 class ProductQueryBuilder
 {
@@ -15,6 +16,11 @@ class ProductQueryBuilder
     {
         $perPage = (int) $request->query('per_page', 10);
         $perPage = max(1, min($perPage, 100));
+
+        $latestSellingUsd = "(select pm.selling_unit_price_in_usd from product_movements pm where pm.product_id = products.id and pm.direction = 'IN' and (pm.selling_unit_price_in_usd > 0 or pm.selling_unit_price_in_riel > 0) order by pm.movement_date desc, pm.id desc limit 1)";
+        $latestSellingRiel = "(select pm.selling_unit_price_in_riel from product_movements pm where pm.product_id = products.id and pm.direction = 'IN' and (pm.selling_unit_price_in_usd > 0 or pm.selling_unit_price_in_riel > 0) order by pm.movement_date desc, pm.id desc limit 1)";
+        $latestSellingUsdToRiel = "(select pm.selling_exchange_rate_from_usd_to_riel from product_movements pm where pm.product_id = products.id and pm.direction = 'IN' and (pm.selling_unit_price_in_usd > 0 or pm.selling_unit_price_in_riel > 0) order by pm.movement_date desc, pm.id desc limit 1)";
+        $latestSellingRielToUsd = "(select pm.selling_exchange_rate_from_riel_to_usd from product_movements pm where pm.product_id = products.id and pm.direction = 'IN' and (pm.selling_unit_price_in_usd > 0 or pm.selling_unit_price_in_riel > 0) order by pm.movement_date desc, pm.id desc limit 1)";
 
         $builder = QueryBuilderHelper::build(
             model: Product::class,
@@ -32,6 +38,10 @@ class ProductQueryBuilder
                 'suppliers.official_name as official_name',
                 'warehouses.warehouse_name as warehouse_name',
                 'unit_of_measurements.name as uom_name',
+                DB::raw("{$latestSellingUsd} as latest_selling_unit_price_in_usd"),
+                DB::raw("{$latestSellingRiel} as latest_selling_unit_price_in_riel"),
+                DB::raw("{$latestSellingUsdToRiel} as latest_selling_exchange_rate_from_usd_to_riel"),
+                DB::raw("{$latestSellingRielToUsd} as latest_selling_exchange_rate_from_riel_to_usd"),
             ],
 
             allowedFilters: [

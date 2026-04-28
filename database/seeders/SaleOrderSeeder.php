@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Service\ProductStockDeductionService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 
 class SaleOrderSeeder extends Seeder
 {
@@ -62,11 +63,21 @@ class SaleOrderSeeder extends Seeder
                 $stockService
             ) {
                 $totals = $this->buildTotals($faker, $items);
+                $returnWindowDays = $faker->numberBetween(14, 45);
+                $returnValidUntil = Carbon::parse($orderDate)->addDays($returnWindowDays)->endOfDay();
+                $paymentSnapshot = $this->buildPaymentSnapshot(
+                    $faker,
+                    (float) $totals['grand_total_amount_in_usd'],
+                    (float) $totals['grand_total_amount_in_riel'],
+                    $paymentStatus
+                );
 
                 $saleOrder = SaleOrder::factory()->create([
                     'order_no' => $this->generateSeedOrderNo($created + 1, $batchToken),
                     'customer_id' => $customerId,
                     'order_date' => $orderDate,
+                    'return_window_days' => $returnWindowDays,
+                    'return_valid_until' => $returnValidUntil,
                     'order_status' => $orderStatus,
                     'payment_status' => $paymentStatus,
                     'note' => $faker->optional(0.5)->sentence(),
@@ -82,6 +93,12 @@ class SaleOrderSeeder extends Seeder
                     'grand_total_amount_in_riel' => $totals['grand_total_amount_in_riel'],
                     'discount_percentage' => $totals['discount_percentage'],
                     'discount_amount' => $totals['discount_amount'],
+                    'paid_amount_in_usd' => $paymentSnapshot['paid_amount_in_usd'],
+                    'paid_amount_in_riel' => $paymentSnapshot['paid_amount_in_riel'],
+                    'remaining_balance_in_usd' => $paymentSnapshot['remaining_balance_in_usd'],
+                    'remaining_balance_in_riel' => $paymentSnapshot['remaining_balance_in_riel'],
+                    'total_refunded_amount_in_usd' => 0,
+                    'total_refunded_amount_in_riel' => 0,
                 ]);
 
                 foreach ($items as $item) {
@@ -89,6 +106,7 @@ class SaleOrderSeeder extends Seeder
                         'sale_order_id' => $saleOrder->id,
                         'product_id' => $item['product_id'],
                         'quantity' => $item['quantity'],
+                        'returned_quantity' => 0,
                         'refund_quantity' => null,
                         'unit_price_in_usd' => $item['unit_price_in_usd'],
                         'unit_price_in_riel' => $item['unit_price_in_riel'],
@@ -257,6 +275,32 @@ class SaleOrderSeeder extends Seeder
             'tax_amount_in_riel' => $taxAmountRiel,
             'grand_total_amount_in_usd' => round($taxableUsd + $taxAmountUsd, 2),
             'grand_total_amount_in_riel' => round($taxableRiel + $taxAmountRiel, 2),
+        ];
+    }
+
+    private function buildPaymentSnapshot(\Faker\Generator $faker, float $grandTotalUsd, float $grandTotalRiel, string $paymentStatus): array
+    {
+        $grandTotalUsd = max(0, $grandTotalUsd);
+        $grandTotalRiel = max(0, $grandTotalRiel);
+        $rate = $grandTotalUsd > 0 ? ($grandTotalRiel / $grandTotalUsd) : 0;
+
+        $paidUsd = 0.0;
+        if ($paymentStatus === PaymentStatusEnum::PAID->value) {
+            $paidUsd = $grandTotalUsd;
+        } elseif ($paymentStatus === PaymentStatusEnum::DEBT->value) {
+            $paidUsd = $grandTotalUsd * (float) $faker->randomFloat(2, 0.15, 0.85);
+        }
+
+        $paidUsd = round(min($paidUsd, $grandTotalUsd), 2);
+        $remainingUsd = round($grandTotalUsd - $paidUsd, 2);
+        $paidRiel = round($rate > 0 ? $paidUsd * $rate : 0, 2);
+        $remainingRiel = round($rate > 0 ? $remainingUsd * $rate : 0, 2);
+
+        return [
+            'paid_amount_in_usd' => $paidUsd,
+            'paid_amount_in_riel' => $paidRiel,
+            'remaining_balance_in_usd' => $remainingUsd,
+            'remaining_balance_in_riel' => $remainingRiel,
         ];
     }
 

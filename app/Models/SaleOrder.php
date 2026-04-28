@@ -20,6 +20,8 @@ class SaleOrder extends Model
         'order_status',
         'payment_status',
         'note',
+        'return_window_days',
+        'return_valid_until',
         'created_by',
         'last_updated_by',
         'tax_percentage',
@@ -31,6 +33,12 @@ class SaleOrder extends Model
         'grand_total_amount_in_riel',
         'discount_percentage',
         'discount_amount',
+        'paid_amount_in_usd',
+        'paid_amount_in_riel',
+        'total_refunded_amount_in_usd',
+        'total_refunded_amount_in_riel',
+        'remaining_balance_in_usd',
+        'remaining_balance_in_riel',
     ];
 
     protected $casts = [
@@ -39,6 +47,8 @@ class SaleOrder extends Model
         'created_by' => 'integer',
         'last_updated_by' => 'integer',
         'order_date' => 'datetime',
+        'return_window_days' => 'integer',
+        'return_valid_until' => 'datetime',
         'order_status' => SaleOrderStatusEnum::class,
         'payment_status' => PaymentStatusEnum::class,
         'tax_percentage' => 'float',
@@ -50,6 +60,12 @@ class SaleOrder extends Model
         'grand_total_amount_in_riel' => 'float',
         'discount_percentage' => 'float',
         'discount_amount' => 'float',
+        'paid_amount_in_usd' => 'float',
+        'paid_amount_in_riel' => 'float',
+        'total_refunded_amount_in_usd' => 'float',
+        'total_refunded_amount_in_riel' => 'float',
+        'remaining_balance_in_usd' => 'float',
+        'remaining_balance_in_riel' => 'float',
     ];
 
 
@@ -62,6 +78,11 @@ class SaleOrder extends Model
     public function orderItems()
     {
         return $this->hasMany(SaleOrderItem::class, 'sale_order_id');
+    }
+
+    public function refunds()
+    {
+        return $this->hasMany(SaleOrderRefund::class, 'sale_order_id');
     }
 
 }

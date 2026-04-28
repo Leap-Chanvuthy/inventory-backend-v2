@@ -19,6 +19,8 @@ return new class extends Migration
             $table->string('order_no', 50)->unique();
             $table->foreignId('customer_id')->nullable()->constrained('customers')->nullOnDelete();
             $table->dateTime('order_date');
+            $table->unsignedInteger('return_window_days')->default(30);
+            $table->dateTime('return_valid_until')->nullable();
 
             $table->enum('order_status', [
                 SaleOrderStatusEnum::DRAFT->value,
@@ -47,6 +49,14 @@ return new class extends Migration
 
             $table->decimal('discount_percentage', 10, 2)->default(0)->min(0)->max(100)->comment('The percentage of discount applied to the order.');
             $table->decimal('discount_amount', 15, 2)->default(0);
+
+            // Payment and refund snapshot fields
+            $table->decimal('paid_amount_in_usd', 15, 2)->default(0);
+            $table->decimal('paid_amount_in_riel', 15, 2)->default(0);
+            $table->decimal('total_refunded_amount_in_usd', 15, 2)->default(0);
+            $table->decimal('total_refunded_amount_in_riel', 15, 2)->default(0);
+            $table->decimal('remaining_balance_in_usd', 15, 2)->default(0);
+            $table->decimal('remaining_balance_in_riel', 15, 2)->default(0);
 
             $table->timestamps();
             $table->softDeletes();

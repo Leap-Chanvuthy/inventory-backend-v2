@@ -38,6 +38,20 @@ interface SaleOrderAPIControllerInterface
 
     /**
      * @OA\Get(
+     *     path="/api/sale-orders/statistics",
+     *     tags={"Sale Orders"},
+     *     security={{"Bearer":{}}},
+     *     summary="Get sale order statistics",
+     *     @OA\Parameter(name="date_from", in="query", required=false, @OA\Schema(type="string", format="date", example="2026-04-01")),
+     *     @OA\Parameter(name="date_to", in="query", required=false, @OA\Schema(type="string", format="date", example="2026-04-30")),
+     *     @OA\Response(response=200, description="Sale order statistics retrieved successfully"),
+     *     @OA\Response(response=500, description="Failed getting sale order statistics")
+     * )
+     */
+    public function statistics(Request $request);
+
+    /**
+     * @OA\Get(
      *     path="/api/sale-orders/{id}",
      *     tags={"Sale Orders"},
      *     security={{"Bearer":{}}},
@@ -59,6 +73,20 @@ interface SaleOrderAPIControllerInterface
     public function show(int $id);
 
     /**
+     * @OA\Get(
+     *     path="/api/sale-orders/{id}/refunds",
+     *     tags={"Sale Orders"},
+     *     security={{"Bearer":{}}},
+     *     summary="Get refund history for a sale order",
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer", example=1)),
+     *     @OA\Response(response=200, description="Refund history retrieved successfully"),
+     *     @OA\Response(response=404, description="Sale order not found"),
+     *     @OA\Response(response=500, description="Failed getting refund history")
+     * )
+     */
+    public function refunds(int $id);
+
+    /**
      * @OA\Post(
      *     path="/api/sale-orders",
      *     tags={"Sale Orders"},
@@ -74,8 +102,10 @@ interface SaleOrderAPIControllerInterface
      *             @OA\Property(property="payment_status", type="string", enum={"PAID","UNPAID","DEBT"}, example="UNPAID"),
      *             @OA\Property(property="note", type="string", nullable=true, example="POS sale"),
      *             @OA\Property(property="tax_percentage", type="number", format="float", example=0),
-     *             @OA\Property(property="use_customer_category_discount", type="boolean", example=true),
-     *             @OA\Property(property="discount_percentage", type="number", format="float", nullable=true, example=5),
+     *             @OA\Property(property="discount_type", type="string", enum={"AUTO","MANUAL"}, example="AUTO"),
+     *             @OA\Property(property="discount_value", type="number", format="float", nullable=true, example=5, description="Used when discount_type=MANUAL. Percentage value 0-100."),
+     *             @OA\Property(property="use_customer_category_discount", type="boolean", example=true, description="Legacy compatibility field."),
+     *             @OA\Property(property="discount_percentage", type="number", format="float", nullable=true, example=5, description="Legacy compatibility field."),
      *             @OA\Property(
      *                 property="items",
      *                 type="array",
@@ -130,7 +160,7 @@ interface SaleOrderAPIControllerInterface
      *     tags={"Sale Orders"},
      *     security={{"Bearer":{}}},
      *     summary="Update sale order",
-        *     description="Updates sale order details only. Order status is managed by a dedicated status endpoint. Completed sale orders cannot be updated.",
+        *     description="DRAFT orders support full edits. PROCESSING/ON_HOLD/COMPLETED only allow payment updates. CANCELLED/REFUNDED are locked.",
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer", example=1)),
      *     @OA\RequestBody(
      *         required=true,
@@ -140,8 +170,10 @@ interface SaleOrderAPIControllerInterface
      *             @OA\Property(property="payment_status", type="string", enum={"PAID","UNPAID","DEBT"}, example="UNPAID"),
      *             @OA\Property(property="note", type="string", nullable=true, example="Update sale order"),
      *             @OA\Property(property="tax_percentage", type="number", format="float", example=0),
-     *             @OA\Property(property="use_customer_category_discount", type="boolean", example=true),
-     *             @OA\Property(property="discount_percentage", type="number", format="float", nullable=true, example=5),
+     *             @OA\Property(property="discount_type", type="string", enum={"AUTO","MANUAL"}, example="AUTO"),
+     *             @OA\Property(property="discount_value", type="number", format="float", nullable=true, example=5, description="Used when discount_type=MANUAL. Percentage value 0-100."),
+     *             @OA\Property(property="use_customer_category_discount", type="boolean", example=true, description="Legacy compatibility field."),
+     *             @OA\Property(property="discount_percentage", type="number", format="float", nullable=true, example=5, description="Legacy compatibility field."),
      *             @OA\Property(
      *                 property="items",
      *                 type="array",
@@ -186,6 +218,54 @@ interface SaleOrderAPIControllerInterface
     * )
     */
     public function updateStatus(Request $request, int $id);
+
+    /**
+     * @OA\Patch(
+     *     path="/api/sale-orders/{id}/refund",
+     *     tags={"Sale Orders"},
+     *     security={{"Bearer":{}}},
+     *     summary="Process sale order refund",
+     *     description="Refund is allowed only when sale order status is COMPLETED. Each line can either return to stock or be scrapped. Refund quantity is tracked per sale order item.",
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer", example=1)),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"reason_type","reason","items"},
+     *             @OA\Property(property="refund_type", type="string", enum={"CASH_REFUND","PARTIAL_REFUND","DISCOUNT_COMPENSATION"}, example="CASH_REFUND"),
+     *             @OA\Property(property="refund_method", type="string", enum={"CASH","BANK_TRANSFER","STORE_CREDIT","DISCOUNT_COMPENSATION"}, example="CASH"),
+     *             @OA\Property(property="reason_type", type="string", enum={"PRODUCT_ISSUE","CUSTOMER_SATISFACTION","COMPENSATION","OTHER"}, example="PRODUCT_ISSUE"),
+     *             @OA\Property(property="reason", type="string", example="Product damaged"),
+     *             @OA\Property(property="processed_at", type="string", format="date-time", nullable=true, example="2026-04-28 15:00:00"),
+     *             @OA\Property(property="movement_date", type="string", format="date-time", nullable=true, example="2026-04-28 15:00:00"),
+     *             @OA\Property(property="note", type="string", nullable=true, example="Customer returned damaged products"),
+     *             @OA\Property(
+     *                 property="items",
+     *                 type="array",
+     *                 @OA\Items(
+     *                     type="object",
+     *                     required={"sale_order_item_id","quantity"},
+     *                     @OA\Property(property="sale_order_item_id", type="integer", example=12),
+     *                     @OA\Property(property="product_id", type="integer", example=10, description="Optional fallback matcher when sale_order_item_id is not provided."),
+     *                     @OA\Property(property="quantity", type="number", format="float", example=1),
+     *                     @OA\Property(property="process_return", type="boolean", example=true),
+     *                     @OA\Property(property="process_refund", type="boolean", example=true),
+     *                     @OA\Property(property="is_resellable", type="boolean", nullable=true, example=true),
+     *                     @OA\Property(property="return_action", type="string", enum={"RETURN_TO_STOCK","SCRAP","NO_RETURN"}, example="RETURN_TO_STOCK"),
+     *                     @OA\Property(property="refund_percentage", type="number", format="float", nullable=true, example=100),
+     *                     @OA\Property(property="refund_amount_override_in_usd", type="number", format="float", nullable=true, example=20),
+     *                     @OA\Property(property="reason", type="string", nullable=true, example="Customer changed mind"),
+     *                     @OA\Property(property="note", type="string", nullable=true, example="Returned item damaged / expired / not resellable")
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Sale order refund processed successfully"),
+     *     @OA\Response(response=422, description="Validation error or order not eligible for refund"),
+     *     @OA\Response(response=404, description="Sale order not found"),
+     *     @OA\Response(response=500, description="Failed processing refund")
+     * )
+     */
+    public function refund(Request $request, int $id);
 
     /**
      * @OA\Delete(

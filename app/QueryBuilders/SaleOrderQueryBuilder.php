@@ -28,8 +28,46 @@ class SaleOrderQueryBuilder
             allowedFilters: [
                 AllowedFilter::exact('id'),
                 AllowedFilter::exact('customer_id'),
-                AllowedFilter::exact('order_status'),
+                AllowedFilter::callback('order_status', function (Builder $query, $value) {
+                    $normalized = strtoupper((string) $value);
+
+                    if ($normalized === 'REFUNDED') {
+                        $query->where(function (Builder $q) {
+                            $q->where('sale_orders.order_status', 'REFUNDED')
+                                ->orWhereExists(function ($subQuery) {
+                                    $subQuery->selectRaw('1')
+                                        ->from('sale_order_refunds')
+                                        ->whereColumn('sale_order_refunds.sale_order_id', 'sale_orders.id');
+                                });
+                        });
+
+                        return;
+                    }
+
+                    if ($normalized === 'COMPLETED') {
+                        $query->where('sale_orders.order_status', 'COMPLETED')
+                            ->whereNotExists(function ($subQuery) {
+                                $subQuery->selectRaw('1')
+                                    ->from('sale_order_refunds')
+                                    ->whereColumn('sale_order_refunds.sale_order_id', 'sale_orders.id');
+                            });
+
+                        return;
+                    }
+
+                    $query->where('sale_orders.order_status', $normalized);
+                }),
                 AllowedFilter::exact('payment_status'),
+                AllowedFilter::callback('date_from', function (Builder $query, $value) {
+                    if (!empty($value)) {
+                        $query->whereDate('sale_orders.created_at', '>=', $value);
+                    }
+                }),
+                AllowedFilter::callback('date_to', function (Builder $query, $value) {
+                    if (!empty($value)) {
+                        $query->whereDate('sale_orders.created_at', '<=', $value);
+                    }
+                }),
                 AllowedFilter::callback('search', function (Builder $query, $value) {
                     $query->where(function ($q) use ($value) {
                         $q->where('sale_orders.order_no', 'LIKE', "%{$value}%")
@@ -46,14 +84,17 @@ class SaleOrderQueryBuilder
                 'order_status',
                 'payment_status',
                 'grand_total_amount_in_usd',
+                'customer_name',
                 'created_at',
                 'updated_at',
             ],
             defaultSort: '-created_at',
             withRelations: [
-                'customer' => fn ($q) => $q->withTrashed(),
+                'customer' => fn ($q) => $q->withTrashed()->with('customerCategory'),
+                'orderItems.product' => fn ($q) => $q->withTrashed(),
+                'refunds' => fn ($q) => $q->orderByDesc('processed_at'),
             ],
-            withCounts: ['orderItems']
+            withCounts: ['orderItems', 'refunds']
         );
 
         if ($onlyTrashed) {

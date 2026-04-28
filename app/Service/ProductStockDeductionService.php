@@ -92,7 +92,7 @@ class ProductStockDeductionService
                     'product_id' => $productId,
                     'quantity' => $consume,
                     'product_status' => ProductStatusEnum::COMPLETED->value,
-                    'is_sold' => false,
+                    'is_sold' => true,
                     'direction' => StockDirectionEnum::OUT->value,
                     'movement_type' => ProductStockMovementTypeEnum::SALE_ORDER->value,
                     'movement_date' => $movementDate,
