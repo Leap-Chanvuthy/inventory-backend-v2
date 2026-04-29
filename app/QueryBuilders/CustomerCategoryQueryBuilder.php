@@ -33,6 +33,14 @@ class CustomerCategoryQueryBuilder
             allowedFilters: [
                 AllowedFilter::exact('id'),
                 AllowedFilter::exact('role'),
+                AllowedFilter::callback('is_deleted', function (Builder $query, $value) {
+                    $isDeleted = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                    if ($isDeleted === true || (string) $value === '1') {
+                        $query->onlyTrashed();
+                        return;
+                    }
+                    $query->whereNull('customer_categories.deleted_at');
+                }),
 
                 // Search by name / email / phone_number
                 AllowedFilter::callback('search', function (Builder $query, $value) {
@@ -51,7 +59,9 @@ class CustomerCategoryQueryBuilder
                 'updated_at',
             ],
 
-            defaultSort: '-created_at'
+            defaultSort: '-created_at',
+            withRelations: ['customers'],
+            withCounts: ['customers'],
         );
         
         if ($onlyTrashed) {
