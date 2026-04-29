@@ -22,7 +22,7 @@ class SaleOrderFactory extends Factory
             'customer_id' => Customer::query()->inRandomOrder()->value('id'),
             'order_date' => $faker->dateTimeBetween('-4 months', 'now'),
             'order_status' => SaleOrderStatusEnum::DRAFT->value,
-            'payment_status' => PaymentStatusEnum::UNPAID->value,
+            'payment_status' => PaymentStatusEnum::INSTALLMENT->value,
             'note' => $faker->optional(0.4)->sentence(),
             'created_by' => User::query()->inRandomOrder()->value('id'),
             'last_updated_by' => User::query()->inRandomOrder()->value('id'),
@@ -36,6 +36,7 @@ class SaleOrderFactory extends Factory
             'grand_total_amount_in_riel' => 0,
             'discount_percentage' => 0,
             'discount_amount' => 0,
+            'paid_percentage' => 0,
         ];
     }
 

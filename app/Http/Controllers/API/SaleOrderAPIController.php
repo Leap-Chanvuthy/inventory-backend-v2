@@ -26,9 +26,19 @@ class SaleOrderAPIController extends Controller implements SaleOrderAPIControlle
         return $this->saleOrderService->statistics($request);
     }
 
+    public function statisticsReport(Request $request)
+    {
+        return $this->saleOrderService->exportStatisticsReport($request);
+    }
+
     public function show(int $id)
     {
         return $this->saleOrderService->show($id);
+    }
+
+    public function refundRecords(Request $request)
+    {
+        return $this->saleOrderService->listRefundRecords($request);
     }
 
     public function refunds(int $id)
@@ -49,6 +59,16 @@ class SaleOrderAPIController extends Controller implements SaleOrderAPIControlle
     public function updateStatus(Request $request, int $id)
     {
         return $this->saleOrderService->updateStatus($request, $id);
+    }
+
+    public function addInstallment(Request $request, int $id)
+    {
+        return $this->saleOrderService->addInstallment($request, $id);
+    }
+
+    public function addPayment(Request $request, int $id)
+    {
+        return $this->saleOrderService->addPayment($request, $id);
     }
 
     public function refund(Request $request, int $id)

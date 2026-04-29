@@ -13,9 +13,11 @@ use App\Models\Customer;
 use App\Models\Product;
 use App\Models\ProductMovement;
 use App\Models\SaleOrder;
+use App\Models\SaleOrderInstallment;
 use App\Models\SaleOrderItem;
 use App\Models\SaleOrderRefund;
 use App\Models\SaleOrderRefundItem;
+use App\Models\SaleOrderStatusHistory;
 use App\QueryBuilders\SaleOrderQueryBuilder;
 use App\Validations\SaleOrderValidation;
 use Exception;
@@ -60,17 +62,50 @@ class SaleOrderService
     public function statistics(Request $request)
     {
         try {
-            $query = SaleOrder::query();
             $dateFrom = $request->query('date_from');
             $dateTo = $request->query('date_to');
+            $customerId = $request->query('customer_id');
+            $statusInput = trim((string) $request->query('status', ''));
+            $groupBy = strtolower((string) $request->query('group_by', 'month'));
 
-            if (!empty($dateFrom)) {
-                $query->whereDate('created_at', '>=', $dateFrom);
+            if (!in_array($groupBy, ['day', 'week', 'month', 'year'], true)) {
+                $groupBy = 'month';
             }
 
-            if (!empty($dateTo)) {
-                $query->whereDate('created_at', '<=', $dateTo);
-            }
+            $statusFilters = collect(explode(',', $statusInput))
+                ->map(fn ($status) => strtoupper(trim((string) $status)))
+                ->filter(fn ($status) => in_array($status, [
+                    SaleOrderStatusEnum::DRAFT->value,
+                    SaleOrderStatusEnum::PROCESSING->value,
+                    SaleOrderStatusEnum::ON_HOLD->value,
+                    SaleOrderStatusEnum::COMPLETED->value,
+                    SaleOrderStatusEnum::CANCELLED->value,
+                    SaleOrderStatusEnum::REFUNDED->value,
+                ], true))
+                ->values()
+                ->all();
+
+            $applyOrderFilters = function ($query) use ($dateFrom, $dateTo, $customerId, $statusFilters) {
+                if (!empty($dateFrom)) {
+                    $query->whereDate('sale_orders.order_date', '>=', $dateFrom);
+                }
+
+                if (!empty($dateTo)) {
+                    $query->whereDate('sale_orders.order_date', '<=', $dateTo);
+                }
+
+                if (!empty($customerId)) {
+                    $query->where('sale_orders.customer_id', (int) $customerId);
+                }
+
+                if (!empty($statusFilters)) {
+                    $query->whereIn('sale_orders.order_status', $statusFilters);
+                }
+
+                return $query;
+            };
+
+            $query = $applyOrderFilters(SaleOrder::query());
 
             $stats = (clone $query)
                 ->selectRaw('COUNT(*) as total_orders')
@@ -78,25 +113,136 @@ class SaleOrderService
                 ->selectRaw('SUM(CASE WHEN order_status = ? THEN 1 ELSE 0 END) as total_processing', [SaleOrderStatusEnum::PROCESSING->value])
                 ->selectRaw('SUM(CASE WHEN order_status = ? THEN 1 ELSE 0 END) as total_on_hold', [SaleOrderStatusEnum::ON_HOLD->value])
                 ->selectRaw('SUM(CASE WHEN order_status = ? THEN 1 ELSE 0 END) as total_completed', [SaleOrderStatusEnum::COMPLETED->value])
-                ->selectRaw('SUM(CASE WHEN order_status = ? THEN 1 ELSE 0 END) as total_refunded', [SaleOrderStatusEnum::REFUNDED->value])
-                ->selectRaw('COALESCE(SUM(CASE WHEN order_status IN (?, ?) THEN (grand_total_amount_in_usd - total_refunded_amount_in_usd) ELSE 0 END), 0) as total_earning_usd', [
-                    SaleOrderStatusEnum::COMPLETED->value,
-                    SaleOrderStatusEnum::REFUNDED->value,
-                ])
-                ->selectRaw('COALESCE(SUM(CASE WHEN order_status IN (?, ?) THEN (grand_total_amount_in_riel - total_refunded_amount_in_riel) ELSE 0 END), 0) as total_earning_riel', [
-                    SaleOrderStatusEnum::COMPLETED->value,
-                    SaleOrderStatusEnum::REFUNDED->value,
-                ])
+                ->selectRaw('SUM(CASE WHEN order_status = ? THEN 1 ELSE 0 END) as total_cancelled', [SaleOrderStatusEnum::CANCELLED->value])
+                ->selectRaw('COALESCE(SUM(CASE WHEN order_status = ? THEN total_refunded_amount_in_usd ELSE 0 END), 0) as total_refunded_usd', [SaleOrderStatusEnum::COMPLETED->value])
+                ->selectRaw('COALESCE(SUM(CASE WHEN order_status = ? THEN total_refunded_amount_in_riel ELSE 0 END), 0) as total_refunded_riel', [SaleOrderStatusEnum::COMPLETED->value])
+                ->selectRaw('COALESCE(SUM(CASE WHEN order_status = ? THEN discount_amount ELSE 0 END), 0) as total_discount_amount', [SaleOrderStatusEnum::COMPLETED->value])
+                ->selectRaw('COALESCE(SUM(CASE WHEN order_status = ? THEN grand_total_amount_in_usd ELSE 0 END), 0) as gross_sales_usd', [SaleOrderStatusEnum::COMPLETED->value])
+                ->selectRaw('COALESCE(SUM(CASE WHEN order_status = ? THEN grand_total_amount_in_riel ELSE 0 END), 0) as gross_sales_riel', [SaleOrderStatusEnum::COMPLETED->value])
                 ->first();
 
+            $totalRefundedOrders = (clone $query)
+                ->whereExists(function ($subQuery) {
+                    $subQuery->selectRaw('1')
+                        ->from('sale_order_refunds')
+                        ->whereColumn('sale_order_refunds.sale_order_id', 'sale_orders.id');
+                })
+                ->count();
+
+            $salesRows = $applyOrderFilters(SaleOrder::query())
+                ->where('order_status', SaleOrderStatusEnum::COMPLETED->value)
+                ->orderBy('order_date')
+                ->get([
+                    'order_date',
+                    'grand_total_amount_in_usd',
+                    'grand_total_amount_in_riel',
+                ]);
+
+            $trendBucket = [];
+            foreach ($salesRows as $row) {
+                $parsedDate = Carbon::parse((string) $row->order_date);
+                $bucketKey = $this->formatTrendBucket($parsedDate, $groupBy);
+
+                if (!isset($trendBucket[$bucketKey])) {
+                    $trendBucket[$bucketKey] = [
+                        'period' => $bucketKey,
+                        'total_sales_usd' => 0.0,
+                        'total_sales_riel' => 0.0,
+                    ];
+                }
+
+                $trendBucket[$bucketKey]['total_sales_usd'] += (float) $row->grand_total_amount_in_usd;
+                $trendBucket[$bucketKey]['total_sales_riel'] += (float) $row->grand_total_amount_in_riel;
+            }
+
+            $salesTrend = array_values(array_map(function (array $bucket) {
+                return [
+                    'period' => $bucket['period'],
+                    'total_sales_usd' => round((float) $bucket['total_sales_usd'], 2),
+                    'total_sales_riel' => round((float) $bucket['total_sales_riel'], 2),
+                ];
+            }, $trendBucket));
+
+            $topCustomers = $applyOrderFilters(
+                DB::table('sale_orders')
+                    ->leftJoin('customers', 'sale_orders.customer_id', '=', 'customers.id')
+            )
+                ->where('sale_orders.order_status', SaleOrderStatusEnum::COMPLETED->value)
+                ->select('sale_orders.customer_id')
+                ->selectRaw("COALESCE(customers.fullname, 'Walk-in Customer') as customer_name")
+                ->selectRaw('COUNT(sale_orders.id) as orders_count')
+                ->selectRaw('COALESCE(SUM(sale_orders.grand_total_amount_in_usd), 0) as total_sales_usd')
+                ->selectRaw('COALESCE(SUM(sale_orders.grand_total_amount_in_riel), 0) as total_sales_riel')
+                ->groupBy('sale_orders.customer_id', 'customers.fullname')
+                ->orderByDesc('total_sales_usd')
+                ->limit(10)
+                ->get();
+
+            $topProducts = $applyOrderFilters(
+                DB::table('sale_order_items')
+                    ->join('sale_orders', 'sale_order_items.sale_order_id', '=', 'sale_orders.id')
+                    ->leftJoin('products', 'sale_order_items.product_id', '=', 'products.id')
+            )
+                ->where('sale_orders.order_status', SaleOrderStatusEnum::COMPLETED->value)
+                ->select('sale_order_items.product_id')
+                ->selectRaw("COALESCE(products.product_name, 'Unknown Product') as product_name")
+                ->selectRaw('COALESCE(SUM(sale_order_items.quantity), 0) as quantity_sold')
+                ->selectRaw('COALESCE(SUM(sale_order_items.total_price_in_usd), 0) as total_sales_usd')
+                ->selectRaw('COALESCE(SUM(sale_order_items.total_price_in_riel), 0) as total_sales_riel')
+                ->groupBy('sale_order_items.product_id', 'products.product_name')
+                ->orderByDesc('quantity_sold')
+                ->limit(10)
+                ->get();
+
+            $netRevenueUsd = round(
+                max(0, (float) ($stats?->gross_sales_usd ?? 0) - (float) ($stats?->total_refunded_usd ?? 0)),
+                2
+            );
+            $netRevenueRiel = round(
+                max(0, (float) ($stats?->gross_sales_riel ?? 0) - (float) ($stats?->total_refunded_riel ?? 0)),
+                2
+            );
+            $totalCompleted = (int) ($stats?->total_completed ?? 0);
+            $averageOrderValueUsd = $totalCompleted > 0
+                ? round(((float) ($stats?->gross_sales_usd ?? 0)) / $totalCompleted, 2)
+                : 0.0;
+            $averageOrderValueRiel = $totalCompleted > 0
+                ? round(((float) ($stats?->gross_sales_riel ?? 0)) / $totalCompleted, 2)
+                : 0.0;
+
             return ResponseHelper::success([
+                'total_orders' => (int) ($stats?->total_orders ?? 0),
                 'total_draft' => (int) ($stats?->total_draft ?? 0),
                 'total_processing' => (int) ($stats?->total_processing ?? 0),
                 'total_on_hold' => (int) ($stats?->total_on_hold ?? 0),
                 'total_completed' => (int) ($stats?->total_completed ?? 0),
-                'total_refunded' => (int) ($stats?->total_refunded ?? 0),
-                'total_earning_usd' => round((float) ($stats?->total_earning_usd ?? 0), 2),
-                'total_earning_riel' => round((float) ($stats?->total_earning_riel ?? 0), 2),
+                'total_cancelled' => (int) ($stats?->total_cancelled ?? 0),
+                'total_refunded_records' => (int) $totalRefundedOrders,
+                'total_refunded' => (int) $totalRefundedOrders,
+                'total_refunded_usd' => round((float) ($stats?->total_refunded_usd ?? 0), 2),
+                'total_refunded_riel' => round((float) ($stats?->total_refunded_riel ?? 0), 2),
+                'total_discount_amount' => round((float) ($stats?->total_discount_amount ?? 0), 2),
+                'gross_sales_usd' => round((float) ($stats?->gross_sales_usd ?? 0), 2),
+                'gross_sales_riel' => round((float) ($stats?->gross_sales_riel ?? 0), 2),
+                'total_sales_usd' => round((float) ($stats?->gross_sales_usd ?? 0), 2),
+                'total_sales_riel' => round((float) ($stats?->gross_sales_riel ?? 0), 2),
+                'net_revenue_usd' => $netRevenueUsd,
+                'net_revenue_riel' => $netRevenueRiel,
+                'average_order_value_usd' => $averageOrderValueUsd,
+                'average_order_value_riel' => $averageOrderValueRiel,
+                // Backward-compatible aliases for existing clients.
+                'total_earning_usd' => $netRevenueUsd,
+                'total_earning_riel' => $netRevenueRiel,
+                'group_by' => $groupBy,
+                'top_customers' => $topCustomers,
+                'top_products' => $topProducts,
+                'filters' => [
+                    'date_from' => $dateFrom ?: null,
+                    'date_to' => $dateTo ?: null,
+                    'customer_id' => !empty($customerId) ? (int) $customerId : null,
+                    'status' => $statusFilters,
+                ],
+                'sales_trend' => $salesTrend,
             ]);
         } catch (Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
@@ -111,6 +257,10 @@ class SaleOrderService
                 'orderItems.product' => fn ($q) => $q->withTrashed(),
                 'refunds.items.saleOrderItem.product' => fn ($q) => $q->withTrashed(),
                 'refunds.processedBy',
+                'installments' => fn ($q) => $q->orderBy('paid_at'),
+                'installments.creator',
+                'statusHistories' => fn ($q) => $q->orderByDesc('changed_at'),
+                'statusHistories.changedBy',
             ])->findOrFail($id);
 
             return ResponseHelper::success(['sale_order' => $saleOrder]);
@@ -122,7 +272,9 @@ class SaleOrderService
     public function getRefunds(int $id)
     {
         try {
-            $saleOrder = SaleOrder::findOrFail($id);
+            $saleOrder = SaleOrder::with([
+                'customer' => fn ($q) => $q->withTrashed()->with('customerCategory'),
+            ])->findOrFail($id);
 
             $refunds = SaleOrderRefund::with([
                 'items.saleOrderItem.product' => fn ($q) => $q->withTrashed(),
@@ -135,11 +287,286 @@ class SaleOrderService
 
             return ResponseHelper::success([
                 'sale_order_id' => (int) $saleOrder->id,
+                'sale_order' => [
+                    'id' => (int) $saleOrder->id,
+                    'order_no' => (string) $saleOrder->order_no,
+                    'order_status' => (string) $this->normalizeStatus($saleOrder->order_status),
+                    'customer' => $saleOrder->customer,
+                    'navigation' => [
+                        'completed_sale_order_query' => [
+                            'sale_order_tab' => 'history',
+                            'sale_order_subtab' => 'completed',
+                            'sale_order_id' => (int) $saleOrder->id,
+                        ],
+                    ],
+                ],
                 'refunds' => $refunds,
             ]);
         } catch (Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
         }
+    }
+
+    public function listRefundRecords(Request $request)
+    {
+        try {
+            $perPage = max(1, min((int) $request->query('per_page', 10), 100));
+            $dateFrom = $request->query('date_from');
+            $dateTo = $request->query('date_to');
+            $search = trim((string) $request->query('search', ''));
+            $refundType = strtoupper((string) $request->query('refund_type', ''));
+
+            $query = SaleOrderRefund::with([
+                'saleOrder' => fn ($q) => $q->withTrashed()->with('customer'),
+                'processedBy',
+            ])->orderByDesc('processed_at')->orderByDesc('id');
+
+            if (!empty($dateFrom)) {
+                $query->whereDate('processed_at', '>=', $dateFrom);
+            }
+
+            if (!empty($dateTo)) {
+                $query->whereDate('processed_at', '<=', $dateTo);
+            }
+
+            if (!empty($refundType)) {
+                $query->where('refund_type', $refundType);
+            }
+
+            if (!empty($search)) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('refund_no', 'LIKE', "%{$search}%")
+                        ->orWhere('reason', 'LIKE', "%{$search}%")
+                        ->orWhereHas('saleOrder', function ($saleOrderQuery) use ($search) {
+                            $saleOrderQuery->where('order_no', 'LIKE', "%{$search}%")
+                                ->orWhereHas('customer', function ($customerQuery) use ($search) {
+                                    $customerQuery->where('fullname', 'LIKE', "%{$search}%")
+                                        ->orWhere('phone_number', 'LIKE', "%{$search}%");
+                                });
+                        });
+                });
+            }
+
+            $records = $query->paginate($perPage)->appends($request->query());
+
+            return ResponseHelper::success($records, 'Refund records retrieved successfully');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    public function addInstallment(Request $request, int $id)
+    {
+        if (!$request->has('payment_status')) {
+            $current = SaleOrder::query()->select('payment_status')->find($id);
+            $currentPaymentStatus = $this->normalizePaymentStatusInput(
+                $current
+                    ? (is_object($current->payment_status) ? $current->payment_status->value : (string) $current->payment_status)
+                    : null
+            ) ?? PaymentStatusEnum::INSTALLMENT->value;
+            $request->merge(['payment_status' => $currentPaymentStatus]);
+        }
+
+        return $this->addPayment($request, $id);
+    }
+
+    public function addPayment(Request $request, int $id)
+    {
+        try {
+            $validator = Validator::make(
+                $request->all(),
+                $this->saleOrderValidation->paymentRules($request),
+                $this->saleOrderValidation->messages()
+            );
+
+            if ($validator->fails()) {
+                return ResponseHelper::validation($validator->errors()->toArray(), 'Validation Error');
+            }
+
+            $validated = $validator->validated();
+            $userId = $this->getCurrentUserHelper->getUserId();
+            $requestedInstallmentPercentage = round((float) ($validated['payment_percentage'] ?? 0), 2);
+
+            $result = DB::transaction(function () use ($id, $validated, $requestedInstallmentPercentage, $userId) {
+                /** @var SaleOrder $saleOrder */
+                $saleOrder = SaleOrder::query()
+                    ->where('id', $id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $currentStatus = $this->normalizeStatus($saleOrder->order_status);
+                if (in_array($currentStatus, [SaleOrderStatusEnum::CANCELLED->value, SaleOrderStatusEnum::REFUNDED->value], true)) {
+                    throw ValidationException::withMessages([
+                        'order_status' => ['Cancelled or refunded orders cannot accept payment updates.'],
+                    ]);
+                }
+
+                $currentPaymentStatus = $this->normalizePaymentStatusInput(
+                    is_object($saleOrder->payment_status) ? $saleOrder->payment_status->value : (string) $saleOrder->payment_status
+                ) ?? PaymentStatusEnum::INSTALLMENT->value;
+
+                $requestedPaymentStatus = $this->normalizePaymentStatusInput($validated['payment_status'] ?? null)
+                    ?? $currentPaymentStatus;
+
+                if ($currentStatus !== SaleOrderStatusEnum::DRAFT->value && $requestedPaymentStatus !== $currentPaymentStatus) {
+                    throw ValidationException::withMessages([
+                        'payment_status' => ['Payment status type cannot be changed after order leaves DRAFT.'],
+                    ]);
+                }
+
+                $currentPaidPercentage = round((float) ($saleOrder->paid_percentage ?? 0), 2);
+                $remainingPercentage = round(max(0, 100 - $currentPaidPercentage), 2);
+
+                if ($remainingPercentage <= self::FLOAT_EPSILON) {
+                    throw ValidationException::withMessages([
+                        'payment_percentage' => ['Order is already fully paid.'],
+                    ]);
+                }
+
+                if ($requestedInstallmentPercentage > $remainingPercentage + self::FLOAT_EPSILON) {
+                    throw ValidationException::withMessages([
+                        'payment_percentage' => ["Installment percentage cannot exceed remaining {$remainingPercentage}%."],
+                    ]);
+                }
+
+                $newCumulativePercentage = round(min(100, $currentPaidPercentage + $requestedInstallmentPercentage), 2);
+                if (
+                    $requestedPaymentStatus === PaymentStatusEnum::PAID->value
+                    && $newCumulativePercentage < 100 - self::FLOAT_EPSILON
+                ) {
+                    throw ValidationException::withMessages([
+                        'payment_percentage' => ['PAID status requires total paid percentage to reach 100%.'],
+                    ]);
+                }
+
+                $grandTotalUsd = (float) $saleOrder->grand_total_amount_in_usd;
+                $grandTotalRiel = (float) $saleOrder->grand_total_amount_in_riel;
+                $installmentAmountUsd = round($grandTotalUsd * ($requestedInstallmentPercentage / 100), 2);
+                $installmentAmountRiel = round($grandTotalRiel * ($requestedInstallmentPercentage / 100), 2);
+
+                $installment = SaleOrderInstallment::create([
+                    'sale_order_id' => (int) $saleOrder->id,
+                    'percentage' => $requestedInstallmentPercentage,
+                    'cumulative_percentage' => $newCumulativePercentage,
+                    'amount_usd' => $installmentAmountUsd,
+                    'amount_riel' => $installmentAmountRiel,
+                    'paid_at' => (string) ($validated['paid_at'] ?? now()->toDateTimeString()),
+                    'note' => $validated['note'] ?? null,
+                    'created_by' => $userId,
+                ]);
+
+                $resolvedPaymentStatus = $newCumulativePercentage >= 100 - self::FLOAT_EPSILON
+                    ? PaymentStatusEnum::PAID->value
+                    : ($currentStatus === SaleOrderStatusEnum::DRAFT->value
+                        ? $requestedPaymentStatus
+                        : $currentPaymentStatus);
+
+                $snapshot = $this->buildPaymentSnapshot(
+                    grandTotalInUsd: $grandTotalUsd,
+                    grandTotalInRiel: $grandTotalRiel,
+                    paidAmountInUsd: (float) $saleOrder->paid_amount_in_usd,
+                    paidAmountInRiel: (float) $saleOrder->paid_amount_in_riel,
+                    refundedAmountInUsd: (float) $saleOrder->total_refunded_amount_in_usd,
+                    refundedAmountInRiel: (float) $saleOrder->total_refunded_amount_in_riel,
+                    paymentStatusInput: $resolvedPaymentStatus,
+                    paidPercentageInput: $newCumulativePercentage
+                );
+
+                $saleOrder->update([
+                    'payment_status' => $snapshot['payment_status'],
+                    'paid_amount_in_usd' => $snapshot['paid_amount_in_usd'],
+                    'paid_amount_in_riel' => $snapshot['paid_amount_in_riel'],
+                    'paid_percentage' => $snapshot['paid_percentage'],
+                    'remaining_balance_in_usd' => $snapshot['remaining_balance_in_usd'],
+                    'remaining_balance_in_riel' => $snapshot['remaining_balance_in_riel'],
+                    'last_updated_by' => $userId,
+                ]);
+
+                return [
+                    'installment' => $installment,
+                    'sale_order' => $saleOrder->fresh([
+                        'customer.customerCategory',
+                        'orderItems.product',
+                        'refunds.items.saleOrderItem.product',
+                        'refunds.processedBy',
+                        'installments' => fn ($q) => $q->orderBy('paid_at'),
+                        'installments.creator',
+                        'statusHistories' => fn ($q) => $q->orderByDesc('changed_at'),
+                    ]),
+                ];
+            });
+
+            /** @var SaleOrder $updatedOrder */
+            $updatedOrder = $result['sale_order'];
+            /** @var SaleOrderInstallment $installment */
+            $installment = $result['installment'];
+
+            return ResponseHelper::success([
+                'sale_order_id' => (int) $updatedOrder->id,
+                'payment_status' => is_object($updatedOrder->payment_status)
+                    ? $updatedOrder->payment_status->value
+                    : (string) $updatedOrder->payment_status,
+                'paid_percentage_total' => round((float) ($updatedOrder->paid_percentage ?? 0), 2),
+                'remaining_percentage' => round(max(0, 100 - (float) ($updatedOrder->paid_percentage ?? 0)), 2),
+                'paid_amount_usd' => round((float) ($updatedOrder->paid_amount_in_usd ?? 0), 2),
+                'paid_amount_riel' => round((float) ($updatedOrder->paid_amount_in_riel ?? 0), 2),
+                'installment' => $installment,
+                'sale_order' => $updatedOrder,
+            ], 'Sale order payment recorded successfully');
+        } catch (ValidationException $e) {
+            return ResponseHelper::validation($e->errors(), 'Validation Error');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    public function exportStatisticsReport(Request $request)
+    {
+        $statsResponse = $this->statistics($request);
+        $payload = $statsResponse->getData(true);
+
+        if (!(bool) ($payload['status'] ?? false)) {
+            return ResponseHelper::error('Failed generating statistics report', 500);
+        }
+
+        $stats = $payload['data'] ?? [];
+        $lines = [
+            'Sale Order Statistics Report',
+            'Generated At: ' . now()->toDateTimeString(),
+            'Date From: ' . ($request->query('date_from') ?: 'ALL'),
+            'Date To: ' . ($request->query('date_to') ?: 'ALL'),
+            'Customer: ' . ($request->query('customer_id') ?: 'ALL'),
+            'Status: ' . ($request->query('status') ?: 'ALL'),
+            'Group By: ' . strtoupper((string) ($stats['group_by'] ?? 'MONTH')),
+            '',
+            'Summary',
+            'Total Orders: ' . (int) ($stats['total_orders'] ?? 0),
+            'Total Draft: ' . (int) ($stats['total_draft'] ?? 0),
+            'Total Processing: ' . (int) ($stats['total_processing'] ?? 0),
+            'Total On Hold: ' . (int) ($stats['total_on_hold'] ?? 0),
+            'Total Completed: ' . (int) ($stats['total_completed'] ?? 0),
+            'Total Cancelled: ' . (int) ($stats['total_cancelled'] ?? 0),
+            'Orders With Refunds: ' . (int) ($stats['total_refunded'] ?? 0),
+            'Gross Sales USD: ' . number_format((float) ($stats['gross_sales_usd'] ?? 0), 2),
+            'Total Refunded USD: ' . number_format((float) ($stats['total_refunded_usd'] ?? 0), 2),
+            'Total Discount USD: ' . number_format((float) ($stats['total_discount_amount'] ?? 0), 2),
+            'Net Revenue USD: ' . number_format((float) ($stats['net_revenue_usd'] ?? 0), 2),
+            'Average Order Value USD: ' . number_format((float) ($stats['average_order_value_usd'] ?? 0), 2),
+            '',
+            'Sales Trend (USD)',
+        ];
+
+        foreach (($stats['sales_trend'] ?? []) as $point) {
+            $lines[] = ($point['period'] ?? '-') . ': ' . number_format((float) ($point['total_sales_usd'] ?? 0), 2);
+        }
+
+        $filename = 'sale-order-report-' . now()->format('Ymd-His') . '.pdf';
+        $pdfContent = $this->buildSimplePdfDocument($lines);
+
+        return response($pdfContent, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 
     public function getStockAvailability(int $productId)
@@ -188,6 +615,13 @@ class SaleOrderService
                 $orderDate = Carbon::parse((string) $validated['order_date']);
                 $returnWindowDays = max(1, (int) ($validated['return_window_days'] ?? self::DEFAULT_RETURN_WINDOW_DAYS));
                 $returnValidUntil = $orderDate->copy()->addDays($returnWindowDays)->endOfDay();
+                $initialPaidPercentage = array_key_exists('payment_percentage', $validated)
+                    ? (float) $validated['payment_percentage']
+                    : (
+                        strtoupper((string) ($validated['payment_status'] ?? '')) === PaymentStatusEnum::PAID->value
+                            ? 100.0
+                            : null
+                    );
 
                 $paymentSnapshot = $this->buildPaymentSnapshot(
                     grandTotalInUsd: (float) $totals['grand_total_amount_in_usd'],
@@ -196,7 +630,8 @@ class SaleOrderService
                     paidAmountInRiel: (float) ($validated['paid_amount_in_riel'] ?? 0),
                     refundedAmountInUsd: 0,
                     refundedAmountInRiel: 0,
-                    paymentStatusInput: $validated['payment_status'] ?? null
+                    paymentStatusInput: $validated['payment_status'] ?? null,
+                    paidPercentageInput: $initialPaidPercentage
                 );
 
                 $saleOrder = SaleOrder::create([
@@ -209,6 +644,7 @@ class SaleOrderService
                     'payment_status' => $paymentSnapshot['payment_status'],
                     'paid_amount_in_usd' => $paymentSnapshot['paid_amount_in_usd'],
                     'paid_amount_in_riel' => $paymentSnapshot['paid_amount_in_riel'],
+                    'paid_percentage' => $paymentSnapshot['paid_percentage'],
                     'remaining_balance_in_usd' => $paymentSnapshot['remaining_balance_in_usd'],
                     'remaining_balance_in_riel' => $paymentSnapshot['remaining_balance_in_riel'],
                     'total_refunded_amount_in_usd' => 0,
@@ -244,6 +680,32 @@ class SaleOrderService
                     ]);
                 }
 
+                if ((float) ($paymentSnapshot['paid_percentage'] ?? 0) > 0) {
+                    SaleOrderInstallment::create([
+                        'sale_order_id' => (int) $saleOrder->id,
+                        'percentage' => (float) $paymentSnapshot['paid_percentage'],
+                        'cumulative_percentage' => (float) $paymentSnapshot['paid_percentage'],
+                        'amount_usd' => (float) $paymentSnapshot['paid_amount_in_usd'],
+                        'amount_riel' => (float) $paymentSnapshot['paid_amount_in_riel'],
+                        'paid_at' => (string) ($validated['paid_at'] ?? now()->toDateTimeString()),
+                        'note' => $validated['installment_note'] ?? null,
+                        'created_by' => $userId,
+                    ]);
+                }
+
+                SaleOrderStatusHistory::create([
+                    'sale_order_id' => (int) $saleOrder->id,
+                    'from_status' => null,
+                    'to_status' => SaleOrderStatusEnum::DRAFT->value,
+                    'note' => 'Initial status set on sale order creation.',
+                    'changed_at' => now()->toDateTimeString(),
+                    'changed_by' => $userId,
+                    'metadata' => [
+                        'payment_status' => $paymentSnapshot['payment_status'],
+                        'paid_percentage' => $paymentSnapshot['paid_percentage'],
+                    ],
+                ]);
+
                 return $saleOrder;
             });
 
@@ -251,6 +713,12 @@ class SaleOrderService
                 'sale_order' => $saleOrder->load([
                     'customer.customerCategory',
                     'orderItems.product',
+                    'refunds.items.saleOrderItem.product',
+                    'refunds.processedBy',
+                    'installments' => fn ($q) => $q->orderBy('paid_at'),
+                    'installments.creator',
+                    'statusHistories' => fn ($q) => $q->orderByDesc('changed_at'),
+                    'statusHistories.changedBy',
                 ]),
             ], 'Sale order created successfully', 201);
         } catch (ValidationException $e) {
@@ -288,49 +756,34 @@ class SaleOrderService
             $userId = $this->getCurrentUserHelper->getUserId();
 
             if ($currentStatus !== SaleOrderStatusEnum::DRAFT->value) {
-                $allowedPaymentOnly = ['payment_status', 'paid_amount_in_usd', 'paid_amount_in_riel'];
-                $invalidFields = array_values(array_diff(array_keys($validated), $allowedPaymentOnly));
-
-                if (!empty($invalidFields)) {
+                if (!array_key_exists('payment_percentage', $validated)) {
                     return ResponseHelper::error(
-                        'Only payment fields are editable for this sale order status.',
+                        'Only new payment entries are allowed after order leaves DRAFT. Please use payment_percentage.',
                         422,
-                        ['fields' => $invalidFields]
+                        ['payment_percentage' => ['A new installment payment percentage is required.']]
                     );
                 }
 
-                $updated = DB::transaction(function () use ($saleOrder, $validated, $userId) {
-                    $snapshot = $this->buildPaymentSnapshot(
-                        grandTotalInUsd: (float) $saleOrder->grand_total_amount_in_usd,
-                        grandTotalInRiel: (float) $saleOrder->grand_total_amount_in_riel,
-                        paidAmountInUsd: array_key_exists('paid_amount_in_usd', $validated)
-                            ? (float) $validated['paid_amount_in_usd']
-                            : (float) $saleOrder->paid_amount_in_usd,
-                        paidAmountInRiel: array_key_exists('paid_amount_in_riel', $validated)
-                            ? (float) $validated['paid_amount_in_riel']
-                            : (float) $saleOrder->paid_amount_in_riel,
-                        refundedAmountInUsd: (float) $saleOrder->total_refunded_amount_in_usd,
-                        refundedAmountInRiel: (float) $saleOrder->total_refunded_amount_in_riel,
-                        paymentStatusInput: $validated['payment_status'] ?? null
+                $allowedInstallmentFields = ['payment_percentage', 'paid_at', 'installment_note', 'note', 'payment_status'];
+                $invalidInstallmentFields = array_values(array_diff(array_keys($validated), $allowedInstallmentFields));
+                if (!empty($invalidInstallmentFields)) {
+                    return ResponseHelper::error(
+                        'Installment updates cannot modify non-payment fields.',
+                        422,
+                        ['fields' => $invalidInstallmentFields]
                     );
+                }
 
-                    $saleOrder->update([
-                        'payment_status' => $snapshot['payment_status'],
-                        'paid_amount_in_usd' => $snapshot['paid_amount_in_usd'],
-                        'paid_amount_in_riel' => $snapshot['paid_amount_in_riel'],
-                        'remaining_balance_in_usd' => $snapshot['remaining_balance_in_usd'],
-                        'remaining_balance_in_riel' => $snapshot['remaining_balance_in_riel'],
-                        'last_updated_by' => $userId,
-                    ]);
+                $currentPaymentStatus = $this->normalizePaymentStatusInput(
+                    is_object($saleOrder->payment_status) ? $saleOrder->payment_status->value : (string) $saleOrder->payment_status
+                ) ?? PaymentStatusEnum::INSTALLMENT->value;
 
-                    return $saleOrder->fresh([
-                        'customer.customerCategory',
-                        'orderItems.product',
-                        'refunds.items',
-                    ]);
-                });
+                $request->merge([
+                    'payment_status' => $validated['payment_status'] ?? $currentPaymentStatus,
+                    'note' => $validated['installment_note'] ?? $validated['note'] ?? $request->input('note'),
+                ]);
 
-                return ResponseHelper::success(['sale_order' => $updated], 'Sale order payment updated successfully');
+                return $this->addPayment($request, $id);
             }
 
             $updatedSaleOrder = DB::transaction(function () use ($saleOrder, $validated, $userId) {
@@ -391,6 +844,14 @@ class SaleOrderService
                     : (string) $saleOrder->order_date;
 
                 $returnValidUntil = Carbon::parse($nextOrderDate)->addDays($returnWindowDays)->endOfDay();
+                $nextPaidPercentage = array_key_exists('payment_percentage', $validated)
+                    ? (float) $validated['payment_percentage']
+                    : (
+                        array_key_exists('payment_status', $validated)
+                        && strtoupper((string) ($validated['payment_status'] ?? '')) === PaymentStatusEnum::PAID->value
+                            ? 100.0
+                            : (float) ($saleOrder->paid_percentage ?? 0)
+                    );
 
                 $snapshot = $this->buildPaymentSnapshot(
                     grandTotalInUsd: (float) $totals['grand_total_amount_in_usd'],
@@ -403,7 +864,8 @@ class SaleOrderService
                         : (float) $saleOrder->paid_amount_in_riel,
                     refundedAmountInUsd: (float) $saleOrder->total_refunded_amount_in_usd,
                     refundedAmountInRiel: (float) $saleOrder->total_refunded_amount_in_riel,
-                    paymentStatusInput: $validated['payment_status'] ?? null
+                    paymentStatusInput: $validated['payment_status'] ?? null,
+                    paidPercentageInput: $nextPaidPercentage
                 );
 
                 $saleOrder->update([
@@ -414,6 +876,7 @@ class SaleOrderService
                     'payment_status' => $snapshot['payment_status'],
                     'paid_amount_in_usd' => $snapshot['paid_amount_in_usd'],
                     'paid_amount_in_riel' => $snapshot['paid_amount_in_riel'],
+                    'paid_percentage' => $snapshot['paid_percentage'],
                     'remaining_balance_in_usd' => $snapshot['remaining_balance_in_usd'],
                     'remaining_balance_in_riel' => $snapshot['remaining_balance_in_riel'],
                     'note' => $validated['note'] ?? $saleOrder->note,
@@ -432,7 +895,12 @@ class SaleOrderService
                 return $saleOrder->fresh([
                     'customer.customerCategory',
                     'orderItems.product',
-                    'refunds.items',
+                    'refunds.items.saleOrderItem.product',
+                    'refunds.processedBy',
+                    'installments' => fn ($q) => $q->orderBy('paid_at'),
+                    'installments.creator',
+                    'statusHistories' => fn ($q) => $q->orderByDesc('changed_at'),
+                    'statusHistories.changedBy',
                 ]);
             });
 
@@ -475,6 +943,14 @@ class SaleOrderService
                     'Sale order is locked for status updates.',
                     422,
                     ['order_status' => ['Completed, refunded, and cancelled orders are fully locked.']]
+                );
+            }
+
+            if ($currentStatus !== SaleOrderStatusEnum::DRAFT->value && array_key_exists('payment_status', $validated)) {
+                return ResponseHelper::error(
+                    'Payment status type cannot be changed after order leaves DRAFT.',
+                    422,
+                    ['payment_status' => ['Payment status updates are only allowed while order status is DRAFT.']]
                 );
             }
 
@@ -532,31 +1008,52 @@ class SaleOrderService
                 $snapshot = $this->buildPaymentSnapshot(
                     grandTotalInUsd: (float) $saleOrder->grand_total_amount_in_usd,
                     grandTotalInRiel: (float) $saleOrder->grand_total_amount_in_riel,
-                    paidAmountInUsd: array_key_exists('paid_amount_in_usd', $validated)
-                        ? (float) $validated['paid_amount_in_usd']
-                        : (float) $saleOrder->paid_amount_in_usd,
-                    paidAmountInRiel: array_key_exists('paid_amount_in_riel', $validated)
-                        ? (float) $validated['paid_amount_in_riel']
-                        : (float) $saleOrder->paid_amount_in_riel,
+                    paidAmountInUsd: (float) $saleOrder->paid_amount_in_usd,
+                    paidAmountInRiel: (float) $saleOrder->paid_amount_in_riel,
                     refundedAmountInUsd: (float) $saleOrder->total_refunded_amount_in_usd,
                     refundedAmountInRiel: (float) $saleOrder->total_refunded_amount_in_riel,
-                    paymentStatusInput: $validated['payment_status'] ?? null
+                    paymentStatusInput: $currentStatus === SaleOrderStatusEnum::DRAFT->value
+                        ? ($validated['payment_status'] ?? null)
+                        : null,
+                    paidPercentageInput: (float) ($saleOrder->paid_percentage ?? 0)
                 );
 
+                $fromStatus = $currentStatus;
                 $saleOrder->update([
                     'order_status' => $targetStatus,
                     'payment_status' => $snapshot['payment_status'],
                     'paid_amount_in_usd' => $snapshot['paid_amount_in_usd'],
                     'paid_amount_in_riel' => $snapshot['paid_amount_in_riel'],
+                    'paid_percentage' => $snapshot['paid_percentage'],
                     'remaining_balance_in_usd' => $snapshot['remaining_balance_in_usd'],
                     'remaining_balance_in_riel' => $snapshot['remaining_balance_in_riel'],
                     'last_updated_by' => $userId,
                 ]);
 
+                if ($fromStatus !== $targetStatus) {
+                    SaleOrderStatusHistory::create([
+                        'sale_order_id' => (int) $saleOrder->id,
+                        'from_status' => $fromStatus,
+                        'to_status' => $targetStatus,
+                        'note' => 'Status updated from sale order workflow.',
+                        'changed_at' => now()->toDateTimeString(),
+                        'changed_by' => $userId,
+                        'metadata' => [
+                            'payment_status' => $snapshot['payment_status'],
+                            'paid_percentage' => $snapshot['paid_percentage'],
+                        ],
+                    ]);
+                }
+
                 return $saleOrder->fresh([
                     'customer.customerCategory',
                     'orderItems.product',
-                    'refunds.items',
+                    'refunds.items.saleOrderItem.product',
+                    'refunds.processedBy',
+                    'installments' => fn ($q) => $q->orderBy('paid_at'),
+                    'installments.creator',
+                    'statusHistories' => fn ($q) => $q->orderByDesc('changed_at'),
+                    'statusHistories.changedBy',
                 ]);
             });
 
@@ -794,22 +1291,14 @@ class SaleOrderService
                     paidAmountInRiel: (float) $saleOrder->paid_amount_in_riel,
                     refundedAmountInUsd: $newRefundUsd,
                     refundedAmountInRiel: $newRefundRiel,
-                    paymentStatusInput: null
+                    paymentStatusInput: null,
+                    paidPercentageInput: (float) ($saleOrder->paid_percentage ?? 0)
                 );
 
-                $allFullyRefunded = $saleOrder->orderItems()
-                    ->get()
-                    ->every(function (SaleOrderItem $item) {
-                        $purchasedQty = (float) ($item->quantity ?? 0);
-                        $refundedQty = (float) ($item->refund_quantity ?? 0);
-                        return $refundedQty + self::FLOAT_EPSILON >= $purchasedQty;
-                    });
-
                 $saleOrder->update([
-                    'order_status' => $allFullyRefunded
-                        ? SaleOrderStatusEnum::REFUNDED->value
-                        : SaleOrderStatusEnum::COMPLETED->value,
+                    'order_status' => SaleOrderStatusEnum::COMPLETED->value,
                     'payment_status' => $snapshot['payment_status'],
+                    'paid_percentage' => $snapshot['paid_percentage'],
                     'total_refunded_amount_in_usd' => $newRefundUsd,
                     'total_refunded_amount_in_riel' => $newRefundRiel,
                     'remaining_balance_in_usd' => $snapshot['remaining_balance_in_usd'],
@@ -817,11 +1306,30 @@ class SaleOrderService
                     'last_updated_by' => $userId,
                 ]);
 
+                SaleOrderStatusHistory::create([
+                    'sale_order_id' => (int) $saleOrder->id,
+                    'from_status' => SaleOrderStatusEnum::COMPLETED->value,
+                    'to_status' => SaleOrderStatusEnum::COMPLETED->value,
+                    'note' => 'Refund processed while keeping completed status.',
+                    'changed_at' => now()->toDateTimeString(),
+                    'changed_by' => $userId,
+                    'metadata' => [
+                        'refund_id' => (int) $refund->id,
+                        'refund_no' => (string) $refund->refund_no,
+                        'total_refund_amount_in_usd' => round($totalRefundUsd, 2),
+                        'total_refund_amount_in_riel' => round($totalRefundRiel, 2),
+                    ],
+                ]);
+
                 return $saleOrder->fresh([
                     'customer.customerCategory',
                     'orderItems.product',
                     'refunds.items.saleOrderItem.product',
                     'refunds.processedBy',
+                    'installments' => fn ($q) => $q->orderBy('paid_at'),
+                    'installments.creator',
+                    'statusHistories' => fn ($q) => $q->orderByDesc('changed_at'),
+                    'statusHistories.changedBy',
                 ]);
             });
 
@@ -1189,45 +1697,142 @@ class SaleOrderService
         float $paidAmountInRiel,
         float $refundedAmountInUsd,
         float $refundedAmountInRiel,
-        string|null $paymentStatusInput
+        string|null $paymentStatusInput,
+        float|null $paidPercentageInput = null
     ): array {
         $paidAmountInUsd = max(0, round($paidAmountInUsd, 2));
         $paidAmountInRiel = max(0, round($paidAmountInRiel, 2));
         $refundedAmountInUsd = max(0, round($refundedAmountInUsd, 2));
         $refundedAmountInRiel = max(0, round($refundedAmountInRiel, 2));
 
-        if ($paidAmountInRiel <= 0 && $paidAmountInUsd > 0 && $grandTotalInUsd > 0 && $grandTotalInRiel > 0) {
-            $rate = $grandTotalInRiel / $grandTotalInUsd;
-            $paidAmountInRiel = round($paidAmountInUsd * $rate, 2);
+        $normalizedInput = $this->normalizePaymentStatusInput($paymentStatusInput);
+
+        if (!is_null($paidPercentageInput)) {
+            $paidPercentageInput = round(max(0, min($paidPercentageInput, 100)), 2);
+            $paidAmountInUsd = round($grandTotalInUsd * ($paidPercentageInput / 100), 2);
+            $paidAmountInRiel = round($grandTotalInRiel * ($paidPercentageInput / 100), 2);
+        } else {
+            if ($paidAmountInRiel <= 0 && $paidAmountInUsd > 0 && $grandTotalInUsd > 0 && $grandTotalInRiel > 0) {
+                $rate = $grandTotalInRiel / $grandTotalInUsd;
+                $paidAmountInRiel = round($paidAmountInUsd * $rate, 2);
+            }
+
+            if ($paidAmountInUsd <= 0 && $paidAmountInRiel > 0 && $grandTotalInUsd > 0 && $grandTotalInRiel > 0) {
+                $rate = $grandTotalInUsd / $grandTotalInRiel;
+                $paidAmountInUsd = round($paidAmountInRiel * $rate, 2);
+            }
         }
 
-        if ($paidAmountInUsd <= 0 && $paidAmountInRiel > 0 && $grandTotalInUsd > 0 && $grandTotalInRiel > 0) {
-            $rate = $grandTotalInUsd / $grandTotalInRiel;
-            $paidAmountInUsd = round($paidAmountInRiel * $rate, 2);
-        }
+        $paidAmountInUsd = min($grandTotalInUsd, $paidAmountInUsd);
+        $paidAmountInRiel = min($grandTotalInRiel, $paidAmountInRiel);
+        $paidPercentage = $grandTotalInUsd > 0
+            ? round(min(100, max(0, ($paidAmountInUsd / $grandTotalInUsd) * 100)), 2)
+            : 0.0;
 
         $remainingUsd = max(0, round($grandTotalInUsd - $paidAmountInUsd - $refundedAmountInUsd, 2));
         $remainingRiel = max(0, round($grandTotalInRiel - $paidAmountInRiel - $refundedAmountInRiel, 2));
 
-        $normalizedInput = is_null($paymentStatusInput)
-            ? null
-            : strtoupper((string) $paymentStatusInput);
+        if (
+            $normalizedInput === PaymentStatusEnum::PAID->value
+            && $paidPercentage < 100 - self::FLOAT_EPSILON
+        ) {
+            throw ValidationException::withMessages([
+                'payment_percentage' => ['PAID status requires total paid percentage to reach 100%.'],
+            ]);
+        }
 
-        $netPaidUsd = max(0, round($paidAmountInUsd - $refundedAmountInUsd, 2));
-        $computedStatus = PaymentStatusEnum::DEBT->value;
-        if ($netPaidUsd <= self::FLOAT_EPSILON) {
-            $computedStatus = PaymentStatusEnum::UNPAID->value;
-        } elseif ($netPaidUsd + self::FLOAT_EPSILON >= $grandTotalInUsd) {
-            $computedStatus = PaymentStatusEnum::PAID->value;
+        $computedStatus = $paidPercentage >= 100 - self::FLOAT_EPSILON
+            ? PaymentStatusEnum::PAID->value
+            : PaymentStatusEnum::INSTALLMENT->value;
+
+        if (
+            $normalizedInput === PaymentStatusEnum::DEBT->value
+            && $paidPercentage < 100 - self::FLOAT_EPSILON
+        ) {
+            $computedStatus = PaymentStatusEnum::DEBT->value;
         }
 
         return [
             'paid_amount_in_usd' => $paidAmountInUsd,
             'paid_amount_in_riel' => $paidAmountInRiel,
+            'paid_percentage' => $paidPercentage,
             'remaining_balance_in_usd' => $remainingUsd,
             'remaining_balance_in_riel' => $remainingRiel,
-            'payment_status' => $normalizedInput ?: $computedStatus,
+            'payment_status' => $computedStatus,
         ];
+    }
+
+    private function normalizePaymentStatusInput(string|null $paymentStatusInput): string|null
+    {
+        if (is_null($paymentStatusInput) || trim($paymentStatusInput) === '') {
+            return null;
+        }
+
+        $normalized = strtoupper((string) $paymentStatusInput);
+        if ($normalized === 'UNPAID') {
+            return PaymentStatusEnum::INSTALLMENT->value;
+        }
+
+        return $normalized;
+    }
+
+    private function formatTrendBucket(Carbon $date, string $groupBy): string
+    {
+        return match ($groupBy) {
+            'day' => $date->format('Y-m-d'),
+            'week' => $date->copy()->startOfWeek()->format('Y-m-d'),
+            'year' => $date->format('Y'),
+            default => $date->format('Y-m'),
+        };
+    }
+
+    private function buildSimplePdfDocument(array $lines): string
+    {
+        $safeLines = array_slice(array_map(function ($line) {
+            $normalized = preg_replace('/[^\\x20-\\x7E]/', '?', (string) $line) ?? '';
+            return str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $normalized);
+        }, $lines), 0, 180);
+
+        $y = 795;
+        $lineHeight = 14;
+        $content = "BT\n/F1 11 Tf\n72 {$y} Td\n";
+        $first = true;
+
+        foreach ($safeLines as $line) {
+            if (!$first) {
+                $content .= "0 -{$lineHeight} Td\n";
+            }
+            $content .= "({$line}) Tj\n";
+            $first = false;
+        }
+
+        $content .= "ET";
+
+        $objects = [];
+        $objects[] = "<< /Type /Catalog /Pages 2 0 R >>";
+        $objects[] = "<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
+        $objects[] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>";
+        $objects[] = "<< /Length " . strlen($content) . " >>\nstream\n{$content}\nendstream";
+        $objects[] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+
+        $pdf = "%PDF-1.4\n";
+        $offsets = [0];
+        foreach ($objects as $index => $object) {
+            $offsets[] = strlen($pdf);
+            $objectNumber = $index + 1;
+            $pdf .= "{$objectNumber} 0 obj\n{$object}\nendobj\n";
+        }
+
+        $xrefOffset = strlen($pdf);
+        $pdf .= "xref\n0 " . (count($objects) + 1) . "\n";
+        $pdf .= "0000000000 65535 f \n";
+        for ($i = 1; $i <= count($objects); $i++) {
+            $pdf .= str_pad((string) $offsets[$i], 10, '0', STR_PAD_LEFT) . " 00000 n \n";
+        }
+        $pdf .= "trailer\n<< /Size " . (count($objects) + 1) . " /Root 1 0 R >>\n";
+        $pdf .= "startxref\n{$xrefOffset}\n%%EOF";
+
+        return $pdf;
     }
 
     private function normalizeStatus(mixed $status): string

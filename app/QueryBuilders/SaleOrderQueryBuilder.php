@@ -32,25 +32,17 @@ class SaleOrderQueryBuilder
                     $normalized = strtoupper((string) $value);
 
                     if ($normalized === 'REFUNDED') {
-                        $query->where(function (Builder $q) {
-                            $q->where('sale_orders.order_status', 'REFUNDED')
-                                ->orWhereExists(function ($subQuery) {
-                                    $subQuery->selectRaw('1')
-                                        ->from('sale_order_refunds')
-                                        ->whereColumn('sale_order_refunds.sale_order_id', 'sale_orders.id');
-                                });
+                        $query->whereExists(function ($subQuery) {
+                            $subQuery->selectRaw('1')
+                                ->from('sale_order_refunds')
+                                ->whereColumn('sale_order_refunds.sale_order_id', 'sale_orders.id');
                         });
 
                         return;
                     }
 
                     if ($normalized === 'COMPLETED') {
-                        $query->where('sale_orders.order_status', 'COMPLETED')
-                            ->whereNotExists(function ($subQuery) {
-                                $subQuery->selectRaw('1')
-                                    ->from('sale_order_refunds')
-                                    ->whereColumn('sale_order_refunds.sale_order_id', 'sale_orders.id');
-                            });
+                        $query->where('sale_orders.order_status', 'COMPLETED');
 
                         return;
                     }
@@ -93,8 +85,9 @@ class SaleOrderQueryBuilder
                 'customer' => fn ($q) => $q->withTrashed()->with('customerCategory'),
                 'orderItems.product' => fn ($q) => $q->withTrashed(),
                 'refunds' => fn ($q) => $q->orderByDesc('processed_at'),
+                'installments' => fn ($q) => $q->orderBy('paid_at'),
             ],
-            withCounts: ['orderItems', 'refunds']
+            withCounts: ['orderItems', 'refunds', 'installments']
         );
 
         if ($onlyTrashed) {

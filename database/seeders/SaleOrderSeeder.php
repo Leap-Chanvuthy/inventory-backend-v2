@@ -95,6 +95,7 @@ class SaleOrderSeeder extends Seeder
                     'discount_amount' => $totals['discount_amount'],
                     'paid_amount_in_usd' => $paymentSnapshot['paid_amount_in_usd'],
                     'paid_amount_in_riel' => $paymentSnapshot['paid_amount_in_riel'],
+                    'paid_percentage' => $paymentSnapshot['paid_percentage'],
                     'remaining_balance_in_usd' => $paymentSnapshot['remaining_balance_in_usd'],
                     'remaining_balance_in_riel' => $paymentSnapshot['remaining_balance_in_riel'],
                     'total_refunded_amount_in_usd' => 0,
@@ -164,13 +165,13 @@ class SaleOrderSeeder extends Seeder
             return $faker->randomElement([
                 PaymentStatusEnum::PAID->value,
                 PaymentStatusEnum::PAID->value,
-                PaymentStatusEnum::UNPAID->value,
+                PaymentStatusEnum::INSTALLMENT->value,
                 PaymentStatusEnum::DEBT->value,
             ]);
         }
 
         return $faker->randomElement([
-            PaymentStatusEnum::UNPAID->value,
+            PaymentStatusEnum::INSTALLMENT->value,
             PaymentStatusEnum::DEBT->value,
             PaymentStatusEnum::PAID->value,
         ]);
@@ -287,7 +288,7 @@ class SaleOrderSeeder extends Seeder
         $paidUsd = 0.0;
         if ($paymentStatus === PaymentStatusEnum::PAID->value) {
             $paidUsd = $grandTotalUsd;
-        } elseif ($paymentStatus === PaymentStatusEnum::DEBT->value) {
+        } elseif (in_array($paymentStatus, [PaymentStatusEnum::DEBT->value, PaymentStatusEnum::INSTALLMENT->value], true)) {
             $paidUsd = $grandTotalUsd * (float) $faker->randomFloat(2, 0.15, 0.85);
         }
 
@@ -299,6 +300,7 @@ class SaleOrderSeeder extends Seeder
         return [
             'paid_amount_in_usd' => $paidUsd,
             'paid_amount_in_riel' => $paidRiel,
+            'paid_percentage' => $grandTotalUsd > 0 ? round(($paidUsd / $grandTotalUsd) * 100, 2) : 0,
             'remaining_balance_in_usd' => $remainingUsd,
             'remaining_balance_in_riel' => $remainingRiel,
         ];

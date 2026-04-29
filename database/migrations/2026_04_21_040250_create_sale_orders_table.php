@@ -32,7 +32,7 @@ return new class extends Migration
             ])->default(SaleOrderStatusEnum::DRAFT->value)->comment('Defines the status of the sale order.');
 
 
-            $table->enum('payment_status', [PaymentStatusEnum::PAID->value, PaymentStatusEnum::UNPAID->value, PaymentStatusEnum::DEBT->value])->default(PaymentStatusEnum::UNPAID->value);
+            $table->enum('payment_status', [PaymentStatusEnum::PAID->value, PaymentStatusEnum::INSTALLMENT->value, PaymentStatusEnum::DEBT->value])->default(PaymentStatusEnum::INSTALLMENT->value);
 
             $table->text('note')->nullable();
 
@@ -53,6 +53,7 @@ return new class extends Migration
             // Payment and refund snapshot fields
             $table->decimal('paid_amount_in_usd', 15, 2)->default(0);
             $table->decimal('paid_amount_in_riel', 15, 2)->default(0);
+            $table->decimal('paid_percentage', 10, 2)->default(0);
             $table->decimal('total_refunded_amount_in_usd', 15, 2)->default(0);
             $table->decimal('total_refunded_amount_in_riel', 15, 2)->default(0);
             $table->decimal('remaining_balance_in_usd', 15, 2)->default(0);

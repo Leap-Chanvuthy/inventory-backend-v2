@@ -39,8 +39,40 @@ class ProductFactory extends Factory
             format:       '{prefix}-{cat}-{random}',
         );
 
+        // suggest me  30 products name
+        $productNames = [
+            'Wireless Mouse',
+            'Bluetooth Headphones',
+            'USB-C Charger',
+            'Gaming Keyboard',
+            '4K Monitor',
+            'External Hard Drive',
+            'Smartphone Stand',
+            'Laptop Sleeve',
+            'Portable Speaker',
+            'Fitness Tracker',
+            'Noise-Cancelling Earbuds',
+            'Webcam with Microphone',
+            'Wireless Router',
+            'Power Bank',
+            'Smart Home Hub',
+            'Action Camera',
+            'E-Reader',
+            'VR Headset',
+            'Mechanical Keyboard',
+            'Gaming Chair',
+            'LED Desk Lamp',
+            'Smartwatch',
+            'Bluetooth Adapter',
+            'Portable SSD',
+            'Wireless Earbuds Case',
+            'USB Hub',
+            'Laptop Cooling Pad',
+            'Smart Thermostat',
+        ];
+
         return [
-            'product_name'        => $faker->words(2, true),
+            'product_name'        => $faker->randomElement($productNames),
             'product_sku_code'    => $sku,
             'barcode'             => $faker->optional(0.6)->ean13(),
             'product_description' => $faker->optional(0.5)->sentence(),

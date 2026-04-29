@@ -35,6 +35,7 @@ class SaleOrder extends Model
         'discount_amount',
         'paid_amount_in_usd',
         'paid_amount_in_riel',
+        'paid_percentage',
         'total_refunded_amount_in_usd',
         'total_refunded_amount_in_riel',
         'remaining_balance_in_usd',
@@ -62,6 +63,7 @@ class SaleOrder extends Model
         'discount_amount' => 'float',
         'paid_amount_in_usd' => 'float',
         'paid_amount_in_riel' => 'float',
+        'paid_percentage' => 'float',
         'total_refunded_amount_in_usd' => 'float',
         'total_refunded_amount_in_riel' => 'float',
         'remaining_balance_in_usd' => 'float',
@@ -83,6 +85,16 @@ class SaleOrder extends Model
     public function refunds()
     {
         return $this->hasMany(SaleOrderRefund::class, 'sale_order_id');
+    }
+
+    public function installments()
+    {
+        return $this->hasMany(SaleOrderInstallment::class, 'sale_order_id');
+    }
+
+    public function statusHistories()
+    {
+        return $this->hasMany(SaleOrderStatusHistory::class, 'sale_order_id');
     }
 
 }

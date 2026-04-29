@@ -44,11 +44,29 @@ interface SaleOrderAPIControllerInterface
      *     summary="Get sale order statistics",
      *     @OA\Parameter(name="date_from", in="query", required=false, @OA\Schema(type="string", format="date", example="2026-04-01")),
      *     @OA\Parameter(name="date_to", in="query", required=false, @OA\Schema(type="string", format="date", example="2026-04-30")),
+     *     @OA\Parameter(name="group_by", in="query", required=false, @OA\Schema(type="string", enum={"day","week","month","year"}, example="month")),
+     *     @OA\Parameter(name="customer_id", in="query", required=false, @OA\Schema(type="integer", example=12)),
+     *     @OA\Parameter(name="status", in="query", required=false, @OA\Schema(type="string", example="COMPLETED,PROCESSING")),
      *     @OA\Response(response=200, description="Sale order statistics retrieved successfully"),
      *     @OA\Response(response=500, description="Failed getting sale order statistics")
      * )
      */
     public function statistics(Request $request);
+
+    /**
+     * @OA\Get(
+     *     path="/api/sale-orders/statistics/report",
+     *     tags={"Sale Orders"},
+     *     security={{"Bearer":{}}},
+     *     summary="Download sale order statistics report (PDF)",
+     *     @OA\Parameter(name="date_from", in="query", required=false, @OA\Schema(type="string", format="date", example="2026-04-01")),
+     *     @OA\Parameter(name="date_to", in="query", required=false, @OA\Schema(type="string", format="date", example="2026-04-30")),
+     *     @OA\Parameter(name="group_by", in="query", required=false, @OA\Schema(type="string", enum={"day","week","month","year"}, example="month")),
+     *     @OA\Response(response=200, description="PDF report generated successfully"),
+     *     @OA\Response(response=500, description="Failed generating sale order statistics report")
+     * )
+     */
+    public function statisticsReport(Request $request);
 
     /**
      * @OA\Get(
@@ -71,6 +89,22 @@ interface SaleOrderAPIControllerInterface
      * )
      */
     public function show(int $id);
+
+    /**
+     * @OA\Get(
+     *     path="/api/sale-orders/refund-records",
+     *     tags={"Sale Orders"},
+     *     security={{"Bearer":{}}},
+     *     summary="Get paginated refund records",
+     *     @OA\Parameter(name="per_page", in="query", required=false, @OA\Schema(type="integer", example=10)),
+     *     @OA\Parameter(name="search", in="query", required=false, @OA\Schema(type="string", example="RF-20260429")),
+     *     @OA\Parameter(name="date_from", in="query", required=false, @OA\Schema(type="string", format="date", example="2026-04-01")),
+     *     @OA\Parameter(name="date_to", in="query", required=false, @OA\Schema(type="string", format="date", example="2026-04-30")),
+     *     @OA\Response(response=200, description="Refund records retrieved successfully"),
+     *     @OA\Response(response=500, description="Failed getting refund records")
+     * )
+     */
+    public function refundRecords(Request $request);
 
     /**
      * @OA\Get(
@@ -99,7 +133,7 @@ interface SaleOrderAPIControllerInterface
      *             required={"order_date","items"},
      *             @OA\Property(property="customer_id", type="integer", nullable=true, example=5),
      *             @OA\Property(property="order_date", type="string", format="date-time", example="2026-04-22 10:30:00"),
-     *             @OA\Property(property="payment_status", type="string", enum={"PAID","UNPAID","DEBT"}, example="UNPAID"),
+     *             @OA\Property(property="payment_status", type="string", enum={"PAID","INSTALLMENT","DEBT"}, example="INSTALLMENT"),
      *             @OA\Property(property="note", type="string", nullable=true, example="POS sale"),
      *             @OA\Property(property="tax_percentage", type="number", format="float", example=0),
      *             @OA\Property(property="discount_type", type="string", enum={"AUTO","MANUAL"}, example="AUTO"),
@@ -167,7 +201,7 @@ interface SaleOrderAPIControllerInterface
      *         @OA\JsonContent(
      *             @OA\Property(property="customer_id", type="integer", nullable=true, example=5),
      *             @OA\Property(property="order_date", type="string", format="date-time", example="2026-04-23 10:30:00"),
-     *             @OA\Property(property="payment_status", type="string", enum={"PAID","UNPAID","DEBT"}, example="UNPAID"),
+     *             @OA\Property(property="payment_status", type="string", enum={"PAID","INSTALLMENT","DEBT"}, example="INSTALLMENT"),
      *             @OA\Property(property="note", type="string", nullable=true, example="Update sale order"),
      *             @OA\Property(property="tax_percentage", type="number", format="float", example=0),
      *             @OA\Property(property="discount_type", type="string", enum={"AUTO","MANUAL"}, example="AUTO"),
@@ -208,7 +242,7 @@ interface SaleOrderAPIControllerInterface
     *         @OA\JsonContent(
     *             required={"order_status"},
     *             @OA\Property(property="order_status", type="string", enum={"DRAFT","PROCESSING","ON_HOLD","CANCELLED","COMPLETED"}, example="COMPLETED"),
-    *             @OA\Property(property="payment_status", type="string", enum={"PAID","UNPAID","DEBT"}, example="UNPAID")
+    *             @OA\Property(property="payment_status", type="string", enum={"PAID","INSTALLMENT","DEBT"}, example="INSTALLMENT")
     *         )
     *     ),
     *     @OA\Response(response=200, description="Sale order status updated successfully"),
@@ -218,6 +252,54 @@ interface SaleOrderAPIControllerInterface
     * )
     */
     public function updateStatus(Request $request, int $id);
+
+    /**
+     * @OA\Post(
+     *     path="/api/sale-orders/{id}/installments",
+     *     tags={"Sale Orders"},
+     *     security={{"Bearer":{}}},
+     *     summary="Record a new installment payment (append-only)",
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer", example=1)),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"payment_percentage"},
+     *             @OA\Property(property="payment_percentage", type="number", format="float", example=15, description="New installment percentage to add (not cumulative)."),
+     *             @OA\Property(property="paid_at", type="string", format="date-time", nullable=true, example="2026-04-29 15:00:00"),
+     *             @OA\Property(property="note", type="string", nullable=true, example="Second installment collected")
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Installment recorded successfully"),
+     *     @OA\Response(response=422, description="Validation error"),
+     *     @OA\Response(response=500, description="Failed recording installment")
+     * )
+     */
+    public function addInstallment(Request $request, int $id);
+
+    /**
+     * @OA\Post(
+     *     path="/api/sale-orders/{id}/payments",
+     *     tags={"Sale Orders"},
+     *     security={{"Bearer":{}}},
+     *     summary="Record sale order payment by installment percentage",
+     *     description="Payment entries are append-only and amount fields are calculated from percentage. Payment status type can only be changed while order status is DRAFT.",
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer", example=1)),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"payment_status","payment_percentage"},
+     *             @OA\Property(property="payment_status", type="string", enum={"PAID","INSTALLMENT","DEBT"}, example="INSTALLMENT"),
+     *             @OA\Property(property="payment_percentage", type="number", format="float", example=30, description="New installment payment percentage to add, not cumulative percentage."),
+     *             @OA\Property(property="paid_at", type="string", format="date-time", nullable=true, example="2026-04-29 15:00:00"),
+     *             @OA\Property(property="note", type="string", nullable=true, example="First installment")
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Sale order payment recorded successfully"),
+     *     @OA\Response(response=422, description="Validation error"),
+     *     @OA\Response(response=500, description="Failed recording sale order payment")
+     * )
+     */
+    public function addPayment(Request $request, int $id);
 
     /**
      * @OA\Patch(

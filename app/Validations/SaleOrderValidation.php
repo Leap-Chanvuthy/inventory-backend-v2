@@ -12,9 +12,12 @@ class SaleOrderValidation
             'customer_id' => 'nullable|exists:customers,id',
             'order_date' => 'required|date',
             'return_window_days' => 'sometimes|integer|min:1|max:3650',
-            'payment_status' => 'sometimes|required|string|in:PAID,UNPAID,DEBT',
-            'paid_amount_in_usd' => 'sometimes|numeric|min:0',
-            'paid_amount_in_riel' => 'sometimes|numeric|min:0',
+            'payment_status' => 'sometimes|required|string|in:PAID,INSTALLMENT,DEBT',
+            'paid_amount_in_usd' => 'prohibited',
+            'paid_amount_in_riel' => 'prohibited',
+            'payment_percentage' => 'sometimes|numeric|min:0|max:100',
+            'paid_at' => 'sometimes|date',
+            'installment_note' => 'sometimes|nullable|string',
             'note' => 'nullable|string',
             'tax_percentage' => 'sometimes|numeric|min:0|max:100',
 
@@ -40,9 +43,12 @@ class SaleOrderValidation
             'customer_id' => 'sometimes|nullable|exists:customers,id',
             'order_date' => 'sometimes|required|date',
             'return_window_days' => 'sometimes|integer|min:1|max:3650',
-            'payment_status' => 'sometimes|required|string|in:PAID,UNPAID,DEBT',
-            'paid_amount_in_usd' => 'sometimes|numeric|min:0',
-            'paid_amount_in_riel' => 'sometimes|numeric|min:0',
+            'payment_status' => 'sometimes|required|string|in:PAID,INSTALLMENT,DEBT',
+            'paid_amount_in_usd' => 'prohibited',
+            'paid_amount_in_riel' => 'prohibited',
+            'payment_percentage' => 'sometimes|numeric|min:0|max:100',
+            'paid_at' => 'sometimes|date',
+            'installment_note' => 'sometimes|nullable|string',
             'note' => 'sometimes|nullable|string',
             'tax_percentage' => 'sometimes|numeric|min:0|max:100',
             'discount_type' => 'sometimes|string|in:AUTO,MANUAL',
@@ -61,9 +67,29 @@ class SaleOrderValidation
     {
         return [
             'order_status' => 'required|string|in:DRAFT,PROCESSING,ON_HOLD,CANCELLED,COMPLETED',
-            'payment_status' => 'sometimes|string|in:PAID,UNPAID,DEBT',
-            'paid_amount_in_usd' => 'sometimes|numeric|min:0',
-            'paid_amount_in_riel' => 'sometimes|numeric|min:0',
+            'payment_status' => 'sometimes|string|in:PAID,INSTALLMENT,DEBT',
+            'paid_amount_in_usd' => 'prohibited',
+            'paid_amount_in_riel' => 'prohibited',
+        ];
+    }
+
+    public function installmentRules(Request $request): array
+    {
+        return [
+            'payment_status' => 'sometimes|required|string|in:PAID,INSTALLMENT,DEBT',
+            'payment_percentage' => 'required|numeric|min:0.01|max:100',
+            'paid_at' => 'sometimes|date',
+            'note' => 'sometimes|nullable|string',
+        ];
+    }
+
+    public function paymentRules(Request $request): array
+    {
+        return [
+            'payment_status' => 'sometimes|required|string|in:PAID,INSTALLMENT,DEBT',
+            'payment_percentage' => 'required|numeric|min:0.01|max:100',
+            'paid_at' => 'sometimes|date',
+            'note' => 'sometimes|nullable|string',
         ];
     }
 
@@ -112,7 +138,11 @@ class SaleOrderValidation
             'reason_type.in' => 'Reason type must be PRODUCT_ISSUE, CUSTOMER_SATISFACTION, COMPENSATION, or OTHER.',
             'order_status.required' => 'The order status is required.',
             'order_status.in' => 'The selected order must be one of the following: DRAFT, PROCESSING, ON_HOLD, CANCELLED, COMPLETED.',
-            'payment_status.in' => 'The selected payment status must be one of the following: PAID, UNPAID, DEBT.',
+            'payment_status.in' => 'The selected payment status must be one of the following: PAID, INSTALLMENT, or DEBT.',
+            'payment_percentage.min' => 'Payment percentage must be greater than 0.',
+            'payment_percentage.max' => 'Payment percentage cannot be greater than 100.',
+            'paid_amount_in_usd.prohibited' => 'Direct USD payment input is not allowed. Use payment_percentage instead.',
+            'paid_amount_in_riel.prohibited' => 'Direct KHR payment input is not allowed. Use payment_percentage instead.',
 
         ];
     }
