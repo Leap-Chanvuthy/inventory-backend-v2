@@ -8025,10 +8025,10 @@
                                         "type": "string",
                                         "enum": [
                                             "PAID",
-                                            "UNPAID",
+                                            "INSTALLMENT",
                                             "DEBT"
                                         ],
-                                        "example": "UNPAID"
+                                        "example": "INSTALLMENT"
                                     },
                                     "note": {
                                         "type": "string",
@@ -8189,6 +8189,142 @@
                 ]
             }
         },
+        "/api/sale-orders/statistics": {
+            "get": {
+                "tags": [
+                    "Sale Orders"
+                ],
+                "summary": "Get sale order statistics",
+                "operationId": "7c1dd873881387e767c8ad8d37008039",
+                "parameters": [
+                    {
+                        "name": "date_from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-04-01"
+                        }
+                    },
+                    {
+                        "name": "date_to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-04-30"
+                        }
+                    },
+                    {
+                        "name": "group_by",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "day",
+                                "week",
+                                "month",
+                                "year"
+                            ],
+                            "example": "month"
+                        }
+                    },
+                    {
+                        "name": "customer_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 12
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "COMPLETED,PROCESSING"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sale order statistics retrieved successfully"
+                    },
+                    "500": {
+                        "description": "Failed getting sale order statistics"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/sale-orders/statistics/report": {
+            "get": {
+                "tags": [
+                    "Sale Orders"
+                ],
+                "summary": "Download sale order statistics report (PDF)",
+                "operationId": "40c24e3ac9fbc9ed22a7d5a3af0f29d2",
+                "parameters": [
+                    {
+                        "name": "date_from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-04-01"
+                        }
+                    },
+                    {
+                        "name": "date_to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-04-30"
+                        }
+                    },
+                    {
+                        "name": "group_by",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "day",
+                                "week",
+                                "month",
+                                "year"
+                            ],
+                            "example": "month"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "PDF report generated successfully"
+                    },
+                    "500": {
+                        "description": "Failed generating sale order statistics report"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/sale-orders/{id}": {
             "get": {
                 "tags": [
@@ -8316,10 +8452,10 @@
                                         "type": "string",
                                         "enum": [
                                             "PAID",
-                                            "UNPAID",
+                                            "INSTALLMENT",
                                             "DEBT"
                                         ],
-                                        "example": "UNPAID"
+                                        "example": "INSTALLMENT"
                                     },
                                     "note": {
                                         "type": "string",
@@ -8411,6 +8547,68 @@
                 ]
             }
         },
+        "/api/sale-orders/refund-records": {
+            "get": {
+                "tags": [
+                    "Sale Orders"
+                ],
+                "summary": "Get paginated refund records",
+                "operationId": "b4b15a51df626aabee631ee5e7c957f9",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "RF-20260429"
+                        }
+                    },
+                    {
+                        "name": "date_from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-04-01"
+                        }
+                    },
+                    {
+                        "name": "date_to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-04-30"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Refund records retrieved successfully"
+                    },
+                    "500": {
+                        "description": "Failed getting refund records"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/sale-orders/{id}/refunds": {
             "get": {
                 "tags": [
@@ -8490,10 +8688,10 @@
                                         "type": "string",
                                         "enum": [
                                             "PAID",
-                                            "UNPAID",
+                                            "INSTALLMENT",
                                             "DEBT"
                                         ],
-                                        "example": "UNPAID"
+                                        "example": "INSTALLMENT"
                                     }
                                 },
                                 "type": "object"
@@ -8513,6 +8711,153 @@
                     },
                     "500": {
                         "description": "Failed updating sale order status"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/sale-orders/{id}/installments": {
+            "post": {
+                "tags": [
+                    "Sale Orders"
+                ],
+                "summary": "Record a new installment payment (append-only)",
+                "operationId": "e74e2dc29bf23be83f3b686d0be76a12",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "payment_percentage"
+                                ],
+                                "properties": {
+                                    "payment_percentage": {
+                                        "description": "New installment percentage to add (not cumulative).",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 15
+                                    },
+                                    "paid_at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-04-29 15:00:00",
+                                        "nullable": true
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Second installment collected",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Installment recorded successfully"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "Failed recording installment"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/sale-orders/{id}/payments": {
+            "post": {
+                "tags": [
+                    "Sale Orders"
+                ],
+                "summary": "Record sale order payment by installment percentage",
+                "description": "Payment entries are append-only and amount fields are calculated from percentage. Payment status type can only be changed while order status is DRAFT.",
+                "operationId": "1d2395d998abf24c4da7f8595f7f46d9",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "payment_status",
+                                    "payment_percentage"
+                                ],
+                                "properties": {
+                                    "payment_status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "PAID",
+                                            "INSTALLMENT",
+                                            "DEBT"
+                                        ],
+                                        "example": "INSTALLMENT"
+                                    },
+                                    "payment_percentage": {
+                                        "description": "New installment payment percentage to add, not cumulative percentage.",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 30
+                                    },
+                                    "paid_at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2026-04-29 15:00:00",
+                                        "nullable": true
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "First installment",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Sale order payment recorded successfully"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "Failed recording sale order payment"
                     }
                 },
                 "security": [
