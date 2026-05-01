@@ -29,6 +29,10 @@ class RawMaterialAPIController extends Controller implements RawMaterialAPIContr
         return $this ->  rawMaterialService -> getAllRawMaterials($request);
     }
 
+    public function indexMovement(Request $request , int $rawMaterialId){
+        return $this -> rawMaterialService -> getAllRawMaterialMovements($request , $rawMaterialId);
+    }
+
     public function show($id)
     {
         return $this->rawMaterialService->getRawMaterialById($id);

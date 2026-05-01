@@ -130,6 +130,17 @@ class RawMaterialService
     }
 
 
+    // Get all raw materials movement
+    public function getAllRawMaterialMovements(Request $request, int $rawMaterialId)
+    {
+        try {
+            return $this -> rawMaterialQueryBuilder -> rawMaterialMovementBuilder($request , $rawMaterialId);
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+
     public function getAllDeletedRawMaterials(Request $request)
     {
         try {

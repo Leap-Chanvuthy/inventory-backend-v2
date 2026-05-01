@@ -85,7 +85,7 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
 
     Route::prefix('raw-materials')->group(function () {
         Route::get('/' , [RawMaterialAPIController::class , 'index'] );
-        Route::get('/deleted' , [RawMaterialAPIController::class , 'allDeleted']);
+        Route::get('/{rawMaterialId}/movements', [RawMaterialAPIController::class, 'indexMovement']);        Route::get('/deleted' , [RawMaterialAPIController::class , 'allDeleted']);
         Route::get('/{id}' , [RawMaterialAPIController::class , 'show'] );
         Route::post('/create' , [RawMaterialAPIController::class , 'store'] );
         Route::patch('/{id}', [RawMaterialAPIController::class, 'update']);

@@ -6527,6 +6527,121 @@
                 ]
             }
         },
+        "/api/raw-materials/{rawMaterialId}/movements": {
+            "get": {
+                "tags": [
+                    "Raw Materials"
+                ],
+                "summary": "Get raw material stock movements",
+                "description": "Retrieve paginated stock movements for a specific raw material. Supports filtering and sorting.",
+                "operationId": "1215695e3f5f4e4ea559a0800e25dab6",
+                "parameters": [
+                    {
+                        "name": "rawMaterialId",
+                        "in": "path",
+                        "description": "Raw material ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Number of items per page (default 10, max 100)",
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    },
+                    {
+                        "name": "filter[id]",
+                        "in": "query",
+                        "description": "Filter by movement ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[raw_material_id]",
+                        "in": "query",
+                        "description": "Filter by raw material ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "filter[movement_type]",
+                        "in": "query",
+                        "description": "Filter by movement type (partial match)",
+                        "schema": {
+                            "type": "string",
+                            "example": "PURCHASE"
+                        }
+                    },
+                    {
+                        "name": "filter[direction]",
+                        "in": "query",
+                        "description": "Filter by direction (partial match)",
+                        "schema": {
+                            "type": "string",
+                            "example": "IN"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort fields (e.g. -movement_date, quantity)",
+                        "schema": {
+                            "type": "string",
+                            "example": "-movement_date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Raw material movements retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Something went wrong"
+                                        },
+                                        "errors": {
+                                            "type": "string",
+                                            "example": "Exception message here"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/raw-materials/deleted": {
             "get": {
                 "tags": [

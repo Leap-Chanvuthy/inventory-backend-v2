@@ -4,6 +4,7 @@ namespace App\QueryBuilders;
 
 use App\Helpers\QueryBuilderHelper;
 use App\Models\RawMaterial;
+use App\Models\RMStockMovement;
 use Illuminate\Http\Request;
 use Spatie\QueryBuilder\AllowedFilter;
 use Illuminate\Database\Eloquent\Builder;
@@ -124,5 +125,63 @@ class RawMaterialQueryBuilder {
             ->paginate($perPage)
             ->appends($request->query());
     }
+
+
+    public function rawMaterialMovementBuilder(Request $request, int $rawMaterialId)
+    {
+        $perPage = (int) $request->query('per_page', 10);
+        $perPage = max(1, min($perPage, 100));
+
+        $builder = QueryBuilderHelper::build(
+            model: RMStockMovement::class,
+
+            joins: [
+                ['raw_materials',               'rm_stock_movements.raw_material_id', '=', 'raw_materials.id'],
+                ['unit_of_measurements',   'raw_materials.base_uom_id',        '=', 'unit_of_measurements.id'],
+                ['users as created_by_user','rm_stock_movements.created_by',      '=', 'created_by_user.id'],
+                ['users as last_updated_by_user','rm_stock_movements.last_updated_by', '=', 'last_updated_by_user.id'],
+            ],
+
+            selects: [
+                'rm_stock_movements.*',
+                'unit_of_measurements.name as uom_name',
+                'unit_of_measurements.symbol as uom_symbol',
+                'created_by_user.name as created_by_name',
+                'created_by_user.email as created_by_email',
+                'last_updated_by_user.name as last_updated_by_name',
+                'last_updated_by_user.email as last_updated_by_email',
+            ],
+
+            allowedFilters: [
+                AllowedFilter::exact('id'),
+                AllowedFilter::exact('raw_material_id'),
+                AllowedFilter::partial('movement_type'),
+                AllowedFilter::partial('direction'),
+            ],
+
+            allowedSorts: [
+                'movement_date',
+                'created_at',
+                'updated_at',
+                'quantity',
+            ],
+
+            defaultSort: '-movement_date',
+
+            withRelations: [
+                'created_by',
+                'last_updated_by',
+            ],
+
+            withCounts: [],
+        );
+
+        return $builder
+            ->where('rm_stock_movements.raw_material_id', $rawMaterialId)
+            ->paginate($perPage)
+            ->appends($request->query());
+    }
+
+
 
 }

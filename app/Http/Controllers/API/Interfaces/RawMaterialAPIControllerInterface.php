@@ -130,6 +130,76 @@ interface RawMaterialAPIControllerInterface
 
     /**
      * @OA\Get(
+     *     path="/api/raw-materials/{rawMaterialId}/movements",
+     *     tags={"Raw Materials"},
+     *     security={{"Bearer":{}}},
+     *     summary="Get raw material stock movements",
+     *     description="Retrieve paginated stock movements for a specific raw material. Supports filtering and sorting.",
+     *
+     *     @OA\Parameter(
+     *         name="rawMaterialId",
+     *         in="path",
+     *         required=true,
+     *         description="Raw material ID",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *     @OA\Parameter(
+     *         name="per_page",
+     *         in="query",
+     *         description="Number of items per page (default 10, max 100)",
+     *         @OA\Schema(type="integer", example=10)
+     *     ),
+     *     @OA\Parameter(
+     *         name="filter[id]",
+     *         in="query",
+     *         description="Filter by movement ID",
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Parameter(
+     *         name="filter[raw_material_id]",
+     *         in="query",
+     *         description="Filter by raw material ID",
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Parameter(
+     *         name="filter[movement_type]",
+     *         in="query",
+     *         description="Filter by movement type (partial match)",
+     *         @OA\Schema(type="string", example="PURCHASE")
+     *     ),
+     *     @OA\Parameter(
+     *         name="filter[direction]",
+     *         in="query",
+     *         description="Filter by direction (partial match)",
+     *         @OA\Schema(type="string", example="IN")
+     *     ),
+     *     @OA\Parameter(
+     *         name="sort",
+     *         in="query",
+     *         description="Sort fields (e.g. -movement_date, quantity)",
+     *         @OA\Schema(type="string", example="-movement_date")
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Raw material movements retrieved successfully",
+     *         @OA\JsonContent(type="object")
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Internal server error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Something went wrong"),
+     *             @OA\Property(property="errors", type="string", example="Exception message here")
+     *         )
+     *     )
+     * )
+     */
+    public function indexMovement(Request $request, int $rawMaterialId);
+
+    /**
+     * @OA\Get(
      *     path="/api/raw-materials/deleted",
      *     tags={"Raw Materials"},
      *     security={{"Bearer":{}}},

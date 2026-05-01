@@ -82,7 +82,7 @@ class ProductService
     }
 
     // Get Product Detail
-    public function getProductDetail($id)
+    public function getProductDetail(int $id)
     {
         try {
             $product = Product::with([
@@ -91,10 +91,6 @@ class ProductService
                 'baseUom.category.unitOfMeasurements',
                 'supplier',
                 'warehouse',
-                'productMovements' => function ($query) {
-                    $query->orderBy('movement_date', 'desc')
-                        ->with(['createdBy', 'lastUpdatedBy']);
-                },
                 'productImages',
                 'productRawMaterials.rawMaterial.uom',
             ])->findOrFail($id);
@@ -109,13 +105,10 @@ class ProductService
                 ->groupBy('movement_type')
                 ->pluck('total', 'movement_type');
 
-            // Calculate current quantity in stock from product movements (IN vs OUT)
-            $currentQtyInStock = 0;
-            foreach ($product->productMovements as $movement) {
-                $qty = (float) ($movement->quantity ?? 0);
-                $dir = is_object($movement->direction) ? $movement->direction->value : (string) $movement->direction;
-                $currentQtyInStock += ($dir === 'OUT') ? (-$qty) : $qty;
-            }
+            // Calculate current quantity in stock from movements (IN vs OUT) without eager-loading movements
+            $currentQtyInStock = (float) ProductMovement::where('product_id', $product->id)
+                ->selectRaw('COALESCE(SUM(CASE WHEN direction = "IN" THEN quantity ELSE -quantity END), 0) as current_qty')
+                ->value('current_qty');
 
             // Determine stock status (simple): OUT_OF_STOCK or IN_STOCK
             $productStockStatus = $currentQtyInStock <= 0 ? 'OUT_OF_STOCK' : 'IN_STOCK';
