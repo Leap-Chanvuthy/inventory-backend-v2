@@ -250,6 +250,7 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:CUSTOMER'])->group(function 
         Route::get('/', [SaleOrderAPIController::class, 'index']);
         Route::get('/statistics', [SaleOrderAPIController::class, 'statistics']);
         Route::get('/statistics/report', [SaleOrderAPIController::class, 'statisticsReport']);
+        Route::get('/{id}/report', [SaleOrderAPIController::class, 'saleOrderReport']);
         Route::get('/refund-records', [SaleOrderAPIController::class, 'refundRecords']);
         Route::get('/stock-availability/{productId}', [SaleOrderAPIController::class, 'getStockAvailability']);
         Route::get('/{id}', [SaleOrderAPIController::class, 'show']);
@@ -257,6 +258,7 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:CUSTOMER'])->group(function 
         Route::post('/', [SaleOrderAPIController::class, 'store']);
         Route::post('/{id}/payments', [SaleOrderAPIController::class, 'addPayment']);
         Route::post('/{id}/installments', [SaleOrderAPIController::class, 'addInstallment']);
+        Route::patch('/{id}/installments/latest', [SaleOrderAPIController::class, 'updateLatestInstallment']);
         Route::patch('/{id}', [SaleOrderAPIController::class, 'update']);
         Route::patch('/{id}/status', [SaleOrderAPIController::class, 'updateStatus']);
         Route::patch('/{id}/refund', [SaleOrderAPIController::class, 'refund']);

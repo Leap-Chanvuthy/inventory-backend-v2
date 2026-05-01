@@ -67,6 +67,7 @@ interface SaleOrderAPIControllerInterface
      * )
      */
     public function statisticsReport(Request $request);
+    public function saleOrderReport(int $id);
 
     /**
      * @OA\Get(
@@ -300,6 +301,7 @@ interface SaleOrderAPIControllerInterface
      * )
      */
     public function addPayment(Request $request, int $id);
+    public function updateLatestInstallment(Request $request, int $id);
 
     /**
      * @OA\Patch(

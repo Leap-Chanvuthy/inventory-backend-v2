@@ -520,6 +520,162 @@ class SaleOrderService
         }
     }
 
+    public function updateLatestInstallment(Request $request, int $id)
+    {
+        try {
+            $validator = Validator::make(
+                $request->all(),
+                [
+                    'payment_percentage' => 'required|numeric|min:0.01|max:100',
+                    'paid_at' => 'sometimes|date',
+                    'note' => 'sometimes|nullable|string',
+                ],
+                $this->saleOrderValidation->messages()
+            );
+
+            if ($validator->fails()) {
+                return ResponseHelper::validation($validator->errors()->toArray(), 'Validation Error');
+            }
+
+            $validated = $validator->validated();
+            $requestedPercentage = round((float) $validated['payment_percentage'], 2);
+            $userId = $this->getCurrentUserHelper->getUserId();
+
+            $result = DB::transaction(function () use ($id, $validated, $requestedPercentage, $userId) {
+                /** @var SaleOrder $saleOrder */
+                $saleOrder = SaleOrder::query()
+                    ->where('id', $id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $currentStatus = $this->normalizeStatus($saleOrder->order_status);
+                if (in_array($currentStatus, [SaleOrderStatusEnum::CANCELLED->value, SaleOrderStatusEnum::REFUNDED->value], true)) {
+                    throw ValidationException::withMessages([
+                        'order_status' => ['Cancelled or refunded orders cannot update installments.'],
+                    ]);
+                }
+
+                $currentPaidPercentage = round((float) ($saleOrder->paid_percentage ?? 0), 2);
+                if ($currentPaidPercentage >= 100 - self::FLOAT_EPSILON) {
+                    throw ValidationException::withMessages([
+                        'payment_percentage' => ['Fully paid orders cannot update installment history.'],
+                    ]);
+                }
+
+                /** @var SaleOrderInstallment|null $latestInstallment */
+                $latestInstallment = SaleOrderInstallment::query()
+                    ->where('sale_order_id', (int) $saleOrder->id)
+                    ->orderByDesc('paid_at')
+                    ->orderByDesc('id')
+                    ->first();
+
+                if (is_null($latestInstallment)) {
+                    throw ValidationException::withMessages([
+                        'payment_percentage' => ['No installment history found to update.'],
+                    ]);
+                }
+
+                $latestPercentage = round((float) ($latestInstallment->percentage ?? 0), 2);
+                $paidBeforeLatest = round(max(0, $currentPaidPercentage - $latestPercentage), 2);
+                $maxAllowedForLatest = round(max(0, 100 - $paidBeforeLatest), 2);
+
+                if ($requestedPercentage > $maxAllowedForLatest + self::FLOAT_EPSILON) {
+                    throw ValidationException::withMessages([
+                        'payment_percentage' => ["Latest installment cannot exceed {$maxAllowedForLatest}%."],
+                    ]);
+                }
+
+                $newCumulativePercentage = round(min(100, $paidBeforeLatest + $requestedPercentage), 2);
+
+                $grandTotalUsd = (float) $saleOrder->grand_total_amount_in_usd;
+                $grandTotalRiel = (float) $saleOrder->grand_total_amount_in_riel;
+                $installmentAmountUsd = round($grandTotalUsd * ($requestedPercentage / 100), 2);
+                $installmentAmountRiel = round($grandTotalRiel * ($requestedPercentage / 100), 2);
+
+                $latestInstallment->update([
+                    'percentage' => $requestedPercentage,
+                    'cumulative_percentage' => $newCumulativePercentage,
+                    'amount_usd' => $installmentAmountUsd,
+                    'amount_riel' => $installmentAmountRiel,
+                    'paid_at' => (string) ($validated['paid_at'] ?? $latestInstallment->paid_at),
+                    'note' => array_key_exists('note', $validated) ? $validated['note'] : $latestInstallment->note,
+                ]);
+
+                $currentPaymentStatus = $this->normalizePaymentStatusInput(
+                    is_object($saleOrder->payment_status) ? $saleOrder->payment_status->value : (string) $saleOrder->payment_status
+                ) ?? PaymentStatusEnum::INSTALLMENT->value;
+
+                $resolvedPaymentStatus = $newCumulativePercentage >= 100 - self::FLOAT_EPSILON
+                    ? PaymentStatusEnum::PAID->value
+                    : ($currentPaymentStatus === PaymentStatusEnum::PAID->value
+                        ? PaymentStatusEnum::INSTALLMENT->value
+                        : $currentPaymentStatus);
+
+                $snapshot = $this->buildPaymentSnapshot(
+                    grandTotalInUsd: $grandTotalUsd,
+                    grandTotalInRiel: $grandTotalRiel,
+                    paidAmountInUsd: (float) $saleOrder->paid_amount_in_usd,
+                    paidAmountInRiel: (float) $saleOrder->paid_amount_in_riel,
+                    refundedAmountInUsd: (float) $saleOrder->total_refunded_amount_in_usd,
+                    refundedAmountInRiel: (float) $saleOrder->total_refunded_amount_in_riel,
+                    paymentStatusInput: $resolvedPaymentStatus,
+                    paidPercentageInput: $newCumulativePercentage
+                );
+
+                $saleOrder->update([
+                    'payment_status' => $snapshot['payment_status'],
+                    'paid_amount_in_usd' => $snapshot['paid_amount_in_usd'],
+                    'paid_amount_in_riel' => $snapshot['paid_amount_in_riel'],
+                    'paid_percentage' => $snapshot['paid_percentage'],
+                    'remaining_balance_in_usd' => $snapshot['remaining_balance_in_usd'],
+                    'remaining_balance_in_riel' => $snapshot['remaining_balance_in_riel'],
+                    'last_updated_by' => $userId,
+                ]);
+
+                return $saleOrder->fresh([
+                    'customer.customerCategory',
+                    'orderItems.product',
+                    'refunds.items.saleOrderItem.product',
+                    'refunds.processedBy',
+                    'installments' => fn ($q) => $q->orderBy('paid_at'),
+                    'installments.creator',
+                    'statusHistories' => fn ($q) => $q->orderByDesc('changed_at'),
+                ]);
+            });
+
+            return ResponseHelper::success([
+                'sale_order' => $result,
+            ], 'Latest installment updated successfully');
+        } catch (ValidationException $e) {
+            return ResponseHelper::validation($e->errors(), 'Validation Error');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    public function exportSaleOrderReport(int $id)
+    {
+        try {
+            /** @var SaleOrder $saleOrder */
+            $saleOrder = SaleOrder::query()
+                ->with([
+                    'customer' => fn ($q) => $q->withTrashed()->with('customerCategory'),
+                    'orderItems.product' => fn ($q) => $q->withTrashed(),
+                ])
+                ->findOrFail($id);
+
+            $pdfContent = $this->buildSaleOrderInvoicePdf($saleOrder);
+            $filename = 'sale-order-' . ((string) $saleOrder->order_no) . '.pdf';
+
+            return response($pdfContent, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ]);
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
     public function exportStatisticsReport(Request $request)
     {
         $statsResponse = $this->statistics($request);
@@ -530,38 +686,54 @@ class SaleOrderService
         }
 
         $stats = $payload['data'] ?? [];
-        $lines = [
-            'Sale Order Statistics Report',
-            'Generated At: ' . now()->toDateTimeString(),
-            'Date From: ' . ($request->query('date_from') ?: 'ALL'),
-            'Date To: ' . ($request->query('date_to') ?: 'ALL'),
-            'Customer: ' . ($request->query('customer_id') ?: 'ALL'),
-            'Status: ' . ($request->query('status') ?: 'ALL'),
-            'Group By: ' . strtoupper((string) ($stats['group_by'] ?? 'MONTH')),
-            '',
-            'Summary',
-            'Total Orders: ' . (int) ($stats['total_orders'] ?? 0),
-            'Total Draft: ' . (int) ($stats['total_draft'] ?? 0),
-            'Total Processing: ' . (int) ($stats['total_processing'] ?? 0),
-            'Total On Hold: ' . (int) ($stats['total_on_hold'] ?? 0),
-            'Total Completed: ' . (int) ($stats['total_completed'] ?? 0),
-            'Total Cancelled: ' . (int) ($stats['total_cancelled'] ?? 0),
-            'Orders With Refunds: ' . (int) ($stats['total_refunded'] ?? 0),
-            'Gross Sales USD: ' . number_format((float) ($stats['gross_sales_usd'] ?? 0), 2),
-            'Total Refunded USD: ' . number_format((float) ($stats['total_refunded_usd'] ?? 0), 2),
-            'Total Discount USD: ' . number_format((float) ($stats['total_discount_amount'] ?? 0), 2),
-            'Net Revenue USD: ' . number_format((float) ($stats['net_revenue_usd'] ?? 0), 2),
-            'Average Order Value USD: ' . number_format((float) ($stats['average_order_value_usd'] ?? 0), 2),
-            '',
-            'Sales Trend (USD)',
-        ];
+        $dateFromRaw = (string) $request->query('date_from', '');
+        $dateToRaw = (string) $request->query('date_to', '');
+        $customerId = $request->query('customer_id');
+        $statusRaw = trim((string) $request->query('status', ''));
 
-        foreach (($stats['sales_trend'] ?? []) as $point) {
-            $lines[] = ($point['period'] ?? '-') . ': ' . number_format((float) ($point['total_sales_usd'] ?? 0), 2);
+        $dateFromLabel = 'All Time';
+        if ($dateFromRaw !== '') {
+            try {
+                $dateFromLabel = Carbon::parse($dateFromRaw)->format('M d, Y');
+            } catch (Exception) {
+                $dateFromLabel = $dateFromRaw;
+            }
         }
 
+        $dateToLabel = 'Present';
+        if ($dateToRaw !== '') {
+            try {
+                $dateToLabel = Carbon::parse($dateToRaw)->format('M d, Y');
+            } catch (Exception) {
+                $dateToLabel = $dateToRaw;
+            }
+        }
+        $periodLabel = "{$dateFromLabel} - {$dateToLabel}";
+
+        $customerLabel = 'All Registered Clients';
+        if (!empty($customerId)) {
+            $customerRecord = Customer::query()
+                ->select(['id', 'fullname'])
+                ->find((int) $customerId);
+            if (!is_null($customerRecord)) {
+                $customerLabel = (string) $customerRecord->fullname;
+            }
+        }
+
+        $statusLabel = $statusRaw !== '' ? strtoupper($statusRaw) : 'ALL';
+        $generatedAt = now();
+
+        $reportMeta = [
+            'report_id' => 'SR-' . $generatedAt->format('Ymd-His'),
+            'generated_at' => $generatedAt->format('Y-m-d H:i'),
+            'period_label' => $periodLabel,
+            'customer_label' => $customerLabel,
+            'status_label' => $statusLabel,
+            'group_by' => strtoupper((string) ($stats['group_by'] ?? 'MONTH')),
+        ];
+
         $filename = 'sale-order-report-' . now()->format('Ymd-His') . '.pdf';
-        $pdfContent = $this->buildSimplePdfDocument($lines);
+        $pdfContent = $this->buildStyledStatisticsPdf($stats, $reportMeta);
 
         return response($pdfContent, 200, [
             'Content-Type' => 'application/pdf',
@@ -1707,10 +1879,11 @@ class SaleOrderService
 
         $normalizedInput = $this->normalizePaymentStatusInput($paymentStatusInput);
 
+        $resolvedPaidPercentage = null;
         if (!is_null($paidPercentageInput)) {
-            $paidPercentageInput = round(max(0, min($paidPercentageInput, 100)), 2);
-            $paidAmountInUsd = round($grandTotalInUsd * ($paidPercentageInput / 100), 2);
-            $paidAmountInRiel = round($grandTotalInRiel * ($paidPercentageInput / 100), 2);
+            $resolvedPaidPercentage = round(max(0, min($paidPercentageInput, 100)), 2);
+            $paidAmountInUsd = round($grandTotalInUsd * ($resolvedPaidPercentage / 100), 2);
+            $paidAmountInRiel = round($grandTotalInRiel * ($resolvedPaidPercentage / 100), 2);
         } else {
             if ($paidAmountInRiel <= 0 && $paidAmountInUsd > 0 && $grandTotalInUsd > 0 && $grandTotalInRiel > 0) {
                 $rate = $grandTotalInRiel / $grandTotalInUsd;
@@ -1725,9 +1898,13 @@ class SaleOrderService
 
         $paidAmountInUsd = min($grandTotalInUsd, $paidAmountInUsd);
         $paidAmountInRiel = min($grandTotalInRiel, $paidAmountInRiel);
-        $paidPercentage = $grandTotalInUsd > 0
-            ? round(min(100, max(0, ($paidAmountInUsd / $grandTotalInUsd) * 100)), 2)
-            : 0.0;
+        $paidPercentage = !is_null($resolvedPaidPercentage)
+            ? $resolvedPaidPercentage
+            : (
+                $grandTotalInUsd > 0
+                    ? round(min(100, max(0, ($paidAmountInUsd / $grandTotalInUsd) * 100)), 2)
+                    : 0.0
+            );
 
         $remainingUsd = max(0, round($grandTotalInUsd - $paidAmountInUsd - $refundedAmountInUsd, 2));
         $remainingRiel = max(0, round($grandTotalInRiel - $paidAmountInRiel - $refundedAmountInRiel, 2));
@@ -1786,34 +1963,376 @@ class SaleOrderService
         };
     }
 
-    private function buildSimplePdfDocument(array $lines): string
+    private function buildSaleOrderInvoicePdf(SaleOrder $saleOrder): string
     {
-        $safeLines = array_slice(array_map(function ($line) {
-            $normalized = preg_replace('/[^\\x20-\\x7E]/', '?', (string) $line) ?? '';
-            return str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $normalized);
-        }, $lines), 0, 180);
+        $stream = [];
+        $pageWidth = 595.0;
 
-        $y = 795;
-        $lineHeight = 14;
-        $content = "BT\n/F1 11 Tf\n72 {$y} Td\n";
-        $first = true;
+        $status = $this->normalizeStatus($saleOrder->order_status);
+        $documentLabel = $status === SaleOrderStatusEnum::DRAFT->value ? 'QUOTE' : 'INVOICE';
 
-        foreach ($safeLines as $line) {
-            if (!$first) {
-                $content .= "0 -{$lineHeight} Td\n";
-            }
-            $content .= "({$line}) Tj\n";
-            $first = false;
+        $stream[] = $this->pdfFillRect(0, 834, $pageWidth, 8, [0.12, 0.25, 0.69]);
+        $stream[] = $this->pdfText(40, 790, "SALES {$documentLabel}", 24, [0.12, 0.25, 0.69], 'F2');
+        $stream[] = $this->pdfText(40, 772, 'WAREHOUSE MANAGEMENT SYSTEM', 9, [0.23, 0.51, 0.96], 'F2');
+
+        $stream[] = $this->pdfFillRect(470, 780, 85, 20, [0.95, 0.96, 0.98]);
+        $stream[] = $this->pdfStrokeRect(470, 780, 85, 20, [0.89, 0.91, 0.94], 0.6);
+        $stream[] = $this->pdfText(490, 787, $documentLabel, 10, [0.12, 0.25, 0.69], 'F2');
+
+        $customerName = (string) ($saleOrder->customer?->fullname ?? 'Walk-in Customer');
+        $customerPhone = (string) ($saleOrder->customer?->phone_number ?? '-');
+        $orderDate = Carbon::parse((string) $saleOrder->order_date)->format('M d, Y');
+        $createdAt = Carbon::parse((string) $saleOrder->created_at)->format('Y-m-d H:i');
+
+        $stream[] = $this->pdfText(40, 742, 'Order No:', 10, [0.28, 0.32, 0.38], 'F2');
+        $stream[] = $this->pdfText(95, 742, (string) $saleOrder->order_no, 10, [0.20, 0.23, 0.27]);
+        $stream[] = $this->pdfText(40, 726, 'Order Date:', 10, [0.28, 0.32, 0.38], 'F2');
+        $stream[] = $this->pdfText(95, 726, $orderDate, 10, [0.20, 0.23, 0.27]);
+        $stream[] = $this->pdfText(40, 710, 'Status:', 10, [0.28, 0.32, 0.38], 'F2');
+        $stream[] = $this->pdfText(95, 710, $status, 10, [0.20, 0.23, 0.27], 'F2');
+
+        $stream[] = $this->pdfText(320, 742, 'Customer:', 10, [0.28, 0.32, 0.38], 'F2');
+        $stream[] = $this->pdfText(380, 742, $customerName, 10, [0.20, 0.23, 0.27]);
+        $stream[] = $this->pdfText(320, 726, 'Phone:', 10, [0.28, 0.32, 0.38], 'F2');
+        $stream[] = $this->pdfText(380, 726, $customerPhone, 10, [0.20, 0.23, 0.27]);
+        $stream[] = $this->pdfText(320, 710, 'Generated:', 10, [0.28, 0.32, 0.38], 'F2');
+        $stream[] = $this->pdfText(380, 710, $createdAt, 10, [0.20, 0.23, 0.27]);
+
+        // Items table.
+        $tableX = 40.0;
+        $tableY = 680.0;
+        $tableWidth = 515.0;
+        $headerHeight = 22.0;
+        $rowHeight = 20.0;
+
+        $orderItems = $saleOrder->orderItems ?? collect();
+        $rows = $orderItems->take(16)->values();
+        if ($rows->count() === 0) {
+            $rows = collect([(object) [
+                'product' => (object) ['product_name' => 'No items'],
+                'quantity' => 0,
+                'unit_price_in_usd' => 0,
+                'total_price_in_usd' => 0,
+            ]]);
         }
 
-        $content .= "ET";
+        $stream[] = $this->pdfFillRect($tableX, $tableY - $headerHeight, $tableWidth, $headerHeight, [0.95, 0.96, 0.98]);
+        $stream[] = $this->pdfStrokeRect($tableX, $tableY - $headerHeight, $tableWidth, $headerHeight + ($rows->count() * $rowHeight), [0.89, 0.91, 0.94], 0.8);
+        $stream[] = $this->pdfText($tableX + 10, $tableY - 15, 'ITEM', 8, [0.28, 0.32, 0.38], 'F2');
+        $stream[] = $this->pdfText($tableX + 286, $tableY - 15, 'QTY', 8, [0.28, 0.32, 0.38], 'F2');
+        $stream[] = $this->pdfText($tableX + 360, $tableY - 15, 'UNIT USD', 8, [0.28, 0.32, 0.38], 'F2');
+        $stream[] = $this->pdfText($tableX + 450, $tableY - 15, 'TOTAL USD', 8, [0.28, 0.32, 0.38], 'F2');
 
+        foreach ($rows as $index => $item) {
+            $rowTopY = $tableY - $headerHeight - ($index * $rowHeight);
+            $rowBottomY = $rowTopY - $rowHeight;
+            if (($index % 2) === 1) {
+                $stream[] = $this->pdfFillRect($tableX, $rowBottomY, $tableWidth, $rowHeight, [0.97, 0.98, 0.99]);
+            }
+
+            $name = (string) ($item->product?->product_name ?? "Product #{$item->product_id}");
+            $qty = number_format((float) ($item->quantity ?? 0), 2);
+            $unit = number_format((float) ($item->unit_price_in_usd ?? 0), 2);
+            $total = number_format((float) ($item->total_price_in_usd ?? 0), 2);
+
+            $stream[] = $this->pdfText($tableX + 10, $rowBottomY + 7, $name, 8, [0.20, 0.23, 0.27]);
+            $stream[] = $this->pdfText($tableX + 286, $rowBottomY + 7, $qty, 8, [0.20, 0.23, 0.27]);
+            $stream[] = $this->pdfText($tableX + 360, $rowBottomY + 7, '$' . $unit, 8, [0.20, 0.23, 0.27]);
+            $stream[] = $this->pdfText($tableX + 450, $rowBottomY + 7, '$' . $total, 8, [0.20, 0.23, 0.27], 'F2');
+        }
+
+        $summaryY = 250.0;
+        $stream[] = $this->pdfStrokeRect(340, $summaryY, 215, 130, [0.89, 0.91, 0.94], 0.8);
+        $stream[] = $this->pdfText(350, $summaryY + 108, 'Subtotal', 9, [0.40, 0.45, 0.51], 'F2');
+        $stream[] = $this->pdfText(470, $summaryY + 108, '$' . number_format((float) ($saleOrder->sub_total_in_usd ?? 0), 2), 9, [0.20, 0.23, 0.27], 'F2');
+        $stream[] = $this->pdfText(350, $summaryY + 88, 'Discount', 9, [0.40, 0.45, 0.51], 'F2');
+        $stream[] = $this->pdfText(470, $summaryY + 88, '$' . number_format((float) ($saleOrder->discount_amount ?? 0), 2), 9, [0.20, 0.23, 0.27], 'F2');
+        $stream[] = $this->pdfText(350, $summaryY + 68, 'Tax', 9, [0.40, 0.45, 0.51], 'F2');
+        $stream[] = $this->pdfText(470, $summaryY + 68, '$' . number_format((float) ($saleOrder->tax_amount_in_usd ?? 0), 2), 9, [0.20, 0.23, 0.27], 'F2');
+        $stream[] = $this->pdfStrokeLine(350, $summaryY + 58, 545, $summaryY + 58, [0.89, 0.91, 0.94], 0.7);
+        $stream[] = $this->pdfText(350, $summaryY + 38, 'Grand Total', 10, [0.12, 0.25, 0.69], 'F2');
+        $stream[] = $this->pdfText(460, $summaryY + 38, '$' . number_format((float) ($saleOrder->grand_total_amount_in_usd ?? 0), 2), 11, [0.12, 0.25, 0.69], 'F2');
+        $stream[] = $this->pdfText(350, $summaryY + 20, 'KHR ' . number_format((float) ($saleOrder->grand_total_amount_in_riel ?? 0), 2), 8, [0.40, 0.45, 0.51]);
+
+        $stream[] = $this->pdfStrokeLine(40, 70, 555, 70, [0.89, 0.91, 0.94], 0.8);
+        $stream[] = $this->pdfText(40, 52, $documentLabel === 'QUOTE'
+            ? 'This is a quotation draft and may change before order processing.'
+            : 'Thank you for your business.', 8, [0.58, 0.64, 0.71]);
+        $stream[] = $this->pdfText(40, 40, 'Internal sales document', 8, [0.58, 0.64, 0.71]);
+
+        return $this->buildPdfDocument(implode("\n", $stream));
+    }
+
+    private function buildStyledStatisticsPdf(array $stats, array $meta): string
+    {
+        $pageWidth = 595.0;
+        $stream = [];
+
+        // Top accent bar.
+        $stream[] = $this->pdfFillRect(0, 834, $pageWidth, 8, [0.12, 0.25, 0.69]);
+
+        // Header.
+        $stream[] = $this->pdfText(40, 790, 'SALES PERFORMANCE', 26, [0.12, 0.25, 0.69], 'F2');
+        $stream[] = $this->pdfText(40, 772, 'OFFICIAL STATISTICS REPORT', 9, [0.23, 0.51, 0.96], 'F2');
+
+        $stream[] = $this->pdfText(40, 744, 'Period:', 10, [0.28, 0.32, 0.38], 'F2');
+        $stream[] = $this->pdfText(80, 744, (string) ($meta['period_label'] ?? 'All Time'), 10, [0.40, 0.45, 0.51]);
+        $stream[] = $this->pdfText(40, 728, 'Customer:', 10, [0.28, 0.32, 0.38], 'F2');
+        $stream[] = $this->pdfText(90, 728, (string) ($meta['customer_label'] ?? 'All Registered Clients'), 10, [0.40, 0.45, 0.51]);
+        $stream[] = $this->pdfText(40, 712, 'Status:', 10, [0.28, 0.32, 0.38], 'F2');
+        $stream[] = $this->pdfText(78, 712, (string) ($meta['status_label'] ?? 'ALL'), 10, [0.40, 0.45, 0.51]);
+        $stream[] = $this->pdfText(40, 696, 'Grouping:', 10, [0.28, 0.32, 0.38], 'F2');
+        $stream[] = $this->pdfText(90, 696, (string) ($meta['group_by'] ?? 'MONTH'), 10, [0.40, 0.45, 0.51]);
+
+        $stream[] = $this->pdfText(410, 744, 'Report ID: ' . (string) ($meta['report_id'] ?? '-'), 9, [0.58, 0.64, 0.71], 'F2');
+        $stream[] = $this->pdfText(410, 728, 'Generated: ' . (string) ($meta['generated_at'] ?? '-'), 9, [0.58, 0.64, 0.71], 'F2');
+
+        // Metric cards.
+        $cardY = 598.0;
+        $cardHeight = 86.0;
+        $cardWidth = 164.0;
+        $gap = 13.5;
+        $cardStartX = 40.0;
+
+        // Card 1 - Net revenue.
+        $stream[] = $this->pdfFillRect($cardStartX, $cardY, $cardWidth, $cardHeight, [0.97, 0.98, 0.99]);
+        $stream[] = $this->pdfFillRect($cardStartX, $cardY, 4, $cardHeight, [0.23, 0.51, 0.96]);
+        $stream[] = $this->pdfText($cardStartX + 10, $cardY + 68, 'TOTAL NET REVENUE', 8, [0.58, 0.64, 0.71], 'F2');
+        $stream[] = $this->pdfText($cardStartX + 10, $cardY + 44, '$' . number_format((float) ($stats['net_revenue_usd'] ?? 0), 2), 16, [0.12, 0.25, 0.69], 'F2');
+        $stream[] = $this->pdfText($cardStartX + 10, $cardY + 24, number_format((float) ($stats['net_revenue_riel'] ?? 0), 2) . ' RIEL', 8, [0.23, 0.51, 0.96], 'F2');
+
+        // Card 2 - Total orders.
+        $card2X = $cardStartX + $cardWidth + $gap;
+        $stream[] = $this->pdfFillRect($card2X, $cardY, $cardWidth, $cardHeight, [0.97, 0.98, 0.99]);
+        $stream[] = $this->pdfFillRect($card2X, $cardY, 4, $cardHeight, [0.06, 0.73, 0.51]);
+        $stream[] = $this->pdfText($card2X + 10, $cardY + 68, 'TOTAL ORDERS', 8, [0.58, 0.64, 0.71], 'F2');
+        $stream[] = $this->pdfText($card2X + 10, $cardY + 44, (string) ((int) ($stats['total_orders'] ?? 0)), 16, [0.20, 0.23, 0.27], 'F2');
+        $stream[] = $this->pdfText($card2X + 10, $cardY + 24, (string) ((int) ($stats['total_completed'] ?? 0)) . ' COMPLETED', 8, [0.06, 0.51, 0.30], 'F2');
+
+        // Card 3 - Average order value.
+        $card3X = $card2X + $cardWidth + $gap;
+        $stream[] = $this->pdfFillRect($card3X, $cardY, $cardWidth, $cardHeight, [0.97, 0.98, 0.99]);
+        $stream[] = $this->pdfFillRect($card3X, $cardY, 4, $cardHeight, [0.94, 0.27, 0.27]);
+        $stream[] = $this->pdfText($card3X + 10, $cardY + 68, 'AVG ORDER VALUE', 8, [0.58, 0.64, 0.71], 'F2');
+        $stream[] = $this->pdfText($card3X + 10, $cardY + 44, '$' . number_format((float) ($stats['average_order_value_usd'] ?? 0), 2), 16, [0.20, 0.23, 0.27], 'F2');
+        $stream[] = $this->pdfText($card3X + 10, $cardY + 24, 'PER COMPLETED ORDER', 8, [0.58, 0.64, 0.71], 'F2');
+
+        // Trend section title.
+        $stream[] = $this->pdfFillRect(40, 560, 5, 16, [0.12, 0.25, 0.69]);
+        $stream[] = $this->pdfText(52, 564, strtoupper((string) ($stats['group_by'] ?? 'MONTH')) . ' PERFORMANCE TREND', 11, [0.20, 0.23, 0.27], 'F2');
+
+        // Trend table.
+        $tableX = 40.0;
+        $tableY = 548.0;
+        $tableWidth = 515.0;
+        $headerHeight = 22.0;
+        $rowHeight = 20.0;
+        $trendRows = array_slice((array) ($stats['sales_trend'] ?? []), 0, 8);
+        if (count($trendRows) === 0) {
+            $trendRows = [['period' => '-', 'total_sales_usd' => 0, 'total_sales_riel' => 0]];
+        }
+
+        $stream[] = $this->pdfFillRect($tableX, $tableY - $headerHeight, $tableWidth, $headerHeight, [0.95, 0.96, 0.98]);
+        $stream[] = $this->pdfStrokeRect($tableX, $tableY - $headerHeight, $tableWidth, $headerHeight + (count($trendRows) * $rowHeight), [0.89, 0.91, 0.94], 0.8);
+
+        $stream[] = $this->pdfText($tableX + 10, $tableY - 15, 'REPORTING PERIOD', 8, [0.28, 0.32, 0.38], 'F2');
+        $stream[] = $this->pdfText($tableX + 210, $tableY - 15, 'REVENUE USD', 8, [0.28, 0.32, 0.38], 'F2');
+        $stream[] = $this->pdfText($tableX + 330, $tableY - 15, 'REVENUE RIEL', 8, [0.28, 0.32, 0.38], 'F2');
+        $stream[] = $this->pdfText($tableX + 460, $tableY - 15, 'STATUS', 8, [0.28, 0.32, 0.38], 'F2');
+
+        $maxTrendUsd = max(array_map(fn ($row) => (float) ($row['total_sales_usd'] ?? 0), $trendRows));
+        foreach ($trendRows as $index => $row) {
+            $rowTopY = $tableY - $headerHeight - ($index * $rowHeight);
+            $rowBottomY = $rowTopY - $rowHeight;
+
+            if (($index % 2) === 1) {
+                $stream[] = $this->pdfFillRect($tableX, $rowBottomY, $tableWidth, $rowHeight, [0.97, 0.98, 0.99]);
+            }
+
+            $period = (string) ($row['period'] ?? '-');
+            $usd = (float) ($row['total_sales_usd'] ?? 0);
+            $riel = (float) ($row['total_sales_riel'] ?? 0);
+
+            $status = 'STABLE';
+            $pillFill = [0.89, 0.91, 0.94];
+            $pillText = [0.28, 0.32, 0.38];
+            if ($maxTrendUsd > 0 && abs($usd - $maxTrendUsd) < self::FLOAT_EPSILON) {
+                $status = 'PEAK';
+                $pillFill = [0.86, 0.97, 0.89];
+                $pillText = [0.09, 0.40, 0.20];
+            } elseif ($maxTrendUsd > 0 && $usd >= ($maxTrendUsd * 0.70)) {
+                $status = 'HIGH';
+                $pillFill = [0.86, 0.97, 0.89];
+                $pillText = [0.09, 0.40, 0.20];
+            }
+
+            $stream[] = $this->pdfText($tableX + 10, $rowBottomY + 7, $period, 9, [0.20, 0.23, 0.27], 'F2');
+            $stream[] = $this->pdfText($tableX + 210, $rowBottomY + 7, '$' . number_format($usd, 2), 9, [0.20, 0.23, 0.27]);
+            $stream[] = $this->pdfText($tableX + 330, $rowBottomY + 7, number_format($riel, 2), 9, [0.39, 0.45, 0.52]);
+
+            $pillX = $tableX + 450;
+            $pillY = $rowBottomY + 4;
+            $stream[] = $this->pdfFillRect($pillX, $pillY, 52, 13, $pillFill);
+            $stream[] = $this->pdfText($pillX + 10, $pillY + 4, $status, 7, $pillText, 'F2');
+        }
+
+        // Two-column summary lists.
+        $listTopY = 330.0;
+        $leftX = 40.0;
+        $rightX = 305.0;
+
+        $stream[] = $this->pdfFillRect($leftX, $listTopY + 2, 5, 16, [0.06, 0.73, 0.51]);
+        $stream[] = $this->pdfText($leftX + 12, $listTopY + 6, 'TOP PRODUCTS', 11, [0.20, 0.23, 0.27], 'F2');
+        $stream[] = $this->pdfFillRect($rightX, $listTopY + 2, 5, 16, [0.98, 0.55, 0.20]);
+        $stream[] = $this->pdfText($rightX + 12, $listTopY + 6, 'TOP CUSTOMERS', 11, [0.20, 0.23, 0.27], 'F2');
+
+        $topProducts = array_slice((array) ($stats['top_products'] ?? []), 0, 5);
+        $topCustomers = array_slice((array) ($stats['top_customers'] ?? []), 0, 5);
+        if (count($topProducts) === 0) {
+            $topProducts = [['product_name' => 'No data', 'total_sales_usd' => 0]];
+        }
+        if (count($topCustomers) === 0) {
+            $topCustomers = [['customer_name' => 'No data', 'total_sales_usd' => 0]];
+        }
+
+        $leftRowY = $listTopY - 18;
+        foreach ($topProducts as $index => $item) {
+            if ($index >= 5) {
+                break;
+            }
+            $rowY = $leftRowY - ($index * 24);
+            $stream[] = $this->pdfFillRect($leftX, $rowY, 245, 20, [0.97, 0.98, 0.99]);
+            $stream[] = $this->pdfStrokeRect($leftX, $rowY, 245, 20, [0.89, 0.91, 0.94], 0.5);
+            $stream[] = $this->pdfText($leftX + 8, $rowY + 7, (string) ($item['product_name'] ?? 'Unknown Product'), 8, [0.28, 0.32, 0.38], 'F2');
+            $stream[] = $this->pdfText($leftX + 172, $rowY + 7, '$' . number_format((float) ($item['total_sales_usd'] ?? 0), 2), 8, [0.12, 0.25, 0.69], 'F2');
+        }
+
+        $rightRowY = $listTopY - 18;
+        foreach ($topCustomers as $index => $item) {
+            if ($index >= 5) {
+                break;
+            }
+            $rowY = $rightRowY - ($index * 24);
+            $stream[] = $this->pdfStrokeRect($rightX, $rowY, 245, 20, [0.89, 0.91, 0.94], 0.5);
+            $stream[] = $this->pdfText($rightX + 8, $rowY + 7, (string) ($item['customer_name'] ?? 'Walk-in Customer'), 8, [0.28, 0.32, 0.38]);
+            $stream[] = $this->pdfText($rightX + 172, $rowY + 7, '$' . number_format((float) ($item['total_sales_usd'] ?? 0), 2), 8, [0.20, 0.23, 0.27], 'F2');
+        }
+
+        // Footer.
+        $stream[] = $this->pdfStrokeLine(40, 70, 555, 70, [0.89, 0.91, 0.94], 0.8);
+        $stream[] = $this->pdfText(40, 52, 'Confidential document. Internal use only.', 8, [0.58, 0.64, 0.71]);
+        $stream[] = $this->pdfText(40, 40, 'All figures are subject to final audit verification.', 8, [0.58, 0.64, 0.71]);
+        $stream[] = $this->pdfText(400, 46, 'WAREHOUSE MANAGEMENT SYSTEM', 8, [0.12, 0.25, 0.69], 'F2');
+
+        $content = implode("\n", $stream);
+        return $this->buildPdfDocument($content);
+    }
+
+    private function pdfText(
+        float $x,
+        float $y,
+        string $text,
+        float $size = 10,
+        array $rgb = [0, 0, 0],
+        string $font = 'F1'
+    ): string {
+        $safeText = $this->pdfEscapeText($text);
+        $r = $this->pdfColorComponent($rgb[0] ?? 0);
+        $g = $this->pdfColorComponent($rgb[1] ?? 0);
+        $b = $this->pdfColorComponent($rgb[2] ?? 0);
+
+        return sprintf(
+            "BT\n/%s %.2F Tf\n%.4F %.4F %.4F rg\n1 0 0 1 %.2F %.2F Tm\n(%s) Tj\nET",
+            $font,
+            $size,
+            $r,
+            $g,
+            $b,
+            $x,
+            $y,
+            $safeText
+        );
+    }
+
+    private function pdfFillRect(float $x, float $y, float $width, float $height, array $rgb): string
+    {
+        $r = $this->pdfColorComponent($rgb[0] ?? 0);
+        $g = $this->pdfColorComponent($rgb[1] ?? 0);
+        $b = $this->pdfColorComponent($rgb[2] ?? 0);
+
+        return sprintf("%.4F %.4F %.4F rg\n%.2F %.2F %.2F %.2F re\nf", $r, $g, $b, $x, $y, $width, $height);
+    }
+
+    private function pdfStrokeRect(
+        float $x,
+        float $y,
+        float $width,
+        float $height,
+        array $rgb,
+        float $lineWidth = 1.0
+    ): string {
+        $r = $this->pdfColorComponent($rgb[0] ?? 0);
+        $g = $this->pdfColorComponent($rgb[1] ?? 0);
+        $b = $this->pdfColorComponent($rgb[2] ?? 0);
+
+        return sprintf(
+            "%.3F w\n%.4F %.4F %.4F RG\n%.2F %.2F %.2F %.2F re\nS",
+            $lineWidth,
+            $r,
+            $g,
+            $b,
+            $x,
+            $y,
+            $width,
+            $height
+        );
+    }
+
+    private function pdfStrokeLine(
+        float $x1,
+        float $y1,
+        float $x2,
+        float $y2,
+        array $rgb,
+        float $lineWidth = 1.0
+    ): string {
+        $r = $this->pdfColorComponent($rgb[0] ?? 0);
+        $g = $this->pdfColorComponent($rgb[1] ?? 0);
+        $b = $this->pdfColorComponent($rgb[2] ?? 0);
+
+        return sprintf(
+            "%.3F w\n%.4F %.4F %.4F RG\n%.2F %.2F m\n%.2F %.2F l\nS",
+            $lineWidth,
+            $r,
+            $g,
+            $b,
+            $x1,
+            $y1,
+            $x2,
+            $y2
+        );
+    }
+
+    private function pdfColorComponent(mixed $value): float
+    {
+        return max(0, min(1, round((float) $value, 4)));
+    }
+
+    private function pdfEscapeText(string $text): string
+    {
+        $normalized = preg_replace('/[^\\x20-\\x7E]/', '?', $text) ?? '';
+        return str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $normalized);
+    }
+
+    private function buildPdfDocument(string $content): string
+    {
         $objects = [];
         $objects[] = "<< /Type /Catalog /Pages 2 0 R >>";
         $objects[] = "<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
-        $objects[] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>";
+        $objects[] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>";
         $objects[] = "<< /Length " . strlen($content) . " >>\nstream\n{$content}\nendstream";
         $objects[] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+        $objects[] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>";
 
         $pdf = "%PDF-1.4\n";
         $offsets = [0];
