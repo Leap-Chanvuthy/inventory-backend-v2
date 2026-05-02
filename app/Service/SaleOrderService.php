@@ -197,6 +197,36 @@ class SaleOrderService
                 ->limit(10)
                 ->get();
 
+            $topRefundedCustomers = $applyOrderFilters(
+                DB::table('sale_order_refunds')
+                    ->join('sale_orders', 'sale_order_refunds.sale_order_id', '=', 'sale_orders.id')
+                    ->leftJoin('customers', 'sale_orders.customer_id', '=', 'customers.id')
+            )
+                ->select('sale_orders.customer_id')
+                ->selectRaw("COALESCE(customers.fullname, 'Walk-in Customer') as customer_name")
+                ->selectRaw('COUNT(DISTINCT sale_orders.id) as refunded_orders_count')
+                ->selectRaw('COALESCE(SUM(sale_order_refunds.total_refund_amount_in_usd), 0) as total_refund_usd')
+                ->selectRaw('COALESCE(SUM(sale_order_refunds.total_refund_amount_in_riel), 0) as total_refund_riel')
+                ->groupBy('sale_orders.customer_id', 'customers.fullname')
+                ->orderByDesc('total_refund_usd')
+                ->limit(10)
+                ->get();
+
+            $topCancelledCustomers = $applyOrderFilters(
+                DB::table('sale_orders')
+                    ->leftJoin('customers', 'sale_orders.customer_id', '=', 'customers.id')
+            )
+                ->where('sale_orders.order_status', SaleOrderStatusEnum::CANCELLED->value)
+                ->select('sale_orders.customer_id')
+                ->selectRaw("COALESCE(customers.fullname, 'Walk-in Customer') as customer_name")
+                ->selectRaw('COUNT(sale_orders.id) as cancelled_orders_count')
+                ->selectRaw('COALESCE(SUM(sale_orders.grand_total_amount_in_usd), 0) as total_cancelled_usd')
+                ->selectRaw('COALESCE(SUM(sale_orders.grand_total_amount_in_riel), 0) as total_cancelled_riel')
+                ->groupBy('sale_orders.customer_id', 'customers.fullname')
+                ->orderByDesc('total_cancelled_usd')
+                ->limit(10)
+                ->get();
+
             $netRevenueUsd = round(
                 max(0, (float) ($stats?->gross_sales_usd ?? 0) - (float) ($stats?->total_refunded_usd ?? 0)),
                 2
@@ -239,6 +269,8 @@ class SaleOrderService
                 'group_by' => $groupBy,
                 'top_customers' => $topCustomers,
                 'top_products' => $topProducts,
+                'top_refunded_customers' => $topRefundedCustomers,
+                'top_cancelled_customers' => $topCancelledCustomers,
                 'filters' => [
                     'date_from' => $dateFrom ?: null,
                     'date_to' => $dateTo ?: null,
