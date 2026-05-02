@@ -36,17 +36,20 @@ class SaleOrderService
     protected SaleOrderQueryBuilder $saleOrderQueryBuilder;
     protected GetCurrentUserHelper $getCurrentUserHelper;
     protected ProductStockDeductionService $stockDeductionService;
+    protected AuditLoggerService $auditLoggerService;
 
     public function __construct(
         SaleOrderValidation $saleOrderValidation,
         SaleOrderQueryBuilder $saleOrderQueryBuilder,
         GetCurrentUserHelper $getCurrentUserHelper,
-        ProductStockDeductionService $stockDeductionService
+        ProductStockDeductionService $stockDeductionService,
+        AuditLoggerService $auditLoggerService
     ) {
         $this->saleOrderValidation = $saleOrderValidation;
         $this->saleOrderQueryBuilder = $saleOrderQueryBuilder;
         $this->getCurrentUserHelper = $getCurrentUserHelper;
         $this->stockDeductionService = $stockDeductionService;
+        $this->auditLoggerService = $auditLoggerService;
     }
 
     public function index(Request $request)
@@ -386,6 +389,7 @@ class SaleOrderService
             $validated = $validator->validated();
             $userId = $this->getCurrentUserHelper->getUserId();
             $requestedInstallmentPercentage = round((float) ($validated['payment_percentage'] ?? 0), 2);
+            $beforeSnapshot = $this->captureSaleOrderAuditSnapshot($id);
 
             $result = DB::transaction(function () use ($id, $validated, $requestedInstallmentPercentage, $userId) {
                 /** @var SaleOrder $saleOrder */
@@ -500,6 +504,24 @@ class SaleOrderService
             $updatedOrder = $result['sale_order'];
             /** @var SaleOrderInstallment $installment */
             $installment = $result['installment'];
+            $afterSnapshot = $this->captureSaleOrderAuditSnapshot((int) $updatedOrder->id);
+
+            $this->auditLoggerService->logDiff(
+                'record sale order payment',
+                SaleOrder::class,
+                (int) $updatedOrder->id,
+                $beforeSnapshot,
+                $afterSnapshot,
+                $userId,
+                [
+                    'order_no' => (string) $updatedOrder->order_no,
+                    'installment_id' => (int) $installment->id,
+                    'installment_percentage' => round((float) $installment->percentage, 2),
+                    'payment_status' => is_object($updatedOrder->payment_status)
+                        ? $updatedOrder->payment_status->value
+                        : (string) $updatedOrder->payment_status,
+                ]
+            );
 
             return ResponseHelper::success([
                 'sale_order_id' => (int) $updatedOrder->id,
@@ -540,6 +562,7 @@ class SaleOrderService
             $validated = $validator->validated();
             $requestedPercentage = round((float) $validated['payment_percentage'], 2);
             $userId = $this->getCurrentUserHelper->getUserId();
+            $beforeSnapshot = $this->captureSaleOrderAuditSnapshot($id);
 
             $result = DB::transaction(function () use ($id, $validated, $requestedPercentage, $userId) {
                 /** @var SaleOrder $saleOrder */
@@ -642,6 +665,23 @@ class SaleOrderService
                     'statusHistories' => fn ($q) => $q->orderByDesc('changed_at'),
                 ]);
             });
+
+            $afterSnapshot = $this->captureSaleOrderAuditSnapshot((int) $result->id);
+            $this->auditLoggerService->logDiff(
+                'update sale order latest installment',
+                SaleOrder::class,
+                (int) $result->id,
+                $beforeSnapshot,
+                $afterSnapshot,
+                $userId,
+                [
+                    'order_no' => (string) $result->order_no,
+                    'requested_percentage' => $requestedPercentage,
+                    'payment_status' => is_object($result->payment_status)
+                        ? $result->payment_status->value
+                        : (string) $result->payment_status,
+                ]
+            );
 
             return ResponseHelper::success([
                 'sale_order' => $result,
@@ -881,6 +921,20 @@ class SaleOrderService
                 return $saleOrder;
             });
 
+            $createdSnapshot = $this->captureSaleOrderAuditSnapshot((int) $saleOrder->id);
+            $this->auditLoggerService->logChange(
+                'create sale order',
+                SaleOrder::class,
+                (int) $saleOrder->id,
+                [],
+                $createdSnapshot,
+                $userId,
+                [
+                    'order_no' => (string) $saleOrder->order_no,
+                    'order_status' => SaleOrderStatusEnum::DRAFT->value,
+                ]
+            );
+
             return ResponseHelper::success([
                 'sale_order' => $saleOrder->load([
                     'customer.customerCategory',
@@ -905,6 +959,7 @@ class SaleOrderService
         try {
             $saleOrder = SaleOrder::with('orderItems')->findOrFail($id);
             $currentStatus = $this->normalizeStatus($saleOrder->order_status);
+            $beforeSnapshot = $this->captureSaleOrderAuditSnapshot($id);
 
             if (in_array($currentStatus, [SaleOrderStatusEnum::CANCELLED->value, SaleOrderStatusEnum::REFUNDED->value], true)) {
                 return ResponseHelper::error(
@@ -1076,6 +1131,20 @@ class SaleOrderService
                 ]);
             });
 
+            $afterSnapshot = $this->captureSaleOrderAuditSnapshot((int) $updatedSaleOrder->id);
+            $this->auditLoggerService->logDiff(
+                'update sale order',
+                SaleOrder::class,
+                (int) $updatedSaleOrder->id,
+                $beforeSnapshot,
+                $afterSnapshot,
+                $userId,
+                [
+                    'order_no' => (string) $updatedSaleOrder->order_no,
+                    'order_status' => $this->normalizeStatus($updatedSaleOrder->order_status),
+                ]
+            );
+
             return ResponseHelper::success(['sale_order' => $updatedSaleOrder], 'Sale order updated successfully');
         } catch (ValidationException $e) {
             return ResponseHelper::validation($e->errors(), 'Validation Error');
@@ -1088,6 +1157,7 @@ class SaleOrderService
     {
         try {
             $saleOrder = SaleOrder::with('orderItems')->findOrFail($id);
+            $beforeSnapshot = $this->captureSaleOrderAuditSnapshot($id);
 
             $validator = Validator::make(
                 $request->all(),
@@ -1229,6 +1299,21 @@ class SaleOrderService
                 ]);
             });
 
+            $afterSnapshot = $this->captureSaleOrderAuditSnapshot((int) $updatedSaleOrder->id);
+            $this->auditLoggerService->logDiff(
+                'update sale order status',
+                SaleOrder::class,
+                (int) $updatedSaleOrder->id,
+                $beforeSnapshot,
+                $afterSnapshot,
+                $userId,
+                [
+                    'order_no' => (string) $updatedSaleOrder->order_no,
+                    'from_status' => $currentStatus,
+                    'to_status' => $targetStatus,
+                ]
+            );
+
             return ResponseHelper::success(['sale_order' => $updatedSaleOrder], 'Sale order status updated successfully');
         } catch (ValidationException $e) {
             return ResponseHelper::validation($e->errors(), 'Validation Error');
@@ -1270,6 +1355,7 @@ class SaleOrderService
             $userId = $this->getCurrentUserHelper->getUserId();
             $token = $this->stockDeductionService->buildSaleOrderToken((int) $saleOrder->id);
             $errors = [];
+            $beforeSnapshot = $this->captureSaleOrderAuditSnapshot($id);
 
             $updatedSaleOrder = DB::transaction(function () use (
                 $saleOrder,
@@ -1505,6 +1591,22 @@ class SaleOrderService
                 ]);
             });
 
+            $afterSnapshot = $this->captureSaleOrderAuditSnapshot((int) $updatedSaleOrder->id);
+            $latestRefund = $updatedSaleOrder->refunds->sortByDesc('id')->first();
+            $this->auditLoggerService->logDiff(
+                'process sale order refund',
+                SaleOrder::class,
+                (int) $updatedSaleOrder->id,
+                $beforeSnapshot,
+                $afterSnapshot,
+                $userId,
+                [
+                    'order_no' => (string) $updatedSaleOrder->order_no,
+                    'refund_id' => $latestRefund ? (int) $latestRefund->id : null,
+                    'refund_no' => $latestRefund ? (string) $latestRefund->refund_no : null,
+                ]
+            );
+
             return ResponseHelper::success(
                 ['sale_order' => $updatedSaleOrder],
                 'Sale order refund processed successfully'
@@ -1520,6 +1622,8 @@ class SaleOrderService
     {
         try {
             $saleOrder = SaleOrder::findOrFail($id);
+            $userId = $this->getCurrentUserHelper->getUserId();
+            $beforeSnapshot = $this->captureSaleOrderAuditSnapshot($id);
 
             DB::transaction(function () use ($saleOrder) {
                 $token = $this->stockDeductionService->buildSaleOrderToken((int) $saleOrder->id);
@@ -1527,6 +1631,18 @@ class SaleOrderService
                 $this->stockDeductionService->rebuildIsSoldFlags($productIds);
                 $saleOrder->delete();
             });
+
+            $this->auditLoggerService->logChange(
+                'delete sale order',
+                SaleOrder::class,
+                (int) $saleOrder->id,
+                $beforeSnapshot,
+                [],
+                $userId,
+                [
+                    'order_no' => (string) $saleOrder->order_no,
+                ]
+            );
 
             return ResponseHelper::success([], 'Sale order deleted successfully');
         } catch (Exception $e) {
@@ -1553,6 +1669,28 @@ class SaleOrderService
             $userId,
             $movementDate
         );
+    }
+
+    private function captureSaleOrderAuditSnapshot(int $saleOrderId): array
+    {
+        $saleOrder = SaleOrder::query()
+            ->with([
+                'orderItems',
+                'installments' => fn ($q) => $q->orderBy('paid_at')->orderBy('id'),
+                'refunds' => fn ($q) => $q->orderBy('processed_at')->orderBy('id'),
+            ])
+            ->find($saleOrderId);
+
+        if ($saleOrder === null) {
+            return [];
+        }
+
+        $snapshot = $this->auditLoggerService->snapshotModel($saleOrder);
+        $snapshot['order_items'] = $this->auditLoggerService->snapshotModel($saleOrder->orderItems?->toArray() ?? []);
+        $snapshot['installments'] = $this->auditLoggerService->snapshotModel($saleOrder->installments?->toArray() ?? []);
+        $snapshot['refunds'] = $this->auditLoggerService->snapshotModel($saleOrder->refunds?->toArray() ?? []);
+
+        return $snapshot;
     }
 
     private function aggregateItemsForStock(array $items): array
