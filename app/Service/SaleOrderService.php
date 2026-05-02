@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Service\Pdf\SaleOrderInvoicePdfService;
 use App\Enums\PaymentStatusEnum;
 use App\Enums\ProductStatusEnum;
 use App\Enums\ProductStockMovementTypeEnum;
@@ -37,19 +38,22 @@ class SaleOrderService
     protected GetCurrentUserHelper $getCurrentUserHelper;
     protected ProductStockDeductionService $stockDeductionService;
     protected AuditLoggerService $auditLoggerService;
+    protected SaleOrderInvoicePdfService $saleOrderInvoicePdfService;
 
     public function __construct(
         SaleOrderValidation $saleOrderValidation,
         SaleOrderQueryBuilder $saleOrderQueryBuilder,
         GetCurrentUserHelper $getCurrentUserHelper,
         ProductStockDeductionService $stockDeductionService,
-        AuditLoggerService $auditLoggerService
+        AuditLoggerService $auditLoggerService,
+        SaleOrderInvoicePdfService $saleOrderInvoicePdfService
     ) {
         $this->saleOrderValidation = $saleOrderValidation;
         $this->saleOrderQueryBuilder = $saleOrderQueryBuilder;
         $this->getCurrentUserHelper = $getCurrentUserHelper;
         $this->stockDeductionService = $stockDeductionService;
         $this->auditLoggerService = $auditLoggerService;
+        $this->saleOrderInvoicePdfService = $saleOrderInvoicePdfService;
     }
 
     public function index(Request $request)
@@ -736,13 +740,7 @@ class SaleOrderService
                 ])
                 ->findOrFail($id);
 
-            $pdfContent = $this->buildSaleOrderInvoicePdf($saleOrder);
-            $filename = 'sale-order-' . ((string) $saleOrder->order_no) . '.pdf';
-
-            return response($pdfContent, 200, [
-                'Content-Type' => 'application/pdf',
-                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-            ]);
+            return $this->saleOrderInvoicePdfService->download($saleOrder);
         } catch (Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
         }
@@ -2131,106 +2129,6 @@ class SaleOrderService
             'year' => $date->format('Y'),
             default => $date->format('Y-m'),
         };
-    }
-
-    private function buildSaleOrderInvoicePdf(SaleOrder $saleOrder): string
-    {
-        $stream = [];
-        $pageWidth = 595.0;
-
-        $status = $this->normalizeStatus($saleOrder->order_status);
-        $documentLabel = $status === SaleOrderStatusEnum::DRAFT->value ? 'QUOTE' : 'INVOICE';
-
-        $stream[] = $this->pdfFillRect(0, 834, $pageWidth, 8, [0.12, 0.25, 0.69]);
-        $stream[] = $this->pdfText(40, 790, "SALES {$documentLabel}", 24, [0.12, 0.25, 0.69], 'F2');
-        $stream[] = $this->pdfText(40, 772, 'WAREHOUSE MANAGEMENT SYSTEM', 9, [0.23, 0.51, 0.96], 'F2');
-
-        $stream[] = $this->pdfFillRect(470, 780, 85, 20, [0.95, 0.96, 0.98]);
-        $stream[] = $this->pdfStrokeRect(470, 780, 85, 20, [0.89, 0.91, 0.94], 0.6);
-        $stream[] = $this->pdfText(490, 787, $documentLabel, 10, [0.12, 0.25, 0.69], 'F2');
-
-        $customerName = (string) ($saleOrder->customer?->fullname ?? 'Walk-in Customer');
-        $customerPhone = (string) ($saleOrder->customer?->phone_number ?? '-');
-        $orderDate = Carbon::parse((string) $saleOrder->order_date)->format('M d, Y');
-        $createdAt = Carbon::parse((string) $saleOrder->created_at)->format('Y-m-d H:i');
-
-        $stream[] = $this->pdfText(40, 742, 'Order No:', 10, [0.28, 0.32, 0.38], 'F2');
-        $stream[] = $this->pdfText(95, 742, (string) $saleOrder->order_no, 10, [0.20, 0.23, 0.27]);
-        $stream[] = $this->pdfText(40, 726, 'Order Date:', 10, [0.28, 0.32, 0.38], 'F2');
-        $stream[] = $this->pdfText(95, 726, $orderDate, 10, [0.20, 0.23, 0.27]);
-        $stream[] = $this->pdfText(40, 710, 'Status:', 10, [0.28, 0.32, 0.38], 'F2');
-        $stream[] = $this->pdfText(95, 710, $status, 10, [0.20, 0.23, 0.27], 'F2');
-
-        $stream[] = $this->pdfText(320, 742, 'Customer:', 10, [0.28, 0.32, 0.38], 'F2');
-        $stream[] = $this->pdfText(380, 742, $customerName, 10, [0.20, 0.23, 0.27]);
-        $stream[] = $this->pdfText(320, 726, 'Phone:', 10, [0.28, 0.32, 0.38], 'F2');
-        $stream[] = $this->pdfText(380, 726, $customerPhone, 10, [0.20, 0.23, 0.27]);
-        $stream[] = $this->pdfText(320, 710, 'Generated:', 10, [0.28, 0.32, 0.38], 'F2');
-        $stream[] = $this->pdfText(380, 710, $createdAt, 10, [0.20, 0.23, 0.27]);
-
-        // Items table.
-        $tableX = 40.0;
-        $tableY = 680.0;
-        $tableWidth = 515.0;
-        $headerHeight = 22.0;
-        $rowHeight = 20.0;
-
-        $orderItems = $saleOrder->orderItems ?? collect();
-        $rows = $orderItems->take(16)->values();
-        if ($rows->count() === 0) {
-            $rows = collect([(object) [
-                'product' => (object) ['product_name' => 'No items'],
-                'quantity' => 0,
-                'unit_price_in_usd' => 0,
-                'total_price_in_usd' => 0,
-            ]]);
-        }
-
-        $stream[] = $this->pdfFillRect($tableX, $tableY - $headerHeight, $tableWidth, $headerHeight, [0.95, 0.96, 0.98]);
-        $stream[] = $this->pdfStrokeRect($tableX, $tableY - $headerHeight, $tableWidth, $headerHeight + ($rows->count() * $rowHeight), [0.89, 0.91, 0.94], 0.8);
-        $stream[] = $this->pdfText($tableX + 10, $tableY - 15, 'ITEM', 8, [0.28, 0.32, 0.38], 'F2');
-        $stream[] = $this->pdfText($tableX + 286, $tableY - 15, 'QTY', 8, [0.28, 0.32, 0.38], 'F2');
-        $stream[] = $this->pdfText($tableX + 360, $tableY - 15, 'UNIT USD', 8, [0.28, 0.32, 0.38], 'F2');
-        $stream[] = $this->pdfText($tableX + 450, $tableY - 15, 'TOTAL USD', 8, [0.28, 0.32, 0.38], 'F2');
-
-        foreach ($rows as $index => $item) {
-            $rowTopY = $tableY - $headerHeight - ($index * $rowHeight);
-            $rowBottomY = $rowTopY - $rowHeight;
-            if (($index % 2) === 1) {
-                $stream[] = $this->pdfFillRect($tableX, $rowBottomY, $tableWidth, $rowHeight, [0.97, 0.98, 0.99]);
-            }
-
-            $name = (string) ($item->product?->product_name ?? "Product #{$item->product_id}");
-            $qty = number_format((float) ($item->quantity ?? 0), 2);
-            $unit = number_format((float) ($item->unit_price_in_usd ?? 0), 2);
-            $total = number_format((float) ($item->total_price_in_usd ?? 0), 2);
-
-            $stream[] = $this->pdfText($tableX + 10, $rowBottomY + 7, $name, 8, [0.20, 0.23, 0.27]);
-            $stream[] = $this->pdfText($tableX + 286, $rowBottomY + 7, $qty, 8, [0.20, 0.23, 0.27]);
-            $stream[] = $this->pdfText($tableX + 360, $rowBottomY + 7, '$' . $unit, 8, [0.20, 0.23, 0.27]);
-            $stream[] = $this->pdfText($tableX + 450, $rowBottomY + 7, '$' . $total, 8, [0.20, 0.23, 0.27], 'F2');
-        }
-
-        $summaryY = 250.0;
-        $stream[] = $this->pdfStrokeRect(340, $summaryY, 215, 130, [0.89, 0.91, 0.94], 0.8);
-        $stream[] = $this->pdfText(350, $summaryY + 108, 'Subtotal', 9, [0.40, 0.45, 0.51], 'F2');
-        $stream[] = $this->pdfText(470, $summaryY + 108, '$' . number_format((float) ($saleOrder->sub_total_in_usd ?? 0), 2), 9, [0.20, 0.23, 0.27], 'F2');
-        $stream[] = $this->pdfText(350, $summaryY + 88, 'Discount', 9, [0.40, 0.45, 0.51], 'F2');
-        $stream[] = $this->pdfText(470, $summaryY + 88, '$' . number_format((float) ($saleOrder->discount_amount ?? 0), 2), 9, [0.20, 0.23, 0.27], 'F2');
-        $stream[] = $this->pdfText(350, $summaryY + 68, 'Tax', 9, [0.40, 0.45, 0.51], 'F2');
-        $stream[] = $this->pdfText(470, $summaryY + 68, '$' . number_format((float) ($saleOrder->tax_amount_in_usd ?? 0), 2), 9, [0.20, 0.23, 0.27], 'F2');
-        $stream[] = $this->pdfStrokeLine(350, $summaryY + 58, 545, $summaryY + 58, [0.89, 0.91, 0.94], 0.7);
-        $stream[] = $this->pdfText(350, $summaryY + 38, 'Grand Total', 10, [0.12, 0.25, 0.69], 'F2');
-        $stream[] = $this->pdfText(460, $summaryY + 38, '$' . number_format((float) ($saleOrder->grand_total_amount_in_usd ?? 0), 2), 11, [0.12, 0.25, 0.69], 'F2');
-        $stream[] = $this->pdfText(350, $summaryY + 20, 'KHR ' . number_format((float) ($saleOrder->grand_total_amount_in_riel ?? 0), 2), 8, [0.40, 0.45, 0.51]);
-
-        $stream[] = $this->pdfStrokeLine(40, 70, 555, 70, [0.89, 0.91, 0.94], 0.8);
-        $stream[] = $this->pdfText(40, 52, $documentLabel === 'QUOTE'
-            ? 'This is a quotation draft and may change before order processing.'
-            : 'Thank you for your business.', 8, [0.58, 0.64, 0.71]);
-        $stream[] = $this->pdfText(40, 40, 'Internal sales document', 8, [0.58, 0.64, 0.71]);
-
-        return $this->buildPdfDocument(implode("\n", $stream));
     }
 
     private function buildStyledStatisticsPdf(array $stats, array $meta): string
