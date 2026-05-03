@@ -40,6 +40,15 @@ class ProductCategoryService {
             allowedFilters: [
                 AllowedFilter::exact('id'),
                 AllowedFilter::exact('label_color'),
+                AllowedFilter::callback('is_deleted', function (Builder $query, $value) {
+                    $isDeleted = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                    if ($isDeleted === true || (string) $value === '1') {
+                        $query->onlyTrashed();
+                        return;
+                    }
+
+                    $query->whereNull('product_categories.deleted_at');
+                }),
 
                 AllowedFilter::callback('search', function (Builder $query, $value) {
                     $query->where(function ($q) use ($value) {

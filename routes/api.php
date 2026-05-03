@@ -47,7 +47,7 @@ Route::post('/users/verify-email', [UserAPIController::class, 'verifyEmail']);
 
 
 // Protected Routes for ADMIN ONLY USERS
-Route::middleware(['auth:api'])->group(function () {
+Route::middleware(['auth:api', 'role:ADMIN'])->group(function () {
     Route::prefix('two-factor')->group(function () {
         Route::post('/setup', [TwoFactorAPIController::class, 'setup']);
         Route::post('/confirm', [TwoFactorAPIController::class, 'confirm']);
@@ -79,8 +79,25 @@ Route::middleware(['auth:api'])->group(function () {
 });
 
 
+// Shared read-only routes for STOCK_CONTROLLER and VENDER
+Route::middleware(['auth:api', 'role:STOCK_CONTROLLER,VENDER'])->group(function () {
+    Route::prefix('product-categories')->group(function () {
+        Route::get('/', [ProductCategoryAPIController::class, 'index']);
+        Route::get('/{id}', [ProductCategoryAPIController::class, 'show']);
+        Route::get('/trashed', [ProductCategoryAPIController::class, 'trashed']);
+        Route::get('/{id}', [ProductCategoryAPIController::class, 'show']);
+    });
+
+    Route::prefix('products')->group(function () {
+        Route::get('/', [ProductAPIController::class, 'index']);
+        Route::get('/{id}/movements', [ProductAPIController::class, 'movements']);
+        Route::get('/trashed', [ProductAPIController::class, 'trashed']);
+        Route::get('/{id}', [ProductAPIController::class, 'show']);
+    });
+});
+
 // Protected Routes for ADMIN and STOCK_CONTROLLER
-Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(function () {
+Route::middleware(['auth:api' , 'role:STOCK_CONTROLLER'])->group(function () {
 
 
     Route::prefix('raw-materials')->group(function () {
@@ -156,9 +173,6 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
 
 
     Route::prefix('product-categories')->group(function () {
-        Route::get('/', [ProductCategoryAPIController::class, 'index']);
-        Route::get('/trashed', [ProductCategoryAPIController::class, 'trashed']);
-        Route::get('/{id}', [ProductCategoryAPIController::class, 'show']);
         Route::post('/', [ProductCategoryAPIController::class, 'store']);
         Route::patch('/{id}', [ProductCategoryAPIController::class, 'update']);
         Route::delete('/{id}', [ProductCategoryAPIController::class, 'delete'] );
@@ -166,10 +180,6 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
     });
 
     Route::prefix('products')->group(function () {
-        Route::get('/', [ProductAPIController::class, 'index']);
-        Route::get('/{id}/movements', [ProductAPIController::class, 'movements']);
-        Route::get('/trashed', [ProductAPIController::class, 'trashed']);
-        Route::get('/{id}', [ProductAPIController::class, 'show']);
         Route::post('/create/external-purchase',      [ProductAPIController::class, 'storeExternalPurchase']);
         Route::post('/create/internal-manufacturing', [ProductAPIController::class, 'storeInternalManufacturing']);
         Route::delete('/{id}', [ProductAPIController::class, 'delete']);
@@ -209,7 +219,7 @@ Route::middleware(['auth:api', 'role:ADMIN' , 'role:STOCK_CONTROLLER'])->group(f
 
 
 // Protected Routes for ADMIN and VENDER 
-Route::middleware(['auth:api', 'role:ADMIN' , 'role:CUSTOMER'])->group(function () {
+Route::middleware(['auth:api' , 'role:VENDER'])->group(function () {
 
     // Customer Categories Routes 
     Route::prefix('customer-categories')->group(function () {
