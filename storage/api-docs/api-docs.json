@@ -13335,7 +13335,7 @@
                     "Warehouses"
                 ],
                 "summary": "Create a new warehouse",
-                "description": "Store a new warehouse with optional images.",
+                "description": "Store a new warehouse with optional images and multiple sub warehouses in the same request.",
                 "operationId": "d85403b769588cfdca2cd9137e9619df",
                 "requestBody": {
                     "required": true,
@@ -13385,6 +13385,51 @@
                                             "type": "string",
                                             "format": "binary"
                                         }
+                                    },
+                                    "sub_warehouses": {
+                                        "description": "Optional list of sub warehouses to create with the main warehouse",
+                                        "type": "array",
+                                        "items": {
+                                            "required": [
+                                                "warehouse_name",
+                                                "warehouse_address"
+                                            ],
+                                            "properties": {
+                                                "warehouse_name": {
+                                                    "type": "string",
+                                                    "example": "Outlet Storage A"
+                                                },
+                                                "warehouse_manager": {
+                                                    "type": "string",
+                                                    "example": "Sok Dara"
+                                                },
+                                                "warehouse_manager_contact": {
+                                                    "type": "string",
+                                                    "example": "012345678"
+                                                },
+                                                "warehouse_manager_email": {
+                                                    "type": "string",
+                                                    "example": "outlet-a@example.com"
+                                                },
+                                                "warehouse_address": {
+                                                    "type": "string",
+                                                    "example": "No. 10, Street 2004, Phnom Penh"
+                                                },
+                                                "latitude": {
+                                                    "type": "string",
+                                                    "example": "11.6101"
+                                                },
+                                                "longitude": {
+                                                    "type": "string",
+                                                    "example": "104.9012"
+                                                },
+                                                "warehouse_description": {
+                                                    "type": "string",
+                                                    "example": "Small city distribution point"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
                                     }
                                 },
                                 "type": "object"
@@ -13416,7 +13461,7 @@
                     "Warehouses"
                 ],
                 "summary": "Get warehouse by ID",
-                "description": "Retrieve details of a specific warehouse.",
+                "description": "Retrieve details of a specific warehouse, including images and sub warehouses.",
                 "operationId": "bec581593c73ff786400ed88a17a687c",
                 "parameters": [
                     {
@@ -13472,7 +13517,7 @@
                     "Warehouses"
                 ],
                 "summary": "Update a warehouse",
-                "description": "Update warehouse information and optionally append more images.",
+                "description": "Update warehouse information, optionally append more images, and optionally add more sub warehouses.",
                 "operationId": "e7791e81886b220a364f2b6f9c1a67ed",
                 "parameters": [
                     {
@@ -13542,6 +13587,51 @@
                                         "items": {
                                             "type": "string",
                                             "format": "binary"
+                                        }
+                                    },
+                                    "sub_warehouses": {
+                                        "description": "Optional list of NEW sub warehouses to append to this warehouse",
+                                        "type": "array",
+                                        "items": {
+                                            "required": [
+                                                "warehouse_name",
+                                                "warehouse_address"
+                                            ],
+                                            "properties": {
+                                                "warehouse_name": {
+                                                    "type": "string",
+                                                    "example": "Outlet Storage B"
+                                                },
+                                                "warehouse_manager": {
+                                                    "type": "string",
+                                                    "example": "Srey Leak"
+                                                },
+                                                "warehouse_manager_contact": {
+                                                    "type": "string",
+                                                    "example": "011112223"
+                                                },
+                                                "warehouse_manager_email": {
+                                                    "type": "string",
+                                                    "example": "outlet-b@example.com"
+                                                },
+                                                "warehouse_address": {
+                                                    "type": "string",
+                                                    "example": "No. 45, Street 214, Phnom Penh"
+                                                },
+                                                "latitude": {
+                                                    "type": "string",
+                                                    "example": "11.5571"
+                                                },
+                                                "longitude": {
+                                                    "type": "string",
+                                                    "example": "104.9281"
+                                                },
+                                                "warehouse_description": {
+                                                    "type": "string",
+                                                    "example": "Secondary cold storage"
+                                                }
+                                            },
+                                            "type": "object"
                                         }
                                     }
                                 },
@@ -13643,6 +13733,151 @@
                     },
                     "500": {
                         "description": "Failed deleting warehouse image"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/warehouses/{warehouseId}/sub-warehouses/{subWarehouseId}": {
+            "delete": {
+                "tags": [
+                    "Warehouses"
+                ],
+                "summary": "Delete a sub warehouse",
+                "description": "Delete a sub warehouse from a warehouse.",
+                "operationId": "1e43d58e705deb59c28493d25569698c",
+                "parameters": [
+                    {
+                        "name": "warehouseId",
+                        "in": "path",
+                        "description": "Parent warehouse ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 8
+                        }
+                    },
+                    {
+                        "name": "subWarehouseId",
+                        "in": "path",
+                        "description": "Sub warehouse ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 3
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sub warehouse deleted successfully"
+                    },
+                    "404": {
+                        "description": "Warehouse or sub warehouse not found"
+                    },
+                    "500": {
+                        "description": "Failed deleting sub warehouse"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Warehouses"
+                ],
+                "summary": "Update a sub warehouse",
+                "description": "Update an existing sub warehouse under a warehouse.",
+                "operationId": "df007eefed423de7fee4d803786acf25",
+                "parameters": [
+                    {
+                        "name": "warehouseId",
+                        "in": "path",
+                        "description": "Parent warehouse ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 8
+                        }
+                    },
+                    {
+                        "name": "subWarehouseId",
+                        "in": "path",
+                        "description": "Sub warehouse ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 3
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "warehouse_name",
+                                    "warehouse_address"
+                                ],
+                                "properties": {
+                                    "warehouse_name": {
+                                        "type": "string",
+                                        "example": "Outlet Storage A - Updated"
+                                    },
+                                    "warehouse_manager": {
+                                        "type": "string",
+                                        "example": "Sok Dara"
+                                    },
+                                    "warehouse_manager_contact": {
+                                        "type": "string",
+                                        "example": "012345678"
+                                    },
+                                    "warehouse_manager_email": {
+                                        "type": "string",
+                                        "example": "outlet-a@example.com"
+                                    },
+                                    "warehouse_address": {
+                                        "type": "string",
+                                        "example": "No. 10, Street 2004, Phnom Penh"
+                                    },
+                                    "latitude": {
+                                        "type": "string",
+                                        "example": "11.6101"
+                                    },
+                                    "longitude": {
+                                        "type": "string",
+                                        "example": "104.9012"
+                                    },
+                                    "warehouse_description": {
+                                        "type": "string",
+                                        "example": "Updated description"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Sub warehouse updated successfully"
+                    },
+                    "404": {
+                        "description": "Warehouse or sub warehouse not found"
+                    },
+                    "422": {
+                        "description": "Validation failed"
+                    },
+                    "500": {
+                        "description": "Failed updating sub warehouse"
                     }
                 },
                 "security": [

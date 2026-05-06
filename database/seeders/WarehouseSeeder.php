@@ -15,6 +15,10 @@ class WarehouseSeeder extends Seeder
             $warehouse->images()->createMany(
                 \App\Models\WarehouseImage::factory(rand(1, 3))->make()->toArray()
             );
+            // Each warehouse has 1-5 sub warehouses
+            $warehouse->sub_warehouses()->createMany(
+                \App\Models\SubWarehouse::factory(rand(1, 5))->make()->toArray()
+            );
         });
     }
 }
