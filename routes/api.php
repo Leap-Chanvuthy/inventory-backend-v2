@@ -159,6 +159,8 @@ Route::middleware(['auth:api' , 'role:STOCK_CONTROLLER'])->group(function () {
         Route::patch('/{id}', [WarehouseAPIController::class, 'update']);
         Route::delete('/{id}', [WarehouseAPIController::class, 'delete']);
         Route::delete('/{warehouseId}/images/{imageId}', [WarehouseAPIController::class, 'deleteWarehouseImage']);
+        Route::patch('/{warehouseId}/sub-warehouses/{subWarehouseId}', [WarehouseAPIController::class, 'updateSubWarehouse']);
+        Route::delete('/{warehouseId}/sub-warehouses/{subWarehouseId}', [WarehouseAPIController::class, 'deleteSubWarehouse']);
      });
 
 

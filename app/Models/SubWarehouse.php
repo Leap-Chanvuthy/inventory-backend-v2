@@ -4,13 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Warehouse extends Model
+class SubWarehouse extends Model
 {
     use HasFactory;
-    use SoftDeletes;
-    
+
     protected $fillable = [
         'warehouse_name',
         'warehouse_manager',
@@ -20,20 +18,13 @@ class Warehouse extends Model
         'latitude',
         'longitude',
         'warehouse_description',
+        'warehouse_id',
     ];
 
-    public function images(){
-        return $this->hasMany(WarehouseImage::class);
-    }
 
-    public function raw_materials()
+    public function warehouse()
     {
-        return $this->hasMany(RawMaterial::class, 'warehouse_id');
-    }
-
-    public function sub_warehouses()
-    {
-        return $this->hasMany(SubWarehouse::class, 'warehouse_id');
+        return $this->belongsTo(Warehouse::class);
     }
 
 }
