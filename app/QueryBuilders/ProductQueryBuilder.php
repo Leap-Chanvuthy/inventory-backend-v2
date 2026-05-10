@@ -21,6 +21,7 @@ class ProductQueryBuilder
         $latestSellingRiel = "(select pm.selling_unit_price_in_riel from product_movements pm where pm.product_id = products.id and pm.direction = 'IN' and (pm.selling_unit_price_in_usd > 0 or pm.selling_unit_price_in_riel > 0) order by pm.movement_date desc, pm.id desc limit 1)";
         $latestSellingUsdToRiel = "(select pm.selling_exchange_rate_from_usd_to_riel from product_movements pm where pm.product_id = products.id and pm.direction = 'IN' and (pm.selling_unit_price_in_usd > 0 or pm.selling_unit_price_in_riel > 0) order by pm.movement_date desc, pm.id desc limit 1)";
         $latestSellingRielToUsd = "(select pm.selling_exchange_rate_from_riel_to_usd from product_movements pm where pm.product_id = products.id and pm.direction = 'IN' and (pm.selling_unit_price_in_usd > 0 or pm.selling_unit_price_in_riel > 0) order by pm.movement_date desc, pm.id desc limit 1)";
+        $stockQtyExpression = "(COALESCE((SELECT SUM(quantity) FROM product_movements WHERE product_movements.product_id = products.id AND product_movements.direction = 'IN'),0)-COALESCE((SELECT SUM(quantity) FROM product_movements WHERE product_movements.product_id = products.id AND product_movements.direction = 'OUT'),0))";
 
         $builder = QueryBuilderHelper::build(
             model: Product::class,
@@ -42,6 +43,7 @@ class ProductQueryBuilder
                 DB::raw("{$latestSellingRiel} as latest_selling_unit_price_in_riel"),
                 DB::raw("{$latestSellingUsdToRiel} as latest_selling_exchange_rate_from_usd_to_riel"),
                 DB::raw("{$latestSellingRielToUsd} as latest_selling_exchange_rate_from_riel_to_usd"),
+                DB::raw("{$stockQtyExpression} as current_qty_in_stock"),
             ],
 
             allowedFilters: [
@@ -82,6 +84,7 @@ class ProductQueryBuilder
                 'supplier_id',
                 'warehouse_id',
                 'base_uom_id',
+                'current_qty_in_stock',
             ],
 
             defaultSort: '-created_at',
@@ -90,7 +93,9 @@ class ProductQueryBuilder
                 'category'  => fn ($q) => $q->withTrashed(),
                 'supplier'  => fn ($q) => $q->withTrashed(),
                 'warehouse' => fn ($q) => $q->withTrashed(),
-                'baseUom'   => fn ($q) => $q->withTrashed(),
+                'baseUom'   => fn ($q) => $q->withTrashed()->with([
+                    'category' => fn ($categoryQuery) => $categoryQuery->withTrashed(),
+                ]),
             ],
 
             withCounts: [],

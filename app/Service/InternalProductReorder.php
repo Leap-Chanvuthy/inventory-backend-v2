@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Helpers\CurrencyPricingHelper;
 use App\Helpers\GetCurrentUserHelper;
 use App\Helpers\ResponseHelper;
+use App\Helpers\UomQuantityGuard;
 use App\Models\Product;
 use App\Models\ProductMovement;
 use App\Models\ProductReorder;
@@ -128,6 +129,12 @@ class InternalProductReorder
 			}
 
 			$validated = Validator::make($request->all(), $rules)->validate();
+			UomQuantityGuard::assertQuantityByUomId(
+				$validated['quantity'] ?? null,
+				(int) $product->base_uom_id,
+				'quantity'
+			);
+			UomQuantityGuard::assertBomQuantities($validated['raw_materials'] ?? []);
 			$validated['created_by'] = $validated['created_by'] ?? $this->getCurrentUserHelper->getUserId();
 			$validated['last_updated_by'] = $validated['last_updated_by'] ?? $this->getCurrentUserHelper->getUserId();
 
@@ -341,6 +348,12 @@ class InternalProductReorder
 			CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
 
 			$validated = Validator::make($request->all(), $rules)->validate();
+			UomQuantityGuard::assertQuantityByUomId(
+				$validated['quantity'] ?? null,
+				(int) $product->base_uom_id,
+				'quantity'
+			);
+			UomQuantityGuard::assertBomQuantities($validated['raw_materials'] ?? []);
 			$validated['created_by'] = $validated['created_by'] ?? $movement->created_by ?? $this->getCurrentUserHelper->getUserId();
 			$validated['last_updated_by'] = $validated['last_updated_by'] ?? $this->getCurrentUserHelper->getUserId();
 

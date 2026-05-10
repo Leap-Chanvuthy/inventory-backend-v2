@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\UomQuantityTypeEnum;
 use App\Helpers\GenerateUniqeCode;
 use App\Models\UnitOfMeasurement;
 use App\Models\UomCategory;
@@ -31,7 +32,12 @@ class UOMSeeder extends Seeder
         foreach ($categoryNames as $categoryName) {
             $categoryMap[$categoryName] = UomCategory::firstOrCreate(
                 ['name' => $categoryName],
-                ['description' => null]
+                [
+                    'description' => null,
+                    'quantity_type' => $categoryName === 'Count'
+                        ? UomQuantityTypeEnum::INTEGER->value
+                        : UomQuantityTypeEnum::DECIMAL->value,
+                ]
             );
         }
 

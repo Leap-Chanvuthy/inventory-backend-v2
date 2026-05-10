@@ -10,6 +10,7 @@ use App\Enums\SaleOrderStatusEnum;
 use App\Enums\StockDirectionEnum;
 use App\Helpers\GetCurrentUserHelper;
 use App\Helpers\ResponseHelper;
+use App\Helpers\UomQuantityGuard;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\ProductMovement;
@@ -839,6 +840,7 @@ class SaleOrderService
             $userId = $this->getCurrentUserHelper->getUserId();
 
             $pricedItemsResult = $this->buildPricedItems($validated['items']);
+            $this->assertSufficientStockForDraftItems($pricedItemsResult['items']);
             $discountPercentage = $this->resolveDiscountPercentageFromPayload(
                 $validated,
                 $validated['customer_id'] ?? null,
@@ -1049,6 +1051,7 @@ class SaleOrderService
 
                 if (array_key_exists('items', $validated)) {
                     $pricedItemsResult = $this->buildPricedItems($validated['items']);
+                    $this->assertSufficientStockForDraftItems($pricedItemsResult['items']);
                     $subTotalInUsd = $pricedItemsResult['sub_total_in_usd'];
                     $subTotalInRiel = $pricedItemsResult['sub_total_in_riel'];
 
@@ -1701,6 +1704,23 @@ class SaleOrderService
         );
     }
 
+    /**
+     * Validate stock while saving/updating draft orders so users see clear feedback
+     * before processing the order.
+     */
+    private function assertSufficientStockForDraftItems(array $items): void
+    {
+        $stockItems = $this->aggregateItemsForStock($items);
+        $shortfalls = $this->stockDeductionService->validateSufficientStock($stockItems);
+
+        if (!empty($shortfalls)) {
+            throw ValidationException::withMessages([
+                'items' => ['Insufficient stock for one or more products.'],
+                'shortfalls' => [json_encode($shortfalls, JSON_UNESCAPED_SLASHES)],
+            ]);
+        }
+    }
+
     private function captureSaleOrderAuditSnapshot(int $saleOrderId): array
     {
         $saleOrder = SaleOrder::query()
@@ -1833,11 +1853,16 @@ class SaleOrderService
         $subTotalInUsd = 0;
         $subTotalInRiel = 0;
 
-        foreach ($items as $item) {
+        foreach ($items as $index => $item) {
             $productId = (int) ($item['product_id'] ?? 0);
             $qty = (float) ($item['quantity'] ?? 0);
 
-            Product::findOrFail($productId);
+            $product = Product::findOrFail($productId);
+            UomQuantityGuard::assertQuantityByUomId(
+                $qty,
+                (int) $product->base_uom_id,
+                "items.{$index}.quantity"
+            );
 
             // Price source rule:
             // unit price must always be derived from product movement history (never from client payload).

@@ -8,6 +8,7 @@ use App\Helpers\CurrencyPricingHelper;
 use App\Helpers\FileUploadHelper;
 use App\Helpers\GetCurrentUserHelper;
 use App\Helpers\ResponseHelper;
+use App\Helpers\UomQuantityGuard;
 use App\Models\RMImage;
 use App\Models\RMStockMovement;
 use App\Models\RawMaterial;
@@ -215,6 +216,12 @@ class RawMaterialService
                 return ResponseHelper::validation($errors, 'Validation Error');
             }
 
+            UomQuantityGuard::assertQuantityByUomId(
+                $request->input('quantity'),
+                (int) $request->input('base_uom_id'),
+                'quantity'
+            );
+
             return DB::transaction(function () use ($request, $currentUserId) {
                 // 1) Create Raw Material
                 $rawMaterialRules = $this->rmValidation->CreateRMValidation($request);
@@ -414,6 +421,13 @@ class RawMaterialService
             if (!empty($errors)) {
                 return ResponseHelper::validation($errors, 'Validation Error');
             }
+
+            $effectiveBaseUomId = (int) ($request->input('base_uom_id') ?: $rawMaterial->base_uom_id);
+            UomQuantityGuard::assertQuantityByUomId(
+                $request->input('quantity'),
+                $effectiveBaseUomId,
+                'quantity'
+            );
 
             return DB::transaction(function () use ($request, $rawMaterial, $purchaseMovement, $incomingFiles) {
                 $oldSnapshot = [
@@ -633,6 +647,11 @@ class RawMaterialService
 
             $rules = $this->rmValidation->CreateRMStockMovementValidation($request);
             $validated = Validator::make($request->all(), $rules)->validate();
+            UomQuantityGuard::assertQuantityByUomId(
+                $validated['quantity'] ?? null,
+                (int) $rawMaterial->base_uom_id,
+                'quantity'
+            );
 
             $movement = DB::transaction(function () use ($validated, $rawMaterial) {
                 return RMStockMovement::create([
@@ -716,6 +735,11 @@ class RawMaterialService
 
             $rules = $this->rmValidation->CreateRMStockMovementValidation($request);
             $validated = Validator::make($request->all(), $rules)->validate();
+            UomQuantityGuard::assertQuantityByUomId(
+                $validated['quantity'] ?? null,
+                (int) $rawMaterial->base_uom_id,
+                'quantity'
+            );
 
             $oldSnapshot = $this->auditLoggerService->snapshotModel($movement);
 
@@ -799,6 +823,11 @@ class RawMaterialService
             // Note must be required for adjustment out movements
             $rules['note'] = 'required|string';
             $validated = Validator::make($request->all(), $rules)->validate();
+            UomQuantityGuard::assertQuantityByUomId(
+                $validated['quantity'] ?? null,
+                (int) $rawMaterial->base_uom_id,
+                'quantity'
+            );
 
             // Use the same net stock calculation used by manufacturing:
             // SUM(IN direction qty) - SUM(OUT direction qty)
