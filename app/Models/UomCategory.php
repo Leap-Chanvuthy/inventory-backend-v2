@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UomQuantityTypeEnum;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int              $id
  * @property string         $name
  * @property string|null    $description
+ * @property UomQuantityTypeEnum|string $quantity_type
  * @property \Carbon\Carbon|null $deleted_at
  */
 class UomCategory extends Model
@@ -30,6 +32,11 @@ class UomCategory extends Model
     protected $fillable = [
         'name',
         'description',
+        'quantity_type',
+    ];
+
+    protected $casts = [
+        'quantity_type' => UomQuantityTypeEnum::class,
     ];
 
     // -------------------------------------------------------------------------

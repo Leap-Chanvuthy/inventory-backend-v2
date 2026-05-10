@@ -2,6 +2,7 @@
 
 namespace App\Validations;
 
+use App\Enums\UomQuantityTypeEnum;
 use App\Helpers\GenerateUniqeCode;
 use App\Models\UnitOfMeasurement;
 use App\Models\UomCategory;
@@ -110,6 +111,11 @@ class UOMValidation
             }
         }
 
+        $this->assertIntegerConversionFactorForIntegerCategory(
+            (int) $validated['category_id'],
+            $validated['conversion_factor'] ?? null
+        );
+
         return $validated;
     }
 
@@ -182,6 +188,12 @@ class UOMValidation
             }
         }
 
+        $conversionFactor = $validated['conversion_factor'] ?? $current->conversion_factor;
+        $this->assertIntegerConversionFactorForIntegerCategory(
+            (int) $categoryId,
+            $conversionFactor
+        );
+
         return $validated;
     }
 
@@ -241,5 +253,67 @@ class UOMValidation
                 ],
             ]);
         }
+    }
+
+    /**
+     * Enforce integer conversion_factor when category.quantity_type is INTEGER.
+     *
+     * @throws ValidationException
+     */
+    private function assertIntegerConversionFactorForIntegerCategory(int $categoryId, mixed $conversionFactor): void
+    {
+        $category = UomCategory::find($categoryId);
+        if (! $category) {
+            return;
+        }
+
+        $quantityType = $category->quantity_type instanceof UomQuantityTypeEnum
+            ? $category->quantity_type->value
+            : (string) ($category->quantity_type ?? UomQuantityTypeEnum::DECIMAL->value);
+
+        if ($quantityType !== UomQuantityTypeEnum::INTEGER->value) {
+            return;
+        }
+
+        if ($conversionFactor === null || $this->isWholeNumber($conversionFactor)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'conversion_factor' => [
+                "This category only allows whole numbers. Conversion factor must be an integer.",
+            ],
+        ]);
+    }
+
+    private function isWholeNumber(mixed $value): bool
+    {
+        if (is_int($value)) {
+            return true;
+        }
+
+        if (is_float($value)) {
+            return abs($value - round($value)) < 1e-9;
+        }
+
+        $stringValue = trim((string) $value);
+        if ($stringValue === '') {
+            return false;
+        }
+
+        if (preg_match('/^-?\d+$/', $stringValue) === 1) {
+            return true;
+        }
+
+        if (preg_match('/^-?\d+\.0+$/', $stringValue) === 1) {
+            return true;
+        }
+
+        if (! is_numeric($stringValue)) {
+            return false;
+        }
+
+        $floatValue = (float) $stringValue;
+        return abs($floatValue - round($floatValue)) < 1e-9;
     }
 }

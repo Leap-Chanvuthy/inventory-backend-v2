@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Helpers\QueryBuilderHelper;
 use App\Helpers\ResponseHelper;
+use App\Enums\UomQuantityTypeEnum;
 use App\Models\UomCategory;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,11 +24,13 @@ class UomCategoryService
                 'uom_categories.id',
                 'uom_categories.name',
                 'uom_categories.description',
+                'uom_categories.quantity_type',
                 'uom_categories.created_at',
                 'uom_categories.updated_at',
             ],
             allowedFilters: [
                 AllowedFilter::exact('id'),
+                AllowedFilter::exact('quantity_type'),
 
                 AllowedFilter::callback('search', function (Builder $query, $value) {
                     $query->where(function ($q) use ($value) {
@@ -38,6 +41,7 @@ class UomCategoryService
             ],
             allowedSorts: [
                 'name',
+                'quantity_type',
                 'created_at',
                 'updated_at',
             ],
@@ -130,11 +134,20 @@ class UomCategoryService
                     'required', 'string', 'max:100',
                     Rule::unique('uom_categories', 'name')->whereNull('deleted_at'),
                 ],
+                'quantity_type' => [
+                    'required',
+                    Rule::in([
+                        UomQuantityTypeEnum::INTEGER->value,
+                        UomQuantityTypeEnum::DECIMAL->value,
+                    ]),
+                ],
                 'description' => 'nullable|string|max:500',
             ], [
                 'name.required' => 'Please enter a category name.',
                 'name.max'      => 'Category name must not exceed 100 characters.',
                 'name.unique'   => 'A category with this name already exists. Please choose a different name.',
+                'quantity_type.required' => 'Please select a quantity type.',
+                'quantity_type.in' => 'Quantity type must be either INTEGER or DECIMAL.',
                 'description.max' => 'Description must not exceed 500 characters.',
             ]);
 
@@ -160,11 +173,21 @@ class UomCategoryService
                         ->ignore($id)
                         ->whereNull('deleted_at'),
                 ],
+                'quantity_type' => [
+                    'sometimes',
+                    'required',
+                    Rule::in([
+                        UomQuantityTypeEnum::INTEGER->value,
+                        UomQuantityTypeEnum::DECIMAL->value,
+                    ]),
+                ],
                 'description' => 'nullable|string|max:500',
             ], [
                 'name.required'   => 'Please enter a category name.',
                 'name.max'        => 'Category name must not exceed 100 characters.',
                 'name.unique'     => 'A category with this name already exists. Please choose a different name.',
+                'quantity_type.required' => 'Please select a quantity type.',
+                'quantity_type.in' => 'Quantity type must be either INTEGER or DECIMAL.',
                 'description.max' => 'Description must not exceed 500 characters.',
             ]);
 

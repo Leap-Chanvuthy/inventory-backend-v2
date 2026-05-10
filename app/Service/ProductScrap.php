@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Helpers\GetCurrentUserHelper;
 use App\Helpers\ResponseHelper;
+use App\Helpers\UomQuantityGuard;
 use App\Models\Product;
 use App\Models\ProductMovement;
 use Exception;
@@ -40,6 +41,11 @@ class ProductScrap
 			}
 
 			$validated = $validator->validate();
+			UomQuantityGuard::assertQuantityByUomId(
+				$validated['quantity'] ?? null,
+				(int) $product->base_uom_id,
+				'quantity'
+			);
 
 			$currentQtyInStock = 0;
 			$movements = ProductMovement::where('product_id', $product->id)->get();
@@ -126,6 +132,11 @@ class ProductScrap
 			}
 
 			$validated = $validator->validate();
+			UomQuantityGuard::assertQuantityByUomId(
+				$validated['quantity'] ?? null,
+				(int) $product->base_uom_id,
+				'quantity'
+			);
 
 			if ($movement->is_sold === true) {
 				return ResponseHelper::error('Cannot update used stock movement', 401, 'The scrap movement has been sold/used. Data cannot be updated to avoid data inconsistency.');
