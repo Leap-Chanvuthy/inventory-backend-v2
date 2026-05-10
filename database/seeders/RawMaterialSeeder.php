@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\RawMaterialStockMovementTypeEnum;
+use App\Enums\UomQuantityTypeEnum;
 use App\Models\RawMaterial;
 use App\Models\RMImage;
 use App\Models\RMStockMovement;
@@ -22,6 +23,8 @@ class RawMaterialSeeder extends Seeder
         // Ensure ALL raw materials have MANY movements and supplier consistency
         RawMaterial::query()->chunk(100, function ($rawMaterials) use ($faker) {
             foreach ($rawMaterials as $rm) {
+                $rm->loadMissing('baseUom.category');
+                $isIntegerQuantity = $this->isIntegerQuantityType($rm);
 
                 // Rebuild movements for deterministic, valid stock (no negative).
                 RMStockMovement::query()->where('raw_material_id', $rm->id)->delete();
@@ -29,7 +32,7 @@ class RawMaterialSeeder extends Seeder
                 $availableQty = 0.0;
                 $purchaseDate = now()->subMonths($faker->numberBetween(3, 6));
 
-                $purchaseQty = (float) $faker->randomFloat(4, 50, 500);
+                $purchaseQty = $this->generateQuantity($faker, $isIntegerQuantity, 50, 500);
                 $purchaseUnitUsd = (float) $faker->randomFloat(4, 0.1, 100);
                 $purchaseTotalUsd = round($purchaseUnitUsd * $purchaseQty, 4);
 
@@ -89,7 +92,7 @@ class RawMaterialSeeder extends Seeder
                         default => 'IN',
                     };
 
-                    $qty = (float) $faker->randomFloat(4, 1, 200);
+                    $qty = $this->generateQuantity($faker, $isIntegerQuantity, 1, 200);
 
                     if ($direction === 'OUT') {
                         if ($availableQty <= 0) {
@@ -161,6 +164,28 @@ class RawMaterialSeeder extends Seeder
                 }
             }
         });
+    }
+
+    private function isIntegerQuantityType(RawMaterial $rawMaterial): bool
+    {
+        $quantityType = $rawMaterial->baseUom?->category?->quantity_type;
+
+        if ($quantityType instanceof UomQuantityTypeEnum) {
+            return $quantityType === UomQuantityTypeEnum::INTEGER;
+        }
+
+        return strtoupper((string) $quantityType) === UomQuantityTypeEnum::INTEGER->value;
+    }
+
+    private function generateQuantity(\Faker\Generator $faker, bool $isIntegerQuantity, float $min, float $max): float
+    {
+        if ($isIntegerQuantity) {
+            $intMin = max(1, (int) ceil($min));
+            $intMax = max($intMin, (int) floor($max));
+            return (float) $faker->numberBetween($intMin, $intMax);
+        }
+
+        return (float) $faker->randomFloat(4, $min, $max);
     }
 
 }

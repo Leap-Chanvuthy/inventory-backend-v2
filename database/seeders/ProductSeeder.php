@@ -6,6 +6,7 @@ use App\Enums\ProductStatusEnum;
 use App\Enums\ProductStockMovementTypeEnum;
 use App\Enums\RawMaterialStockMovementTypeEnum;
 use App\Enums\StockDirectionEnum;
+use App\Enums\UomQuantityTypeEnum;
 use App\Models\Product;
 use App\Models\ProductReorder;
 use App\Models\ReorderProductRawMaterial;
@@ -180,7 +181,7 @@ class ProductSeeder extends Seeder
         int              $userId,
         Carbon           $movementDate
     ): ProductMovement {
-        $quantity             = (float) $faker->randomFloat(4, 1, 500);
+        $quantity             = $this->generateQuantityForProduct($faker, $product, 1, 500);
 
         // Purchase pricing
         $purchaseUnitUsd      = (float) $faker->randomFloat(4, 0.5, 200);
@@ -246,7 +247,7 @@ class ProductSeeder extends Seeder
         string           $movementDate,
         string           $productStatus
     ): ProductMovement {
-        $quantity            = (float) $faker->randomFloat(4, 1, 200);
+        $quantity            = $this->generateQuantityForProduct($faker, $product, 1, 200);
 
         // Selling pricing (unit only)
         $sellingUnitUsd      = (float) $faker->randomFloat(4, 1, 300);
@@ -314,7 +315,12 @@ class ProductSeeder extends Seeder
             }
 
             // Required qty must be ≥ 0.0001 and not exceed available (mirrors min:0.0001 rule)
-            $required = (float) $faker->randomFloat(4, 0.0001, min($available * 0.5, 100));
+            $required = $this->generateQuantityForRawMaterial(
+                $faker,
+                $rm,
+                0.0001,
+                min($available * 0.5, 100)
+            );
 
             $bomItems[]  = ['raw_material_id' => $rm->id, 'quantity' => $required];
             $usedIds[]   = $rm->id;
@@ -423,5 +429,57 @@ class ProductSeeder extends Seeder
         }
 
         return $note;
+    }
+
+    private function generateQuantityForProduct(
+        \Faker\Generator $faker,
+        Product $product,
+        float $min,
+        float $max
+    ): float {
+        $product->loadMissing('baseUom.category');
+        $isInteger = $this->isIntegerQuantityType($product->baseUom?->category?->quantity_type);
+
+        return $this->generateQuantity($faker, $isInteger, $min, $max);
+    }
+
+    private function generateQuantityForRawMaterial(
+        \Faker\Generator $faker,
+        RawMaterial $rawMaterial,
+        float $min,
+        float $max
+    ): float {
+        $rawMaterial->loadMissing('baseUom.category');
+        $isInteger = $this->isIntegerQuantityType($rawMaterial->baseUom?->category?->quantity_type);
+
+        return $this->generateQuantity($faker, $isInteger, $min, $max);
+    }
+
+    private function isIntegerQuantityType(mixed $quantityType): bool
+    {
+        if ($quantityType instanceof UomQuantityTypeEnum) {
+            return $quantityType === UomQuantityTypeEnum::INTEGER;
+        }
+
+        return strtoupper((string) $quantityType) === UomQuantityTypeEnum::INTEGER->value;
+    }
+
+    private function generateQuantity(
+        \Faker\Generator $faker,
+        bool $isInteger,
+        float $min,
+        float $max
+    ): float {
+        if ($max < $min) {
+            $max = $min;
+        }
+
+        if ($isInteger) {
+            $intMin = max(1, (int) ceil($min));
+            $intMax = max($intMin, (int) floor($max));
+            return (float) $faker->numberBetween($intMin, $intMax);
+        }
+
+        return (float) $faker->randomFloat(4, $min, $max);
     }
 }

@@ -12,26 +12,18 @@ class ProductCategoryFactory extends Factory
     public function definition()
     {
         $randomCategoryName = [
-            'Metals',
-            'Plastics',
-            'Chemicals',
-            'Textiles',
-            'Wood',
-            'Glass',
-            'Ceramics',
-            'Rubber',
-            'Composites',
-            'Paper Products',
-            'Electronics Components',
-            'Food Ingredients',
-            'Pharmaceuticals',
-            'Building Materials',
-            'Adhesives',
-            'Paints and Coatings',
-            'Fabrics',
-            'Foams',
-            'Fibers',
-            'Leather'
+            'គ្រឿងអេឡិចត្រូនិច',
+            'សម្ភារៈការិយាល័យ',
+            'គ្រឿងប្រើប្រាស់ផ្ទះបាយ',
+            'គ្រឿងសំណង់',
+            'គ្រឿងម៉ាស៊ីន និង បន្លាស់',
+            'សម្ភារៈវេចខ្ចប់',
+            'គ្រឿងប្រើប្រាស់ឧស្សាហកម្ម',
+            'សម្ភារៈអប់រំ',
+            'ផលិតផលសុវត្ថិភាពការងារ',
+            'ឧបករណ៍ថាមពល',
+            'គ្រឿងតុបតែង និង អេឡិចត្រូនិចផ្ទះ',
+            'សម្ភារៈកសិកម្ម',
         ];
 
         static $i = 0;
@@ -39,7 +31,11 @@ class ProductCategoryFactory extends Factory
         return [
             'category_name' => $randomCategoryName[$i++ % count($randomCategoryName)],
             'label_color' => fake()->hexColor(),
-            'description' => fake()->sentence(),
+            'description' => fake()->randomElement([
+                'ប្រភេទផលិតផលសម្រាប់លក់ និងចែកចាយ',
+                'ក្រុមផលិតផលប្រើប្រាស់ក្នុងអាជីវកម្ម',
+                'សមស្របសម្រាប់ស្តុកក្នុងឃ្លាំងលក់រាយ និងលក់ដុំ',
+            ]),
         ];
     }
 }
