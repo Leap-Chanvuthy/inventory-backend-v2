@@ -6,6 +6,7 @@ use App\Helpers\CurrencyPricingHelper;
 use App\Helpers\GetCurrentUserHelper;
 use App\Helpers\ResponseHelper;
 use App\Helpers\ProductHelper;
+use App\Helpers\UomQuantityGuard;
 use App\Models\Product;
 use App\Models\ProductMovement;
 use App\Models\RMStockMovement;
@@ -99,6 +100,16 @@ class ProductService
                 return ResponseHelper::error('Product not found', 404);
             }
 
+            // Return first movement on the list (INTERNAL_PRODUCED or EXTERNAL_PURCHASED) to frontend for quick reference of sold state without scanning all movements.
+            $initialMovement = \App\Models\ProductMovement::where('product_id', $product->id)
+                ->whereIn('movement_type', [
+                    \App\Enums\ProductStockMovementTypeEnum::INTERNAL_PRODUCED->value,
+                    \App\Enums\ProductStockMovementTypeEnum::EXTERNAL_PURCHASED->value,
+                ])
+                ->orderBy('movement_date', 'asc')
+                ->orderBy('id', 'asc')
+                ->first();
+
             // Total count of movements by movement_type
             $totalCountByMovementType = \App\Models\ProductMovement::where('product_id', $product->id)
                 ->select('movement_type', DB::raw('COUNT(*) as total'))
@@ -175,6 +186,7 @@ class ProductService
                 'is_sold' => $isInitialMovementSold,
                 'allow_bom_update' => !$isInitialMovementSold,
                 'product' => $product,
+                'initial_movement' => $initialMovement,
                 'current_qty_in_stock' => $currentQtyInStock,
                 'product_stock_status' => $productStockStatus,
                 'total_count_by_movement_type' => $totalCountByMovementType,
@@ -208,6 +220,12 @@ class ProductService
             if (!empty($errors)) {
                 return ResponseHelper::validation($errors, 'Validation Error');
             }
+
+            UomQuantityGuard::assertQuantityByUomId(
+                $request->input('quantity'),
+                (int) $request->input('base_uom_id'),
+                'quantity'
+            );
 
             $result = DB::transaction(function () use ($request) {
                 $userId = $this->getCurrentUserHelper->getUserId();
@@ -349,6 +367,13 @@ class ProductService
             CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
 
             $validated = Validator::make($request->all(), $rules)->validate();
+
+            $effectiveBaseUomId = (int) ($request->input('base_uom_id') ?: $product->base_uom_id);
+            UomQuantityGuard::assertQuantityByUomId(
+                $validated['quantity'] ?? null,
+                $effectiveBaseUomId,
+                'quantity'
+            );
 
             // Preserve created_by from original movement if available and ensure last_updated_by exists
             $validated['created_by'] = $validated['created_by'] ?? $movement->created_by ?? $this->getCurrentUserHelper->getUserId();
@@ -535,6 +560,13 @@ class ProductService
             if (!empty($errors)) {
                 return ResponseHelper::validation($errors, 'Validation Error');
             }
+
+            UomQuantityGuard::assertQuantityByUomId(
+                $request->input('quantity'),
+                (int) $request->input('base_uom_id'),
+                'quantity'
+            );
+            UomQuantityGuard::assertBomQuantities($request->input('raw_materials', []));
 
             // Check raw material availability before opening the transaction.
             // Availability uses net stock (SUM(IN) - SUM(OUT)) without movement-date filtering.
@@ -738,6 +770,14 @@ class ProductService
             CurrencyPricingHelper::fillProductPurchasingCurrencyFields($request);
 
             $validated = Validator::make($request->all(), $rules)->validate();
+
+            $effectiveBaseUomId = (int) ($request->input('base_uom_id') ?: $product->base_uom_id);
+            UomQuantityGuard::assertQuantityByUomId(
+                $validated['quantity'] ?? null,
+                $effectiveBaseUomId,
+                'quantity'
+            );
+            UomQuantityGuard::assertBomQuantities($validated['raw_materials'] ?? []);
 
             // Preserve created_by from original movement if available and ensure last_updated_by exists
             $validated['created_by'] = $validated['created_by'] ?? $movement->created_by ?? $this->getCurrentUserHelper->getUserId();
