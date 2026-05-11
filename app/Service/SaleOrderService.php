@@ -1429,6 +1429,33 @@ class SaleOrderService
                         continue;
                     }
 
+                    $baseUomId = (int) ($lineItem->product?->base_uom_id ?? 0);
+                    if ($baseUomId <= 0) {
+                        $baseUomId = (int) (Product::withTrashed()
+                            ->whereKey((int) $lineItem->product_id)
+                            ->value('base_uom_id') ?? 0);
+                    }
+
+                    if ($baseUomId <= 0) {
+                        $errors["items.{$index}.quantity"][] = 'Product base UOM is missing. Unable to validate quantity type.';
+                        continue;
+                    }
+
+                    try {
+                        UomQuantityGuard::assertQuantityByUomId(
+                            $requestedQty,
+                            $baseUomId,
+                            "items.{$index}.quantity"
+                        );
+                    } catch (ValidationException $e) {
+                        foreach ($e->errors() as $field => $messages) {
+                            foreach ($messages as $message) {
+                                $errors[$field][] = $message;
+                            }
+                        }
+                        continue;
+                    }
+
                     $processReturn = (bool) ($refundItem['process_return'] ?? true);
                     $processRefund = (bool) ($refundItem['process_refund'] ?? true);
 

@@ -2,10 +2,13 @@
 
 namespace App\Validations;
 
+use App\Helpers\UomQuantityGuard;
 use App\Helpers\GenerateUniqueSKU;
 use App\Models\Product;
 use App\Models\ProductCategory;
+use App\Models\RawMaterial;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class ProductValidation
 {
@@ -100,6 +103,8 @@ class ProductValidation
 
     public function createInternalManufacturingMovementRules(): array
     {
+        $baseUomByRawMaterialId = [];
+
         return [
             'quantity'                                   => 'required|numeric|min:0.0001',
             'product_status'                             => 'required|string|in:DRAFT,WORK_IN_PROGRESS,PARTIALLY_COMPLETED,COMPLETED,BLOCKED',
@@ -118,6 +123,45 @@ class ProductValidation
             'raw_materials.*.raw_material_id'            => 'required|exists:raw_materials,id|distinct',
             'raw_materials.*.quantity_per_unit'          => 'required|numeric|min:0.0001',
             'raw_materials.*.scrap_percentage'           => 'nullable|numeric|min:0|max:100',
+            'raw_materials.*'                            => [
+                function (string $attribute, mixed $value, $fail) use (&$baseUomByRawMaterialId) {
+                    if (!is_array($value)) {
+                        return;
+                    }
+
+                    $rawMaterialId = (int) ($value['raw_material_id'] ?? 0);
+                    $quantityPerUnit = $value['quantity_per_unit'] ?? null;
+
+                    if ($rawMaterialId <= 0 || $quantityPerUnit === null) {
+                        return;
+                    }
+
+                    if (!array_key_exists($rawMaterialId, $baseUomByRawMaterialId)) {
+                        $baseUomByRawMaterialId[$rawMaterialId] = (int) (RawMaterial::withTrashed()
+                            ->whereKey($rawMaterialId)
+                            ->value('base_uom_id') ?? 0);
+                    }
+
+                    $baseUomId = (int) ($baseUomByRawMaterialId[$rawMaterialId] ?? 0);
+                    if ($baseUomId <= 0) {
+                        return;
+                    }
+
+                    try {
+                        UomQuantityGuard::assertQuantityByUomId(
+                            $quantityPerUnit,
+                            $baseUomId,
+                            "{$attribute}.quantity_per_unit"
+                        );
+                    } catch (ValidationException $e) {
+                        foreach ($e->errors() as $messages) {
+                            foreach ($messages as $message) {
+                                $fail($message);
+                            }
+                        }
+                    }
+                },
+            ],
         ];
     }
 
