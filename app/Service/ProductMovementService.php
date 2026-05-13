@@ -28,6 +28,7 @@ class ProductMovementService
             // product_type is now stored on the Product model; movements no longer persist it
             'product_status'                         => ProductStatusEnum::COMPLETED->value,
             'quantity'                               => $validated['quantity'],
+            'remaining_quantity'                     => $validated['quantity'],
             'is_sold'                                => false,
             'movement_date'                          => $validated['movement_date'],
             'note'                                   => $validated['note'] ?? null,
@@ -64,6 +65,7 @@ class ProductMovementService
             // product_type is now stored on the Product model; movements no longer persist it
             'product_status'                         => $validated['product_status'],
             'quantity'                               => $validated['quantity'],
+            'remaining_quantity'                     => $validated['quantity'],
             'is_sold'                                => false,
             'movement_date'                          => $validated['movement_date'],
             'note'                                   => $validated['note'] ?? null,

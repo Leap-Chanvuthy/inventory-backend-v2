@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\ProductTypeEnum;
+use App\Enums\SaleMethodEnum;
 use App\Helpers\GenerateUniqueSKU;
 use App\Models\Product;
 use App\Models\ProductCategory;
@@ -86,6 +87,10 @@ class ProductFactory extends Factory
             'supplier_id'         => $supplier?->id,
             'warehouse_id'        => $warehouse?->id,
             'product_type'        => ProductTypeEnum::EXTERNAL_PURCHASED->value,
+            'sale_method'         => $faker->randomElement([
+                SaleMethodEnum::FIFO->value,
+                SaleMethodEnum::LIFO->value,
+            ]),
         ];
     }
 

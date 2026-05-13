@@ -15,6 +15,11 @@ return new class extends Migration
             $table->id();
             $table->foreignId('sale_order_id')->constrained('sale_orders')->cascadeOnDelete()->cascadeOnUpdate();
             $table->foreignId('product_id')->constrained('products')->restrictOnDelete()->cascadeOnUpdate();
+            $table->foreignId('sale_movement_id')
+                ->nullable()
+                ->constrained('product_movements')
+                ->nullOnDelete()
+                ->cascadeOnUpdate();
             $table->decimal('quantity', 15, 2)->default(0);
             $table->decimal('returned_quantity', 15, 2)->default(0);
             $table->decimal('refund_quantity', 15, 2)->nullable();
@@ -22,8 +27,8 @@ return new class extends Migration
             $table->decimal('unit_price_in_riel', 15, 2)->default(0);
             $table->decimal('total_price_in_usd', 15, 2)->default(0);
             $table->decimal('total_price_in_riel', 15, 2)->default(0);
-            $table->double('exchange_rate_from_usd_to_riel', 10, 4)->min(0);
-            $table->double('exchange_rate_from_riel_to_usd', 10, 4)->min(0);
+            $table->decimal('exchange_rate_from_usd_to_riel', 15, 4)->default(0);
+            $table->decimal('exchange_rate_from_riel_to_usd', 15, 8)->default(0);
             $table->text('note')->nullable();
             $table->timestamps();
         });

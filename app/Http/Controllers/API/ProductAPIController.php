@@ -38,6 +38,11 @@ class ProductAPIController extends Controller
     {
         return $this->productService->getAllProductMovements($request, $productId);
     }
+
+    public function stockLots(Request $request, $productId)
+    {
+        return $this->productService->getAllProductStockLots($request, $productId);
+    }
     
     public function trashed(Request $request)
     {
@@ -46,6 +51,16 @@ class ProductAPIController extends Controller
     
     public function show($id){
         return $this->productService->getProductDetail($id);
+    }
+
+    public function saleAllocationPreview(Request $request, $id)
+    {
+        return $this->productService->previewSaleAllocation($request, (int) $id);
+    }
+
+    public function pnlDetail($id)
+    {
+        return $this->productService->getProductPnLDetail((int) $id);
     }
 
     public function storeExternalPurchase(Request $request)

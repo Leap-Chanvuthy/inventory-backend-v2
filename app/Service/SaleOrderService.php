@@ -38,6 +38,7 @@ class SaleOrderService
     protected SaleOrderQueryBuilder $saleOrderQueryBuilder;
     protected GetCurrentUserHelper $getCurrentUserHelper;
     protected ProductStockDeductionService $stockDeductionService;
+    protected ProductStockAllocationService $productStockAllocationService;
     protected AuditLoggerService $auditLoggerService;
     protected SaleOrderInvoicePdfService $saleOrderInvoicePdfService;
 
@@ -46,6 +47,7 @@ class SaleOrderService
         SaleOrderQueryBuilder $saleOrderQueryBuilder,
         GetCurrentUserHelper $getCurrentUserHelper,
         ProductStockDeductionService $stockDeductionService,
+        ProductStockAllocationService $productStockAllocationService,
         AuditLoggerService $auditLoggerService,
         SaleOrderInvoicePdfService $saleOrderInvoicePdfService
     ) {
@@ -53,6 +55,7 @@ class SaleOrderService
         $this->saleOrderQueryBuilder = $saleOrderQueryBuilder;
         $this->getCurrentUserHelper = $getCurrentUserHelper;
         $this->stockDeductionService = $stockDeductionService;
+        $this->productStockAllocationService = $productStockAllocationService;
         $this->auditLoggerService = $auditLoggerService;
         $this->saleOrderInvoicePdfService = $saleOrderInvoicePdfService;
     }
@@ -295,6 +298,7 @@ class SaleOrderService
             $saleOrder = SaleOrder::with([
                 'customer' => fn ($q) => $q->withTrashed()->with('customerCategory'),
                 'orderItems.product' => fn ($q) => $q->withTrashed(),
+                'orderItems.saleMovement.saleAllocations.sourceMovement',
                 'refunds.items.saleOrderItem.product' => fn ($q) => $q->withTrashed(),
                 'refunds.processedBy',
                 'installments' => fn ($q) => $q->orderBy('paid_at'),
@@ -528,6 +532,7 @@ class SaleOrderService
                     'sale_order' => $saleOrder->fresh([
                         'customer.customerCategory',
                         'orderItems.product',
+                    'orderItems.saleMovement.saleAllocations.sourceMovement',
                         'refunds.items.saleOrderItem.product',
                         'refunds.processedBy',
                         'installments' => fn ($q) => $q->orderBy('paid_at'),
@@ -695,6 +700,7 @@ class SaleOrderService
                 return $saleOrder->fresh([
                     'customer.customerCategory',
                     'orderItems.product',
+                    'orderItems.saleMovement.saleAllocations.sourceMovement',
                     'refunds.items.saleOrderItem.product',
                     'refunds.processedBy',
                     'installments' => fn ($q) => $q->orderBy('paid_at'),
@@ -738,6 +744,7 @@ class SaleOrderService
                 ->with([
                     'customer' => fn ($q) => $q->withTrashed()->with('customerCategory'),
                     'orderItems.product' => fn ($q) => $q->withTrashed(),
+                    'orderItems.saleMovement.saleAllocations.sourceMovement',
                 ])
                 ->findOrFail($id);
 
@@ -816,7 +823,7 @@ class SaleOrderService
     {
         try {
             Product::findOrFail($productId);
-            $availableStock = $this->stockDeductionService->getAvailableStock($productId);
+            $availableStock = $this->productStockAllocationService->getAvailableStock($productId);
             return ResponseHelper::success(['available_stock' => $availableStock]);
         } catch (Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
@@ -911,6 +918,7 @@ class SaleOrderService
                     SaleOrderItem::create([
                         'sale_order_id' => $saleOrder->id,
                         'product_id' => $item['product_id'],
+                        'sale_movement_id' => null,
                         'quantity' => $item['quantity'],
                         'returned_quantity' => 0,
                         'refund_quantity' => 0,
@@ -971,6 +979,7 @@ class SaleOrderService
                 'sale_order' => $saleOrder->load([
                     'customer.customerCategory',
                     'orderItems.product',
+                    'orderItems.saleMovement.saleAllocations.sourceMovement',
                     'refunds.items.saleOrderItem.product',
                     'refunds.processedBy',
                     'installments' => fn ($q) => $q->orderBy('paid_at'),
@@ -1060,6 +1069,7 @@ class SaleOrderService
                         SaleOrderItem::create([
                             'sale_order_id' => $saleOrder->id,
                             'product_id' => $item['product_id'],
+                            'sale_movement_id' => null,
                             'quantity' => $item['quantity'],
                             'returned_quantity' => 0,
                             'refund_quantity' => 0,
@@ -1155,6 +1165,7 @@ class SaleOrderService
                 return $saleOrder->fresh([
                     'customer.customerCategory',
                     'orderItems.product',
+                    'orderItems.saleMovement.saleAllocations.sourceMovement',
                     'refunds.items.saleOrderItem.product',
                     'refunds.processedBy',
                     'installments' => fn ($q) => $q->orderBy('paid_at'),
@@ -1239,15 +1250,11 @@ class SaleOrderService
                     return [
                         'product_id' => (int) $item->product_id,
                         'quantity' => (float) $item->quantity,
-                        'unit_price_in_usd' => (float) $item->unit_price_in_usd,
-                        'unit_price_in_riel' => (float) $item->unit_price_in_riel,
-                        'exchange_rate_from_usd_to_riel' => (float) $item->exchange_rate_from_usd_to_riel,
-                        'exchange_rate_from_riel_to_usd' => (float) $item->exchange_rate_from_riel_to_usd,
                     ];
                 })->values()->all();
 
                 $stockItems = $this->aggregateItemsForStock($items);
-                $shortfalls = $this->stockDeductionService->validateSufficientStock($stockItems);
+                $shortfalls = $this->productStockAllocationService->validateSufficientStock($stockItems);
                 if (!empty($shortfalls)) {
                     return ResponseHelper::error('Insufficient product stock', 422, $shortfalls);
                 }
@@ -1255,42 +1262,30 @@ class SaleOrderService
 
             $updatedSaleOrder = DB::transaction(function () use ($saleOrder, $targetStatus, $userId, $validated) {
                 $currentStatus = $this->normalizeStatus($saleOrder->order_status);
+                $completionTotals = null;
 
                 if (
                     $currentStatus !== SaleOrderStatusEnum::COMPLETED->value &&
                     $targetStatus === SaleOrderStatusEnum::COMPLETED->value
                 ) {
-                    $items = $saleOrder->orderItems->map(function (SaleOrderItem $item) {
-                        return [
-                            'product_id' => (int) $item->product_id,
-                            'quantity' => (float) $item->quantity,
-                            'unit_price_in_usd' => (float) $item->unit_price_in_usd,
-                            'unit_price_in_riel' => (float) $item->unit_price_in_riel,
-                            'exchange_rate_from_usd_to_riel' => (float) $item->exchange_rate_from_usd_to_riel,
-                            'exchange_rate_from_riel_to_usd' => (float) $item->exchange_rate_from_riel_to_usd,
-                        ];
-                    })->values()->all();
-
-                    $this->applyCompletionMovements($saleOrder, $items, $userId);
+                    $completionTotals = $this->applyCompletionMovements($saleOrder, $userId);
                 }
 
                 if ($targetStatus === SaleOrderStatusEnum::CANCELLED->value) {
-                    $token = $this->stockDeductionService->buildSaleOrderToken((int) $saleOrder->id);
-                    $productIds = $this->stockDeductionService->deleteSaleOrderMovementsByToken($token);
-                    $this->stockDeductionService->rebuildIsSoldFlags($productIds);
+                    $this->productStockAllocationService->rollbackSaleOrderAllocations((int) $saleOrder->id);
                 }
 
                 $snapshot = $this->buildPaymentSnapshot(
-                    grandTotalInUsd: (float) $saleOrder->grand_total_amount_in_usd,
-                    grandTotalInRiel: (float) $saleOrder->grand_total_amount_in_riel,
-                    paidAmountInUsd: (float) $saleOrder->paid_amount_in_usd,
-                    paidAmountInRiel: (float) $saleOrder->paid_amount_in_riel,
+                    grandTotalInUsd: (float) ($completionTotals['grand_total_amount_in_usd'] ?? $saleOrder->grand_total_amount_in_usd),
+                    grandTotalInRiel: (float) ($completionTotals['grand_total_amount_in_riel'] ?? $saleOrder->grand_total_amount_in_riel),
+                    paidAmountInUsd: (float) ($completionTotals['paid_amount_in_usd'] ?? $saleOrder->paid_amount_in_usd),
+                    paidAmountInRiel: (float) ($completionTotals['paid_amount_in_riel'] ?? $saleOrder->paid_amount_in_riel),
                     refundedAmountInUsd: (float) $saleOrder->total_refunded_amount_in_usd,
                     refundedAmountInRiel: (float) $saleOrder->total_refunded_amount_in_riel,
                     paymentStatusInput: $currentStatus === SaleOrderStatusEnum::DRAFT->value
                         ? ($validated['payment_status'] ?? null)
                         : null,
-                    paidPercentageInput: (float) ($saleOrder->paid_percentage ?? 0)
+                    paidPercentageInput: (float) ($completionTotals['paid_percentage'] ?? $saleOrder->paid_percentage ?? 0)
                 );
 
                 $fromStatus = $currentStatus;
@@ -1323,6 +1318,7 @@ class SaleOrderService
                 return $saleOrder->fresh([
                     'customer.customerCategory',
                     'orderItems.product',
+                    'orderItems.saleMovement.saleAllocations.sourceMovement',
                     'refunds.items.saleOrderItem.product',
                     'refunds.processedBy',
                     'installments' => fn ($q) => $q->orderBy('paid_at'),
@@ -1360,6 +1356,7 @@ class SaleOrderService
         try {
             $saleOrder = SaleOrder::with([
                 'orderItems.product' => fn ($q) => $q->withTrashed(),
+                'orderItems.saleMovement.saleAllocations.sourceMovement',
                 'customer' => fn ($q) => $q->withTrashed()->with('customerCategory'),
             ])->findOrFail($id);
 
@@ -1642,6 +1639,7 @@ class SaleOrderService
                 return $saleOrder->fresh([
                     'customer.customerCategory',
                     'orderItems.product',
+                    'orderItems.saleMovement.saleAllocations.sourceMovement',
                     'refunds.items.saleOrderItem.product',
                     'refunds.processedBy',
                     'installments' => fn ($q) => $q->orderBy('paid_at'),
@@ -1686,9 +1684,7 @@ class SaleOrderService
             $beforeSnapshot = $this->captureSaleOrderAuditSnapshot($id);
 
             DB::transaction(function () use ($saleOrder) {
-                $token = $this->stockDeductionService->buildSaleOrderToken((int) $saleOrder->id);
-                $productIds = $this->stockDeductionService->deleteSaleOrderMovementsByToken($token);
-                $this->stockDeductionService->rebuildIsSoldFlags($productIds);
+                $this->productStockAllocationService->rollbackSaleOrderAllocations((int) $saleOrder->id);
                 $saleOrder->delete();
             });
 
@@ -1710,11 +1706,18 @@ class SaleOrderService
         }
     }
 
-    private function applyCompletionMovements(SaleOrder $saleOrder, array $items, int $userId): void
+    private function applyCompletionMovements(SaleOrder $saleOrder, int $userId): array
     {
-        $stockItems = $this->aggregateItemsForStock($items);
+        $saleOrder->loadMissing(['orderItems.product']);
 
-        $shortfalls = $this->stockDeductionService->validateSufficientStock($stockItems);
+        $stockItems = $this->aggregateItemsForStock(
+            $saleOrder->orderItems->map(fn (SaleOrderItem $item) => [
+                'product_id' => (int) $item->product_id,
+                'quantity' => (float) $item->quantity,
+            ])->values()->all()
+        );
+
+        $shortfalls = $this->productStockAllocationService->validateSufficientStock($stockItems);
         if (!empty($shortfalls)) {
             throw ValidationException::withMessages([
                 'items' => ['Insufficient stock for one or more products.'],
@@ -1723,12 +1726,91 @@ class SaleOrderService
         }
 
         $movementDate = (string) $saleOrder->order_date;
-        $this->stockDeductionService->deductStockForSaleOrder(
-            $stockItems,
-            (int) $saleOrder->id,
-            $userId,
-            $movementDate
+        $subTotalInUsd = 0.0;
+        $subTotalInRiel = 0.0;
+
+        foreach ($saleOrder->orderItems as $lineItem) {
+            $product = Product::query()->findOrFail((int) $lineItem->product_id);
+            $quantity = (float) $lineItem->quantity;
+
+            $allocationResult = $this->productStockAllocationService->allocateProductForSale(
+                $product,
+                $quantity,
+                $userId,
+                $movementDate,
+                [
+                    'movement_type' => ProductStockMovementTypeEnum::SALE_ORDER->value,
+                    'product_status' => ProductStatusEnum::COMPLETED->value,
+                    'sale_order_id' => (int) $saleOrder->id,
+                    'sale_order_item_id' => (int) $lineItem->id,
+                    'note' => 'Sale order completion movement',
+                ]
+            );
+
+            /** @var ProductMovement $saleMovement */
+            $saleMovement = $allocationResult['sale_movement'];
+            $allocationSummary = $allocationResult['allocation_summary'];
+
+            $lineTotalUsd = (float) ($allocationSummary['total_amount_usd'] ?? 0);
+            $lineTotalRiel = (float) ($allocationSummary['total_amount_riel'] ?? 0);
+            $lineUnitUsd = $quantity > 0 ? round($lineTotalUsd / $quantity, 4) : 0;
+            $lineUnitRiel = $quantity > 0 ? round($lineTotalRiel / $quantity, 4) : 0;
+
+            $subTotalInUsd += $lineTotalUsd;
+            $subTotalInRiel += $lineTotalRiel;
+
+            $lineItem->update([
+                'sale_movement_id' => (int) $saleMovement->id,
+                'unit_price_in_usd' => $lineUnitUsd,
+                'unit_price_in_riel' => $lineUnitRiel,
+                'total_price_in_usd' => round($lineTotalUsd, 4),
+                'total_price_in_riel' => round($lineTotalRiel, 4),
+                'exchange_rate_from_usd_to_riel' => (float) ($saleMovement->selling_exchange_rate_from_usd_to_riel ?? 0),
+                'exchange_rate_from_riel_to_usd' => (float) ($saleMovement->selling_exchange_rate_from_riel_to_usd ?? 0),
+            ]);
+        }
+
+        $discountPercentage = (float) ($saleOrder->discount_percentage ?? 0);
+        $taxPercentage = (float) ($saleOrder->tax_percentage ?? 0);
+
+        $totals = $this->buildOrderTotals(
+            round($subTotalInUsd, 4),
+            round($subTotalInRiel, 4),
+            $discountPercentage,
+            $taxPercentage
         );
+
+        $paymentSnapshot = $this->buildPaymentSnapshot(
+            grandTotalInUsd: (float) $totals['grand_total_amount_in_usd'],
+            grandTotalInRiel: (float) $totals['grand_total_amount_in_riel'],
+            paidAmountInUsd: (float) ($saleOrder->paid_amount_in_usd ?? 0),
+            paidAmountInRiel: (float) ($saleOrder->paid_amount_in_riel ?? 0),
+            refundedAmountInUsd: (float) ($saleOrder->total_refunded_amount_in_usd ?? 0),
+            refundedAmountInRiel: (float) ($saleOrder->total_refunded_amount_in_riel ?? 0),
+            paymentStatusInput: null,
+            paidPercentageInput: (float) ($saleOrder->paid_percentage ?? 0)
+        );
+
+        $saleOrder->update([
+            'sub_total_in_usd' => $totals['sub_total_in_usd'],
+            'sub_total_in_riel' => $totals['sub_total_in_riel'],
+            'discount_percentage' => $totals['discount_percentage'],
+            'discount_amount' => $totals['discount_amount'],
+            'tax_percentage' => $totals['tax_percentage'],
+            'tax_amount_in_usd' => $totals['tax_amount_in_usd'],
+            'tax_amount_in_riel' => $totals['tax_amount_in_riel'],
+            'grand_total_amount_in_usd' => $totals['grand_total_amount_in_usd'],
+            'grand_total_amount_in_riel' => $totals['grand_total_amount_in_riel'],
+            'payment_status' => $paymentSnapshot['payment_status'],
+            'paid_amount_in_usd' => $paymentSnapshot['paid_amount_in_usd'],
+            'paid_amount_in_riel' => $paymentSnapshot['paid_amount_in_riel'],
+            'paid_percentage' => $paymentSnapshot['paid_percentage'],
+            'remaining_balance_in_usd' => $paymentSnapshot['remaining_balance_in_usd'],
+            'remaining_balance_in_riel' => $paymentSnapshot['remaining_balance_in_riel'],
+            'last_updated_by' => $userId,
+        ]);
+
+        return array_merge($totals, $paymentSnapshot);
     }
 
     /**
@@ -1738,7 +1820,7 @@ class SaleOrderService
     private function assertSufficientStockForDraftItems(array $items): void
     {
         $stockItems = $this->aggregateItemsForStock($items);
-        $shortfalls = $this->stockDeductionService->validateSufficientStock($stockItems);
+        $shortfalls = $this->productStockAllocationService->validateSufficientStock($stockItems);
 
         if (!empty($shortfalls)) {
             throw ValidationException::withMessages([
@@ -1752,7 +1834,7 @@ class SaleOrderService
     {
         $saleOrder = SaleOrder::query()
             ->with([
-                'orderItems',
+                'orderItems.saleMovement.saleAllocations.sourceMovement',
                 'installments' => fn ($q) => $q->orderBy('paid_at')->orderBy('id'),
                 'refunds' => fn ($q) => $q->orderBy('processed_at')->orderBy('id'),
             ])
@@ -1891,46 +1973,23 @@ class SaleOrderService
                 "items.{$index}.quantity"
             );
 
-            // Price source rule:
-            // unit price must always be derived from product movement history (never from client payload).
-            $pricingMovement = ProductMovement::where('product_id', $productId)
-                ->where(function ($query) {
-                    $query->where('selling_unit_price_in_usd', '>', 0)
-                        ->orWhere('selling_unit_price_in_riel', '>', 0);
-                })
-                ->orderBy('movement_date', 'desc')
-                ->orderBy('id', 'desc')
-                ->first();
-
-            if (!$pricingMovement) {
+            $preview = $this->productStockAllocationService->previewProductSaleAllocation($product, $qty);
+            if (!($preview['can_fulfill'] ?? false)) {
+                $message = $preview['message'] ?? "Insufficient stock for {$product->product_name}.";
                 throw ValidationException::withMessages([
-                    'items' => ["Product {$productId} has no movement history to provide selling prices."],
+                    "items.{$index}.quantity" => [$message],
                 ]);
             }
 
-            $unitPriceInUsd = (float) ($pricingMovement->selling_unit_price_in_usd ?? 0);
-            $unitPriceInRiel = (float) ($pricingMovement->selling_unit_price_in_riel ?? 0);
-            $exchangeRateUsdToRiel = (float) ($pricingMovement->selling_exchange_rate_from_usd_to_riel ?? 0);
-            $exchangeRateRielToUsd = (float) ($pricingMovement->selling_exchange_rate_from_riel_to_usd ?? 0);
+            $totalInUsd = (float) ($preview['estimated_total_usd'] ?? 0);
+            $totalInRiel = (float) ($preview['estimated_total_riel'] ?? 0);
+            $unitPriceInUsd = $qty > 0 ? round($totalInUsd / $qty, 4) : 0;
+            $unitPriceInRiel = $qty > 0 ? round($totalInRiel / $qty, 4) : 0;
 
-            if ($unitPriceInRiel <= 0 && $unitPriceInUsd > 0 && $exchangeRateUsdToRiel > 0) {
-                $unitPriceInRiel = round($unitPriceInUsd * $exchangeRateUsdToRiel, 2);
-            }
-
-            if ($unitPriceInUsd <= 0 && $unitPriceInRiel > 0 && $exchangeRateRielToUsd > 0) {
-                $unitPriceInUsd = round($unitPriceInRiel * $exchangeRateRielToUsd, 2);
-            }
-
-            if ($exchangeRateUsdToRiel <= 0 && $unitPriceInUsd > 0 && $unitPriceInRiel > 0) {
-                $exchangeRateUsdToRiel = round($unitPriceInRiel / $unitPriceInUsd, 4);
-            }
-
-            if ($exchangeRateRielToUsd <= 0 && $exchangeRateUsdToRiel > 0) {
-                $exchangeRateRielToUsd = round(1 / $exchangeRateUsdToRiel, 6);
-            }
-
-            $totalInUsd = round($unitPriceInUsd * $qty, 2);
-            $totalInRiel = round($unitPriceInRiel * $qty, 2);
+            $exchangeRateUsdToRiel = ($unitPriceInUsd > 0 && $unitPriceInRiel > 0)
+                ? round($unitPriceInRiel / $unitPriceInUsd, 4)
+                : 0;
+            $exchangeRateRielToUsd = $exchangeRateUsdToRiel > 0 ? round(1 / $exchangeRateUsdToRiel, 8) : 0;
 
             $subTotalInUsd += $totalInUsd;
             $subTotalInRiel += $totalInRiel;
@@ -1944,6 +2003,10 @@ class SaleOrderService
                 'total_price_in_riel' => $totalInRiel,
                 'exchange_rate_from_usd_to_riel' => $exchangeRateUsdToRiel,
                 'exchange_rate_from_riel_to_usd' => $exchangeRateRielToUsd,
+                'allocation_preview' => [
+                    'sale_method' => $preview['sale_method'] ?? null,
+                    'lots' => $preview['lots'] ?? [],
+                ],
                 'note' => $item['note'] ?? null,
             ];
         }
@@ -1978,6 +2041,7 @@ class SaleOrderService
         ProductMovement::create([
             'product_id' => (int) $lineItem->product_id,
             'quantity' => $quantity,
+            'remaining_quantity' => $quantity,
             'product_status' => ProductStatusEnum::COMPLETED->value,
             'is_sold' => false,
             'direction' => StockDirectionEnum::IN->value,
@@ -2006,28 +2070,19 @@ class SaleOrderService
         int $userId,
         string $note
     ): void {
-        ProductMovement::create([
-            'product_id' => (int) $lineItem->product_id,
-            'quantity' => $quantity,
-            'product_status' => ProductStatusEnum::COMPLETED->value,
-            'is_sold' => false,
-            'direction' => StockDirectionEnum::OUT->value,
-            'movement_type' => ProductStockMovementTypeEnum::SCRAP->value,
-            'movement_date' => $movementDate,
-            'purchase_unit_price_in_usd' => (float) ($lineItem->unit_price_in_usd ?? 0),
-            'purchase_total_price_in_usd' => round((float) ($lineItem->unit_price_in_usd ?? 0) * $quantity, 2),
-            'purchase_unit_price_in_riel' => (float) ($lineItem->unit_price_in_riel ?? 0),
-            'purchase_total_price_in_riel' => round((float) ($lineItem->unit_price_in_riel ?? 0) * $quantity, 2),
-            'exchange_rate_from_usd_to_riel' => (float) ($lineItem->exchange_rate_from_usd_to_riel ?? 0),
-            'exchange_rate_from_riel_to_usd' => (float) ($lineItem->exchange_rate_from_riel_to_usd ?? 0),
-            'selling_unit_price_in_usd' => (float) ($lineItem->unit_price_in_usd ?? 0),
-            'selling_unit_price_in_riel' => (float) ($lineItem->unit_price_in_riel ?? 0),
-            'selling_exchange_rate_from_usd_to_riel' => (float) ($lineItem->exchange_rate_from_usd_to_riel ?? 0),
-            'selling_exchange_rate_from_riel_to_usd' => (float) ($lineItem->exchange_rate_from_riel_to_usd ?? 0),
-            'created_by' => $userId,
-            'last_updated_by' => $userId,
-            'note' => $note,
-        ]);
+        $product = Product::query()->findOrFail((int) $lineItem->product_id);
+
+        $this->productStockAllocationService->allocateProductForSale(
+            $product,
+            $quantity,
+            $userId,
+            $movementDate,
+            [
+                'movement_type' => ProductStockMovementTypeEnum::SCRAP->value,
+                'product_status' => ProductStatusEnum::COMPLETED->value,
+                'note' => $note,
+            ]
+        );
     }
 
     private function isReturnWindowExpired(SaleOrder $saleOrder, string $referenceDate): bool

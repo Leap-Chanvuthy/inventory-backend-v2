@@ -3259,7 +3259,52 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Product retrieved successfully"
+                        "description": "Product retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Success"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "current_qty_in_stock": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 1090
+                                                },
+                                                "available_qty_in_stock": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 1090
+                                                },
+                                                "ledger_qty_in_stock": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 1090
+                                                },
+                                                "pricing_reference_lot": {
+                                                    "oneOf": [
+                                                        {
+                                                            "$ref": "#/components/schemas/StockLot"
+                                                        }
+                                                    ],
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "404": {
                         "description": "Product not found"
@@ -3299,6 +3344,148 @@
                     },
                     "500": {
                         "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/products/{id}/sale-allocation-preview": {
+            "post": {
+                "tags": [
+                    "Products - Core"
+                ],
+                "summary": "Preview FIFO/LIFO stock-batch allocation for sale quantity",
+                "operationId": "dc144e1bea22c11351aa5f62d6edd789",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "quantity"
+                                ],
+                                "properties": {
+                                    "quantity": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 10
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Allocation preview generated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Sale allocation preview generated successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "product_id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "product_name": {
+                                                    "type": "string",
+                                                    "example": "Product A"
+                                                },
+                                                "sale_method": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "FIFO",
+                                                        "LIFO"
+                                                    ],
+                                                    "example": "FIFO"
+                                                },
+                                                "requested_quantity": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 10
+                                                },
+                                                "available_quantity": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 1090
+                                                },
+                                                "can_fulfill": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                },
+                                                "estimated_total_usd": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 55
+                                                },
+                                                "estimated_average_unit_price_usd": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 5.5
+                                                },
+                                                "lots": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/SaleAllocationPreviewLot"
+                                                    }
+                                                },
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": null,
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -3369,6 +3556,147 @@
                 "responses": {
                     "200": {
                         "description": "Movements retrieved successfully"
+                    },
+                    "404": {
+                        "description": "Product not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/products/{id}/stock-lots": {
+            "get": {
+                "tags": [
+                    "Products - Core"
+                ],
+                "summary": "Get product stock lots (dedicated endpoint)",
+                "description": "Returns paginated stock-IN lots for the product, with advanced search, filtering and sorting.",
+                "operationId": "465002c876daf7e36c8785107014d172",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Items per page (1-100)",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort fields: movement_date,created_at,updated_at,quantity,remaining_quantity,selling_unit_price_in_usd,selling_unit_price_in_riel,purchase_unit_price_in_usd,purchase_unit_price_in_riel",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[search]",
+                        "in": "query",
+                        "description": "Search by movement type, product status, note, created/updated user name, or lot id",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[movement_type]",
+                        "in": "query",
+                        "description": "Exact movement type",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[product_status]",
+                        "in": "query",
+                        "description": "Exact product status",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "filter[lot_status]",
+                        "in": "query",
+                        "description": "Derived stock lot status",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "AVAILABLE",
+                                "PARTIALLY_CONSUMED",
+                                "CONSUMED"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "filter[has_remaining_stock]",
+                        "in": "query",
+                        "description": "true => remaining_quantity > 0, false => remaining_quantity <= 0",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Stock lots retrieved successfully"
+                    },
+                    "404": {
+                        "description": "Product not found"
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/products/{id}/pnl-detail": {
+            "get": {
+                "tags": [
+                    "Products - Core"
+                ],
+                "summary": "Get detailed product P&L",
+                "description": "Returns detailed revenue, COGS, gross/net profit, inventory valuation, sales lines, and (for internal products) raw-material spending split by initial production vs reorder.",
+                "operationId": "b7e97e740f16475f38e3a4b7a71daa07",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Detailed product P&L retrieved successfully"
                     },
                     "404": {
                         "description": "Product not found"
@@ -8230,6 +8558,60 @@
                                             "example": "Sale order created successfully"
                                         },
                                         "data": {
+                                            "properties": {
+                                                "sale_order": {
+                                                    "properties": {
+                                                        "order_items": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "properties": {
+                                                                    "sale_movement_id": {
+                                                                        "type": "integer",
+                                                                        "example": 300,
+                                                                        "nullable": true
+                                                                    },
+                                                                    "allocation_summary": {
+                                                                        "properties": {
+                                                                            "sale_method": {
+                                                                                "type": "string",
+                                                                                "enum": [
+                                                                                    "FIFO",
+                                                                                    "LIFO"
+                                                                                ],
+                                                                                "example": "FIFO"
+                                                                            },
+                                                                            "total_quantity": {
+                                                                                "type": "number",
+                                                                                "format": "float",
+                                                                                "example": 10
+                                                                            },
+                                                                            "total_amount_usd": {
+                                                                                "type": "number",
+                                                                                "format": "float",
+                                                                                "example": 55
+                                                                            },
+                                                                            "average_unit_price_usd": {
+                                                                                "type": "number",
+                                                                                "format": "float",
+                                                                                "example": 5.5
+                                                                            },
+                                                                            "lots": {
+                                                                                "type": "array",
+                                                                                "items": {
+                                                                                    "$ref": "#/components/schemas/ProductMovementAllocation"
+                                                                                }
+                                                                            }
+                                                                        },
+                                                                        "type": "object"
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            }
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
                                             "type": "object"
                                         }
                                     },
@@ -8766,7 +9148,7 @@
                     "Sale Orders"
                 ],
                 "summary": "Update sale order status",
-                "description": "Handles sale order status transition from DRAFT to COMPLETED path (excluding REFUNDED). Stock is deducted when status becomes COMPLETED, FIFO/LIFO is respected, consumed IN movements are flagged with is_sold=true, and payment_status can be updated in the same request.",
+                "description": "Handles sale order status transition from DRAFT to COMPLETED path (excluding REFUNDED). Stock is deducted when status becomes COMPLETED using FIFO/LIFO stock-lot allocation. Sale order items are linked to sale_movement_id and allocation_summary.",
                 "operationId": "6f8038d57b12282910127a136bfe8ca2",
                 "parameters": [
                     {
@@ -14305,6 +14687,169 @@
                         "type": "string",
                         "format": "date-time",
                         "example": "2025-01-02T12:00:00Z"
+                    }
+                },
+                "type": "object"
+            },
+            "StockLot": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 12
+                    },
+                    "movement_type": {
+                        "type": "string",
+                        "example": "RE_ORDER"
+                    },
+                    "product_status": {
+                        "type": "string",
+                        "example": "COMPLETED",
+                        "nullable": true
+                    },
+                    "quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 100
+                    },
+                    "remaining_quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 85
+                    },
+                    "allocated_quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 15
+                    },
+                    "lot_status": {
+                        "type": "string",
+                        "enum": [
+                            "AVAILABLE",
+                            "PARTIALLY_CONSUMED",
+                            "CONSUMED"
+                        ],
+                        "example": "PARTIALLY_CONSUMED"
+                    },
+                    "selling_unit_price_in_usd": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 6.5
+                    },
+                    "selling_unit_price_in_riel": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 26650
+                    },
+                    "purchase_unit_price_in_usd": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 4.8
+                    },
+                    "purchase_unit_price_in_riel": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 19680
+                    },
+                    "movement_date": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "SaleAllocationPreviewLot": {
+                "properties": {
+                    "source_movement_id": {
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "movement_type": {
+                        "type": "string",
+                        "example": "INTERNAL_PRODUCED"
+                    },
+                    "movement_date": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "allocated_quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 10
+                    },
+                    "remaining_quantity_before_sale": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 15
+                    },
+                    "remaining_quantity_after_sale": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 5
+                    },
+                    "selling_unit_price_in_usd": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 6
+                    },
+                    "selling_unit_price_in_riel": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 24600
+                    },
+                    "line_total_usd": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 60
+                    },
+                    "line_total_riel": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 246000
+                    }
+                },
+                "type": "object"
+            },
+            "ProductMovementAllocation": {
+                "properties": {
+                    "source_movement_id": {
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "movement_type": {
+                        "type": "string",
+                        "example": "RE_ORDER"
+                    },
+                    "movement_date": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "allocated_quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 10
+                    },
+                    "selling_unit_price_in_usd": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 6
+                    },
+                    "selling_unit_price_in_riel": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 24600
+                    },
+                    "line_total_usd": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 60
+                    },
+                    "line_total_riel": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 246000
                     }
                 },
                 "type": "object"

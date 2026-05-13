@@ -23,6 +23,9 @@ return new class extends Migration
             $table-> string('product_status')->nullable(ProductStatusEnum::class);
                         
             $table->decimal('quantity', 15, 4);
+            $table->decimal('remaining_quantity', 15, 4)
+                ->default(0)
+                ->comment('Remaining available quantity for stock-IN movements. OUT movements should normally be 0.');
 
             $table->boolean('is_sold')->default(false);
 
@@ -40,18 +43,18 @@ return new class extends Migration
             ]);
             
             // purchasing price
-            $table->double('purchase_unit_price_in_usd', 10, 2)->min(0);
-            $table->double('purchase_total_price_in_usd', 15, 2)->min(0);
-            $table->double('purchase_unit_price_in_riel', 10, 2)->min(0);
-            $table->double('purchase_total_price_in_riel', 15, 2)->min(0);
-            $table->double('exchange_rate_from_usd_to_riel', 10, 4)->min(0);
-            $table->double('exchange_rate_from_riel_to_usd', 10, 4)->min(0);
+            $table->decimal('purchase_unit_price_in_usd', 15, 4)->default(0);
+            $table->decimal('purchase_total_price_in_usd', 15, 4)->default(0);
+            $table->decimal('purchase_unit_price_in_riel', 15, 4)->default(0);
+            $table->decimal('purchase_total_price_in_riel', 15, 4)->default(0);
+            $table->decimal('exchange_rate_from_usd_to_riel', 15, 4)->default(0);
+            $table->decimal('exchange_rate_from_riel_to_usd', 15, 8)->default(0);
 
             // selling price
-            $table->double('selling_unit_price_in_usd', 10, 2)->min(0);
-            $table->double('selling_unit_price_in_riel', 10, 2)->min(0);
-            $table->double('selling_exchange_rate_from_usd_to_riel', 10, 4)->min(0);
-            $table->double('selling_exchange_rate_from_riel_to_usd', 10, 4)->min(0);
+            $table->decimal('selling_unit_price_in_usd', 15, 4)->default(0);
+            $table->decimal('selling_unit_price_in_riel', 15, 4)->default(0);
+            $table->decimal('selling_exchange_rate_from_usd_to_riel', 15, 4)->default(0);
+            $table->decimal('selling_exchange_rate_from_riel_to_usd', 15, 8)->default(0);
 
             // audit fields
             $table->timestamp('movement_date')->nullable();
@@ -60,6 +63,11 @@ return new class extends Migration
             $table->unsignedBigInteger('last_updated_by')->nullable();
             $table->foreign('created_by')->references('id')->on('users')->restrictOnDelete();
             $table->foreign('last_updated_by')->references('id')->on('users')->restrictOnDelete();
+
+            $table->index(['product_id', 'direction', 'remaining_quantity']);
+            $table->index(['product_id', 'direction', 'movement_date']);
+            $table->index(['product_id', 'movement_type']);
+            $table->index(['remaining_quantity']);
 
             $table->timestamps();
         });

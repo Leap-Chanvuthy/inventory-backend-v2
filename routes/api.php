@@ -91,8 +91,11 @@ Route::middleware(['auth:api', 'role:STOCK_CONTROLLER,VENDER'])->group(function 
     Route::prefix('products')->group(function () {
         Route::get('/', [ProductAPIController::class, 'index']);
         Route::get('/{id}/movements', [ProductAPIController::class, 'movements']);
+        Route::get('/{id}/stock-lots', [ProductAPIController::class, 'stockLots']);
+        Route::get('/{id}/pnl-detail', [ProductAPIController::class, 'pnlDetail']);
         Route::get('/trashed', [ProductAPIController::class, 'trashed']);
         Route::get('/{id}', [ProductAPIController::class, 'show']);
+        Route::post('/{id}/sale-allocation-preview', [ProductAPIController::class, 'saleAllocationPreview']);
     });
 });
 
@@ -182,6 +185,7 @@ Route::middleware(['auth:api' , 'role:STOCK_CONTROLLER'])->group(function () {
     });
 
     Route::prefix('products')->group(function () {
+        Route::post('/{id}/sale-allocation-preview', [ProductAPIController::class, 'saleAllocationPreview']);
         Route::post('/create/external-purchase',      [ProductAPIController::class, 'storeExternalPurchase']);
         Route::post('/create/internal-manufacturing', [ProductAPIController::class, 'storeInternalManufacturing']);
         Route::delete('/{id}', [ProductAPIController::class, 'delete']);

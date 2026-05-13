@@ -26,6 +26,7 @@ class SaleOrderItemFactory extends Factory
         return [
             'sale_order_id' => SaleOrder::query()->inRandomOrder()->value('id'),
             'product_id' => Product::query()->inRandomOrder()->value('id'),
+            'sale_movement_id' => null,
             'quantity' => $qty,
             'refund_quantity' => null,
             'unit_price_in_usd' => $unitUsd,

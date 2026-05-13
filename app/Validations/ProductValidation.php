@@ -202,7 +202,7 @@ class ProductValidation
             'product_name'        => 'sometimes|string|max:255',
             'barcode'             => 'sometimes|nullable|string|max:255',
             'product_description' => 'sometimes|nullable|string',
-            'sale_method'         => 'required|string|in:FIFO,LIFO',
+            'sale_method'         => 'sometimes|required|string|in:FIFO,LIFO',
             'product_category_id' => 'sometimes|nullable|exists:product_categories,id',
             'base_uom_id'         => 'sometimes|nullable|exists:unit_of_measurements,id',
             'supplier_id'         => 'sometimes|nullable|exists:suppliers,id',
