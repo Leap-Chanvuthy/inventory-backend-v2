@@ -9,6 +9,38 @@ namespace App\Http\Controllers\API\Interfaces;
  * @OA\Tag(name="Products - Reorder External", description="External purchase reorder create/update/detail")
  * @OA\Tag(name="Products - Reorder Internal", description="Internal manufacturing reorder create/update/detail")
  * @OA\Tag(name="Products - Scrap", description="Scrap movement create/update")
+ *
+ * @OA\Schema(
+ *   schema="StockLot",
+ *   type="object",
+ *   @OA\Property(property="id", type="integer", example=12),
+ *   @OA\Property(property="movement_type", type="string", example="RE_ORDER"),
+ *   @OA\Property(property="product_status", type="string", nullable=true, example="COMPLETED"),
+ *   @OA\Property(property="quantity", type="number", format="float", example=100),
+ *   @OA\Property(property="remaining_quantity", type="number", format="float", example=85),
+ *   @OA\Property(property="allocated_quantity", type="number", format="float", example=15),
+ *   @OA\Property(property="lot_status", type="string", enum={"AVAILABLE","PARTIALLY_CONSUMED","CONSUMED"}, example="PARTIALLY_CONSUMED"),
+ *   @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=6.5),
+ *   @OA\Property(property="selling_unit_price_in_riel", type="number", format="float", example=26650),
+ *   @OA\Property(property="purchase_unit_price_in_usd", type="number", format="float", example=4.8),
+ *   @OA\Property(property="purchase_unit_price_in_riel", type="number", format="float", example=19680),
+ *   @OA\Property(property="movement_date", type="string", format="date-time", nullable=true)
+ * )
+ *
+ * @OA\Schema(
+ *   schema="SaleAllocationPreviewLot",
+ *   type="object",
+ *   @OA\Property(property="source_movement_id", type="integer", example=5),
+ *   @OA\Property(property="movement_type", type="string", example="INTERNAL_PRODUCED"),
+ *   @OA\Property(property="movement_date", type="string", format="date-time", nullable=true),
+ *   @OA\Property(property="allocated_quantity", type="number", format="float", example=10),
+ *   @OA\Property(property="remaining_quantity_before_sale", type="number", format="float", example=15),
+ *   @OA\Property(property="remaining_quantity_after_sale", type="number", format="float", example=5),
+ *   @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=6),
+ *   @OA\Property(property="selling_unit_price_in_riel", type="number", format="float", example=24600),
+ *   @OA\Property(property="line_total_usd", type="number", format="float", example=60),
+ *   @OA\Property(property="line_total_riel", type="number", format="float", example=246000)
+ * )
  */
 interface ProductAPIControllerInterface
 {
@@ -45,12 +77,69 @@ interface ProductAPIControllerInterface
      *     security={{"Bearer":{}}},
      *     summary="Get product detail",
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *     @OA\Response(response=200, description="Product retrieved successfully"),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Product retrieved successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Success"),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="current_qty_in_stock", type="number", format="float", example=1090),
+     *                 @OA\Property(property="available_qty_in_stock", type="number", format="float", example=1090),
+     *                 @OA\Property(property="ledger_qty_in_stock", type="number", format="float", example=1090),
+     *                 @OA\Property(property="pricing_reference_lot", ref="#/components/schemas/StockLot", nullable=true)
+     *             )
+     *         )
+     *     ),
      *     @OA\Response(response=404, description="Product not found"),
      *     @OA\Response(response=500, description="Internal server error")
      * )
      */
     public function show($id);
+
+    /**
+     * @OA\Post(
+     *     path="/api/products/{id}/sale-allocation-preview",
+     *     tags={"Products - Core"},
+     *     security={{"Bearer":{}}},
+     *     summary="Preview FIFO/LIFO stock-batch allocation for sale quantity",
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"quantity"},
+     *             @OA\Property(property="quantity", type="number", format="float", example=10)
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Allocation preview generated",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Sale allocation preview generated successfully"),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="product_id", type="integer", example=1),
+     *                 @OA\Property(property="product_name", type="string", example="Product A"),
+     *                 @OA\Property(property="sale_method", type="string", enum={"FIFO","LIFO"}, example="FIFO"),
+     *                 @OA\Property(property="requested_quantity", type="number", format="float", example=10),
+     *                 @OA\Property(property="available_quantity", type="number", format="float", example=1090),
+     *                 @OA\Property(property="can_fulfill", type="boolean", example=true),
+     *                 @OA\Property(property="estimated_total_usd", type="number", format="float", example=55),
+     *                 @OA\Property(property="estimated_average_unit_price_usd", type="number", format="float", example=5.5),
+     *                 @OA\Property(property="lots", type="array", @OA\Items(ref="#/components/schemas/SaleAllocationPreviewLot")),
+     *                 @OA\Property(property="message", type="string", nullable=true, example=null)
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=422, description="Validation error", @OA\JsonContent(ref="#/components/schemas/ValidationError")),
+     *     @OA\Response(response=500, description="Internal server error", @OA\JsonContent(ref="#/components/schemas/ApiError"))
+     * )
+     */
+    public function saleAllocationPreview($request, $id);
 
    /**
     * @OA\Get(
@@ -69,8 +158,46 @@ interface ProductAPIControllerInterface
     *     @OA\Response(response=404, description="Product not found"),
     *     @OA\Response(response=500, description="Internal server error")
     * )
-    */
+   */
    public function movements($request, $productId);
+
+   /**
+    * @OA\Get(
+    *     path="/api/products/{id}/stock-lots",
+    *     tags={"Products - Core"},
+    *     security={{"Bearer":{}}},
+    *     summary="Get product stock lots (dedicated endpoint)",
+    *     description="Returns paginated stock-IN lots for the product, with advanced search, filtering and sorting.",
+    *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+    *     @OA\Parameter(name="page", in="query", @OA\Schema(type="integer"), description="Page number"),
+    *     @OA\Parameter(name="per_page", in="query", @OA\Schema(type="integer"), description="Items per page (1-100)"),
+    *     @OA\Parameter(name="sort", in="query", @OA\Schema(type="string"), description="Sort fields: movement_date,created_at,updated_at,quantity,remaining_quantity,selling_unit_price_in_usd,selling_unit_price_in_riel,purchase_unit_price_in_usd,purchase_unit_price_in_riel"),
+    *     @OA\Parameter(name="filter[search]", in="query", @OA\Schema(type="string"), description="Search by movement type, product status, note, created/updated user name, or lot id"),
+    *     @OA\Parameter(name="filter[movement_type]", in="query", @OA\Schema(type="string"), description="Exact movement type"),
+    *     @OA\Parameter(name="filter[product_status]", in="query", @OA\Schema(type="string"), description="Exact product status"),
+    *     @OA\Parameter(name="filter[lot_status]", in="query", @OA\Schema(type="string", enum={"AVAILABLE","PARTIALLY_CONSUMED","CONSUMED"}), description="Derived stock lot status"),
+    *     @OA\Parameter(name="filter[has_remaining_stock]", in="query", @OA\Schema(type="boolean"), description="true => remaining_quantity > 0, false => remaining_quantity <= 0"),
+    *     @OA\Response(response=200, description="Stock lots retrieved successfully"),
+    *     @OA\Response(response=404, description="Product not found"),
+    *     @OA\Response(response=500, description="Internal server error")
+    * )
+    */
+   public function stockLots($request, $productId);
+
+   /**
+    * @OA\Get(
+    *     path="/api/products/{id}/pnl-detail",
+    *     tags={"Products - Core"},
+    *     security={{"Bearer":{}}},
+    *     summary="Get detailed product P&L",
+    *     description="Returns detailed revenue, COGS, gross/net profit, inventory valuation, sales lines, and (for internal products) raw-material spending split by initial production vs reorder.",
+    *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+    *     @OA\Response(response=200, description="Detailed product P&L retrieved successfully"),
+    *     @OA\Response(response=404, description="Product not found"),
+    *     @OA\Response(response=500, description="Internal server error")
+    * )
+    */
+   public function pnlDetail($id);
 
     /**
      * @OA\Get(

@@ -28,6 +28,7 @@ class ProductService
     protected ProductPnLService               $productPnLService;
     protected ProductHelper                   $productHelper;
     protected AuditLoggerService              $auditLoggerService;
+    protected ProductStockAllocationService   $productStockAllocationService;
 
     public function __construct(
         ProductValidation                $productValidation,
@@ -37,7 +38,8 @@ class ProductService
         GetCurrentUserHelper             $getCurrentUserHelper,
         ProductPnLService                $productPnLService,
         ProductHelper                    $productHelper,
-        AuditLoggerService               $auditLoggerService
+        AuditLoggerService               $auditLoggerService,
+        ProductStockAllocationService    $productStockAllocationService
     ) {
         $this->productValidation       = $productValidation;
         $this->productQueryBuilder     = $productQueryBuilder;
@@ -47,6 +49,7 @@ class ProductService
         $this->productPnLService       = $productPnLService;
         $this->productHelper          = $productHelper;
         $this->auditLoggerService      = $auditLoggerService;
+        $this->productStockAllocationService = $productStockAllocationService;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -67,6 +70,16 @@ class ProductService
         try {
             $product = Product::findOrFail($productId);
             return $this->productQueryBuilder->productMovementBuilder($request, $productId);
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    public function getAllProductStockLots(Request $request, $productId)
+    {
+        try {
+            Product::findOrFail($productId);
+            return $this->productQueryBuilder->productStockLotBuilder($request, (int) $productId);
         } catch (Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
         }
@@ -96,28 +109,19 @@ class ProductService
                 'productRawMaterials.rawMaterial.uom',
             ])->findOrFail($id);
 
-            if (!$product) {
-                return ResponseHelper::error('Product not found', 404);
-            }
-
-            // Return first movement on the list (INTERNAL_PRODUCED or EXTERNAL_PURCHASED) to frontend for quick reference of sold state without scanning all movements.
-            $initialMovement = \App\Models\ProductMovement::where('product_id', $product->id)
-                ->whereIn('movement_type', [
-                    \App\Enums\ProductStockMovementTypeEnum::INTERNAL_PRODUCED->value,
-                    \App\Enums\ProductStockMovementTypeEnum::EXTERNAL_PURCHASED->value,
-                ])
-                ->orderBy('movement_date', 'asc')
-                ->orderBy('id', 'asc')
-                ->first();
-
             // Total count of movements by movement_type
             $totalCountByMovementType = \App\Models\ProductMovement::where('product_id', $product->id)
                 ->select('movement_type', DB::raw('COUNT(*) as total'))
                 ->groupBy('movement_type')
                 ->pluck('total', 'movement_type');
 
-            // Calculate current quantity in stock from movements (IN vs OUT) without eager-loading movements
+            // Operational stock comes from remaining quantity on stock-IN lots.
             $currentQtyInStock = (float) ProductMovement::where('product_id', $product->id)
+                ->where('direction', \App\Enums\StockDirectionEnum::IN->value)
+                ->sum('remaining_quantity');
+
+            // Ledger stock (IN - OUT) is still returned for audit/debug visibility.
+            $ledgerQtyInStock = (float) ProductMovement::where('product_id', $product->id)
                 ->selectRaw('COALESCE(SUM(CASE WHEN direction = "IN" THEN quantity ELSE -quantity END), 0) as current_qty')
                 ->value('current_qty');
 
@@ -162,9 +166,6 @@ class ProductService
                 }
             }
 
-            // Get P&L data for the product
-            $productPnL = $this->productPnLService->getProductPnL($product->id);
-
             // Frontend helper: expose sold state of the initial stock movement
             // (EXTERNAL_PURCHASED or INTERNAL_PRODUCED) so UI doesn't need to scan all movements.
             $productTypeValue = ($product->product_type instanceof \BackedEnum)
@@ -180,21 +181,125 @@ class ProductService
                 ->orderBy('id', 'asc')
                 ->first();
 
-            $isInitialMovementSold = (bool) ($initialMovement->is_sold ?? false);
+            $pricingReferenceLot = $this->resolvePricingReferenceLot($product);
+
+            $isInitialMovementSold = $initialMovement
+                ? $initialMovement->sourceAllocations()->exists()
+                : false;
 
             return ResponseHelper::success([
                 'is_sold' => $isInitialMovementSold,
                 'allow_bom_update' => !$isInitialMovementSold,
                 'product' => $product,
                 'initial_movement' => $initialMovement,
+                'pricing_reference_lot' => $this->mapStockLot($pricingReferenceLot),
                 'current_qty_in_stock' => $currentQtyInStock,
+                'available_qty_in_stock' => $currentQtyInStock,
+                'ledger_qty_in_stock' => $ledgerQtyInStock,
                 'product_stock_status' => $productStockStatus,
                 'total_count_by_movement_type' => $totalCountByMovementType,
-                'product_pnl' => $productPnL,
             ]);
         } catch (Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
         }
+    }
+
+    public function previewSaleAllocation(Request $request, int $productId)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'quantity' => 'required|numeric|min:0.0001',
+            ]);
+
+            if ($validator->fails()) {
+                return ResponseHelper::validation($validator->errors()->toArray(), 'Validation Error');
+            }
+
+            $product = Product::query()->findOrFail($productId);
+            $quantity = (float) $request->input('quantity');
+
+            UomQuantityGuard::assertQuantityByUomId(
+                $quantity,
+                (int) $product->base_uom_id,
+                'quantity'
+            );
+
+            $preview = $this->productStockAllocationService->previewProductSaleAllocation($product, $quantity);
+
+            return ResponseHelper::success($preview, 'Sale allocation preview generated successfully');
+        } catch (ValidationException $e) {
+            return ResponseHelper::validation($e->errors(), 'Validation Error');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    public function getProductPnLDetail(int $productId)
+    {
+        try {
+            Product::query()->findOrFail($productId);
+            $detail = $this->productPnLService->getDetailedProductPnL($productId);
+            if (is_array($detail) && array_key_exists('error', $detail)) {
+                return ResponseHelper::error((string) ($detail['error'] ?? 'Unable to build detailed P&L'), 500);
+            }
+            return ResponseHelper::success($detail, 'Product detailed P&L retrieved successfully');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    private function resolvePricingReferenceLot(Product $product): ?ProductMovement
+    {
+        $saleMethod = strtoupper((string) ($product->sale_method instanceof \BackedEnum
+            ? $product->sale_method->value
+            : ($product->sale_method ?? 'FIFO')));
+        $orderDirection = $saleMethod === \App\Enums\SaleMethodEnum::LIFO->value ? 'desc' : 'asc';
+
+        $baseQuery = ProductMovement::query()
+            ->where('product_id', $product->id)
+            ->where('direction', \App\Enums\StockDirectionEnum::IN->value);
+
+        $availableLot = (clone $baseQuery)
+            ->where('remaining_quantity', '>', 0)
+            ->orderBy('movement_date', $orderDirection)
+            ->orderBy('id', $orderDirection)
+            ->first();
+
+        if ($availableLot) {
+            return $availableLot;
+        }
+
+        return (clone $baseQuery)
+            ->orderBy('movement_date', $orderDirection)
+            ->orderBy('id', $orderDirection)
+            ->first();
+    }
+
+    private function mapStockLot(?ProductMovement $lot): ?array
+    {
+        if (!$lot) {
+            return null;
+        }
+
+        $quantity = (float) $lot->quantity;
+        $remaining = (float) $lot->remaining_quantity;
+
+        return [
+            'id' => (int) $lot->id,
+            'movement_type' => $lot->movement_type instanceof \BackedEnum ? $lot->movement_type->value : (string) $lot->movement_type,
+            'product_status' => $lot->product_status instanceof \BackedEnum ? $lot->product_status->value : $lot->product_status,
+            'quantity' => $quantity,
+            'remaining_quantity' => $remaining,
+            'allocated_quantity' => max(0, round($quantity - $remaining, 4)),
+            'lot_status' => $remaining <= 0
+                ? 'CONSUMED'
+                : ($remaining < $quantity ? 'PARTIALLY_CONSUMED' : 'AVAILABLE'),
+            'selling_unit_price_in_usd' => (float) ($lot->selling_unit_price_in_usd ?? 0),
+            'selling_unit_price_in_riel' => (float) ($lot->selling_unit_price_in_riel ?? 0),
+            'purchase_unit_price_in_usd' => (float) ($lot->purchase_unit_price_in_usd ?? 0),
+            'purchase_unit_price_in_riel' => (float) ($lot->purchase_unit_price_in_riel ?? 0),
+            'movement_date' => optional($lot->movement_date)->toDateTimeString(),
+        ];
     }
 
     public function createExternalPurchasedProduct(Request $request)
@@ -285,13 +390,6 @@ class ProductService
                 ->orderBy('movement_date', 'asc')
                 ->firstOrFail();
 
-            // Validate incoming request body for external purchase movement update
-            $rules = $this->productValidation->createExternalPurchaseMovementRules();
-            $validator = Validator::make($request->all(), $rules);
-            if ($validator->fails()) {
-                return ResponseHelper::validation($validator->errors()->toArray(), 'Validation Error');
-            }
-
             // Ensure product is of type EXTERNAL_PURCHASED
             $productTypeValue = ($product->product_type instanceof \BackedEnum)
                 ? $product->product_type->value
@@ -303,6 +401,108 @@ class ProductService
                     422,
                     'Product must be an externally purchased product to update this movement.'
                 );
+            }
+
+            $isAllocatedMovement = $movement->sourceAllocations()->exists();
+
+            if ($isAllocatedMovement) {
+                $lockedNumericFields = [
+                    'quantity',
+                    'purchase_unit_price_in_usd',
+                    'purchase_total_price_in_usd',
+                    'purchase_unit_price_in_riel',
+                    'purchase_total_price_in_riel',
+                    'exchange_rate_from_usd_to_riel',
+                    'exchange_rate_from_riel_to_usd',
+                    'selling_unit_price_in_usd',
+                    'selling_unit_price_in_riel',
+                    'selling_exchange_rate_from_usd_to_riel',
+                    'selling_exchange_rate_from_riel_to_usd',
+                ];
+
+                foreach ($lockedNumericFields as $lockedField) {
+                    if ($this->hasNumericFieldChanged($request, $lockedField, $movement->{$lockedField} ?? null)) {
+                        return ResponseHelper::error(
+                            'Cannot update allocated stock lot',
+                            422,
+                            'This stock lot has already been used in a sale. Quantity, price, movement date, and BOM cannot be changed. Use an adjustment or reorder movement instead.'
+                        );
+                    }
+                }
+
+                if ($this->hasDateFieldChanged($request, 'movement_date', $movement->movement_date)) {
+                    return ResponseHelper::error(
+                        'Cannot update allocated stock lot',
+                        422,
+                        'This stock lot has already been used in a sale. Quantity, price, movement date, and BOM cannot be changed. Use an adjustment or reorder movement instead.'
+                    );
+                }
+
+                if (method_exists($this->productValidation, 'updateProductRules')) {
+                    $productRules = $this->productValidation->updateProductRules($request);
+                } else {
+                    $productRules = [
+                        'product_name' => 'sometimes|string|max:255',
+                        'barcode' => 'sometimes|nullable|string|max:255',
+                        'product_description' => 'sometimes|nullable|string',
+                        'product_category_id' => 'sometimes|nullable|exists:product_categories,id',
+                        'base_uom_id' => 'sometimes|nullable|exists:unit_of_measurements,id',
+                        'supplier_id' => 'sometimes|nullable|exists:suppliers,id',
+                        'warehouse_id' => 'sometimes|nullable|exists:warehouses,id',
+                    ];
+                }
+
+                $metadataValidated = Validator::make(
+                    $request->all(),
+                    array_merge($productRules, ['note' => 'sometimes|nullable|string'])
+                )->validate();
+
+                $lastUpdatedBy = $this->getCurrentUserHelper->getUserId();
+
+                $oldSnapshot = [
+                    'product' => $this->auditLoggerService->snapshotModel($product),
+                    'movement' => $this->auditLoggerService->snapshotModel($movement),
+                ];
+
+                $movement = DB::transaction(function () use ($metadataValidated, $product, $movement, $lastUpdatedBy) {
+                    $productData = $this->extractUpdatableProductData($metadataValidated);
+                    if (!empty($productData)) {
+                        $product->update($productData);
+                    }
+
+                    if (array_key_exists('note', $metadataValidated)) {
+                        $movement->update([
+                            'note' => $metadataValidated['note'],
+                            'last_updated_by' => $lastUpdatedBy,
+                        ]);
+                    }
+
+                    return $movement->fresh();
+                });
+
+                $newSnapshot = [
+                    'product' => $this->auditLoggerService->snapshotModel($product->fresh()),
+                    'movement' => $this->auditLoggerService->snapshotModel($movement),
+                ];
+
+                $this->auditLoggerService->logDiff(
+                    'product.update.external',
+                    Product::class,
+                    (int) $product->id,
+                    $oldSnapshot,
+                    $newSnapshot,
+                    $lastUpdatedBy,
+                    ['context' => 'product_service']
+                );
+
+                return ResponseHelper::success($movement, 'Product updated successfully', 201);
+            }
+
+            // Validate incoming request body for external purchase movement update
+            $rules = $this->productValidation->createExternalPurchaseMovementRules();
+            $validator = Validator::make($request->all(), $rules);
+            if ($validator->fails()) {
+                return ResponseHelper::validation($validator->errors()->toArray(), 'Validation Error');
             }
 
             // Enforce defaults for this update
@@ -330,22 +530,6 @@ class ProductService
                 'created_by' => $movement->created_by,
                 'last_updated_by' => $this->getCurrentUserHelper->getUserId(),
             ]);
-
-            // If movement is sold, quantity becomes immutable. Other fields remain updatable.
-            if ($movement->is_sold === true) {
-                $incomingQty = $request->input('quantity');
-                $currentQty = (float) $movement->quantity;
-
-                if ($incomingQty !== null && $incomingQty !== '' && (float) $incomingQty !== $currentQty) {
-                    return ResponseHelper::error(
-                        'Cannot update sold movement quantity',
-                        422,
-                        'The first product movement has been sold. Quantity data cannot be updated to avoid data inconsistency.'
-                    );
-                }
-
-                $request->merge(['quantity' => $currentQty]);
-            }
 
             // Ensure selling-side fields exist (derive from last movement if present)
             $lastMovement = ProductMovement::where('product_id', $product->id)
@@ -438,39 +622,14 @@ class ProductService
                     $product->update($productData);
                 }
 
-                // Update product-level fields if provided in the request
-                $productData = [];
-                if (array_key_exists('product_name', $validated)) {
-                    $productData['product_name'] = $validated['product_name'];
-                }
-                if (array_key_exists('barcode', $validated)) {
-                    $productData['barcode'] = $validated['barcode'];
-                }
-                if (array_key_exists('product_description', $validated)) {
-                    $productData['product_description'] = $validated['product_description'];
-                }
-                if (array_key_exists('product_category_id', $validated)) {
-                    $productData['product_category_id'] = $validated['product_category_id'];
-                }
-                if (array_key_exists('base_uom_id', $validated)) {
-                    $productData['base_uom_id'] = $validated['base_uom_id'];
-                }
-                if (array_key_exists('supplier_id', $validated)) {
-                    $productData['supplier_id'] = $validated['supplier_id'];
-                }
-                if (array_key_exists('warehouse_id', $validated)) {
-                    $productData['warehouse_id'] = $validated['warehouse_id'];
-                }
-                if (array_key_exists('sale_method', $validated)) {
-                    $productData['sale_method'] = $validated['sale_method'];
-                }
-
-                if (!empty($productData)) {
-                    $product->update($productData);
-                }
+                $currentQty = (float) $movement->quantity;
+                $currentRemaining = (float) $movement->remaining_quantity;
+                $alreadyAllocated = max(0, round($currentQty - $currentRemaining, 4));
+                $nextQty = (float) $validated['quantity'];
 
                 $movement->update([
-                    'quantity' => $validated['quantity'],
+                    'quantity' => $nextQty,
+                    'remaining_quantity' => max(0, round($nextQty - $alreadyAllocated, 4)),
                     'product_status' => $validated['product_status'] ?? (is_object($movement->product_status) ? $movement->product_status->value : (string) $movement->product_status),
                     'direction' => \App\Enums\StockDirectionEnum::IN->value,
                     'movement_type' => \App\Enums\ProductStockMovementTypeEnum::EXTERNAL_PURCHASED->value,
@@ -676,13 +835,6 @@ class ProductService
                 ),
             ]);
 
-            // Validate incoming request body for internal manufacturing movement update
-            $rules = $this->productValidation->createInternalManufacturingMovementRules();
-            $validator = Validator::make($request->all(), $rules);
-            if ($validator->fails()) {
-                return ResponseHelper::validation($validator->errors()->toArray(), 'Validation Error');
-            }
-
             // Ensure product is of type INTERNAL_PRODUCED
             $productTypeValue = ($product->product_type instanceof \BackedEnum)
                 ? $product->product_type->value
@@ -694,6 +846,137 @@ class ProductService
                     422,
                     'Product must be an internally produced product to update this movement.'
                 );
+            }
+
+            $isSoldInternalMovement = $movement->sourceAllocations()->exists();
+
+            if ($isSoldInternalMovement) {
+                $lockedNumericFields = [
+                    'quantity',
+                    'purchase_unit_price_in_usd',
+                    'purchase_total_price_in_usd',
+                    'purchase_unit_price_in_riel',
+                    'purchase_total_price_in_riel',
+                    'exchange_rate_from_usd_to_riel',
+                    'exchange_rate_from_riel_to_usd',
+                    'selling_unit_price_in_usd',
+                    'selling_unit_price_in_riel',
+                    'selling_exchange_rate_from_usd_to_riel',
+                    'selling_exchange_rate_from_riel_to_usd',
+                ];
+
+                foreach ($lockedNumericFields as $lockedField) {
+                    if ($this->hasNumericFieldChanged($request, $lockedField, $movement->{$lockedField} ?? null)) {
+                        return ResponseHelper::error(
+                            'Cannot update allocated stock lot',
+                            422,
+                            'This stock lot has already been used in a sale. Quantity, price, movement date, and BOM cannot be changed. Use an adjustment or reorder movement instead.'
+                        );
+                    }
+                }
+
+                if ($this->hasDateFieldChanged($request, 'movement_date', $movement->movement_date)) {
+                    return ResponseHelper::error(
+                        'Cannot update allocated stock lot',
+                        422,
+                        'This stock lot has already been used in a sale. Quantity, price, movement date, and BOM cannot be changed. Use an adjustment or reorder movement instead.'
+                    );
+                }
+
+                if ($request->filled('raw_materials')) {
+                    $incomingBom = $this->manufacturingService->normalizeBomItems(
+                        $request->input('raw_materials', [])
+                    );
+                    if ($this->hasBomChanged($currentBom, $incomingBom)) {
+                        return ResponseHelper::error(
+                            'Cannot update allocated stock lot',
+                            422,
+                            'This stock lot has already been used in a sale. Quantity, price, movement date, and BOM cannot be changed. Use an adjustment or reorder movement instead.'
+                        );
+                    }
+                }
+
+                if (method_exists($this->productValidation, 'updateProductRules')) {
+                    $productRules = $this->productValidation->updateProductRules($request);
+                } else {
+                    $productRules = [
+                        'product_name' => 'sometimes|string|max:255',
+                        'barcode' => 'sometimes|nullable|string|max:255',
+                        'product_description' => 'sometimes|nullable|string',
+                        'product_category_id' => 'sometimes|nullable|exists:product_categories,id',
+                        'base_uom_id' => 'sometimes|nullable|exists:unit_of_measurements,id',
+                        'supplier_id' => 'sometimes|nullable|exists:suppliers,id',
+                        'warehouse_id' => 'sometimes|nullable|exists:warehouses,id',
+                    ];
+                }
+
+                $metadataValidated = Validator::make(
+                    $request->all(),
+                    array_merge($productRules, ['note' => 'sometimes|nullable|string'])
+                )->validate();
+
+                $lastUpdatedBy = $this->getCurrentUserHelper->getUserId();
+                $oldSnapshot = [
+                    'product' => $this->auditLoggerService->snapshotModel($product),
+                    'movement' => $this->auditLoggerService->snapshotModel($movement),
+                    'bom' => $this->manufacturingService->getProductBom((int) $product->id),
+                ];
+
+                DB::beginTransaction();
+                try {
+                    $productData = $this->extractUpdatableProductData($metadataValidated);
+                    if (!empty($productData)) {
+                        $product->update($productData);
+                    }
+
+                    if (array_key_exists('note', $metadataValidated)) {
+                        $movement->update([
+                            'note' => $metadataValidated['note'],
+                            'last_updated_by' => $lastUpdatedBy,
+                        ]);
+                    }
+
+                    DB::commit();
+                    $movement = $movement->fresh();
+                } catch (Exception $e) {
+                    DB::rollBack();
+                    throw $e;
+                }
+
+                $newSnapshot = [
+                    'product' => $this->auditLoggerService->snapshotModel($product->fresh()),
+                    'movement' => $this->auditLoggerService->snapshotModel($movement),
+                    'bom' => $this->manufacturingService->getProductBom((int) $product->id),
+                ];
+
+                $this->auditLoggerService->logDiff(
+                    'product.update.internal',
+                    Product::class,
+                    (int) $product->id,
+                    $oldSnapshot,
+                    $newSnapshot,
+                    $lastUpdatedBy,
+                    ['context' => 'product_service']
+                );
+
+                $materials = $this->manufacturingService->extractMaterialsSummary(
+                    $this->manufacturingService->buildConsumptionPlan(
+                        $this->manufacturingService->getProductBom((int) $product->id),
+                        (float) ($movement->quantity ?? 0)
+                    )
+                );
+
+                return ResponseHelper::success([
+                    'movement' => $movement,
+                    'materials' => $materials,
+                ], 'Product updated successfully', 201);
+            }
+
+            // Validate incoming request body for internal manufacturing movement update
+            $rules = $this->productValidation->createInternalManufacturingMovementRules();
+            $validator = Validator::make($request->all(), $rules);
+            if ($validator->fails()) {
+                return ResponseHelper::validation($validator->errors()->toArray(), 'Validation Error');
             }
 
             // Enforce defaults for this update
@@ -719,36 +1002,6 @@ class ProductService
                 'created_by' => $movement->created_by,
                 'last_updated_by' => $this->getCurrentUserHelper->getUserId(),
             ]);
-
-            $isSoldInternalMovement = ($movement->is_sold === true);
-
-            // If movement is sold, quantity becomes immutable. Other fields remain updatable.
-            if ($isSoldInternalMovement) {
-                $incomingQty = $request->input('quantity');
-                $currentQty = (float) $movement->quantity;
-                $incomingBomItems = $request->input('raw_materials', []);
-
-                if ($incomingQty !== null && $incomingQty !== '' && (float) $incomingQty !== $currentQty) {
-                    return ResponseHelper::error(
-                        'Cannot update sold movement quantity',
-                        422,
-                        'The first product movement has been sold. Quantity data cannot be updated to avoid data inconsistency.'
-                    );
-                }
-
-                if (!empty($incomingBomItems) && $this->manufacturingService->isDifferentBom($incomingBomItems, $currentBom)) {
-                    return ResponseHelper::error(
-                        'Cannot update sold movement BOM',
-                        422,
-                        'The first product movement has been sold. BOM data cannot be updated to avoid production line and BOM inconsistency.'
-                    );
-                }
-
-                $request->merge([
-                    'quantity' => $currentQty,
-                    'raw_materials' => $currentBom,
-                ]);
-            }
 
             // Ensure selling-side fields exist (derive from last movement if present)
             $lastMovement = ProductMovement::where('product_id', $product->id)
@@ -900,6 +1153,7 @@ class ProductService
 
                 $movement->update([
                     'quantity' => $validated['quantity'],
+                    'remaining_quantity' => $validated['quantity'],
                     'product_status' => $validated['product_status'] ?? (is_object($movement->product_status) ? $movement->product_status->value : (string) $movement->product_status),
                     'direction' => \App\Enums\StockDirectionEnum::IN->value,
                     'movement_type' => \App\Enums\ProductStockMovementTypeEnum::INTERNAL_PRODUCED->value,
@@ -965,6 +1219,94 @@ class ProductService
         }
     }
 
+
+    private function extractUpdatableProductData(array $validated): array
+    {
+        $data = [];
+
+        if (array_key_exists('product_name', $validated)) {
+            $data['product_name'] = $validated['product_name'];
+        }
+        if (array_key_exists('barcode', $validated)) {
+            $data['barcode'] = $validated['barcode'];
+        }
+        if (array_key_exists('product_description', $validated)) {
+            $data['product_description'] = $validated['product_description'];
+        }
+        if (array_key_exists('product_category_id', $validated)) {
+            $data['product_category_id'] = $validated['product_category_id'];
+        }
+        if (array_key_exists('base_uom_id', $validated)) {
+            $data['base_uom_id'] = $validated['base_uom_id'];
+        }
+        if (array_key_exists('supplier_id', $validated)) {
+            $data['supplier_id'] = $validated['supplier_id'];
+        }
+        if (array_key_exists('warehouse_id', $validated)) {
+            $data['warehouse_id'] = $validated['warehouse_id'];
+        }
+        if (array_key_exists('sale_method', $validated)) {
+            $data['sale_method'] = $validated['sale_method'];
+        }
+
+        return $data;
+    }
+
+    private function hasNumericFieldChanged(Request $request, string $field, mixed $currentValue, float $epsilon = 0.000001): bool
+    {
+        if (!$request->has($field)) {
+            return false;
+        }
+
+        $incoming = $request->input($field);
+
+        if ($incoming === null && $currentValue === null) {
+            return false;
+        }
+
+        if (!is_numeric($incoming) || !is_numeric($currentValue)) {
+            return (string) $incoming !== (string) $currentValue;
+        }
+
+        return abs((float) $incoming - (float) $currentValue) > $epsilon;
+    }
+
+    private function hasDateFieldChanged(Request $request, string $field, mixed $currentValue): bool
+    {
+        if (!$request->filled($field)) {
+            return false;
+        }
+
+        $incomingTs = strtotime((string) $request->input($field));
+        $currentTs = strtotime((string) $currentValue);
+
+        if ($incomingTs === false || $currentTs === false) {
+            return (string) $request->input($field) !== (string) $currentValue;
+        }
+
+        return date('Y-m-d', $incomingTs) !== date('Y-m-d', $currentTs);
+    }
+
+    private function hasBomChanged(array $currentBom, array $incomingBom): bool
+    {
+        $normalize = static function (array $items): array {
+            $normalized = collect($items)
+                ->map(function ($item) {
+                    return [
+                        'raw_material_id' => (int) ($item['raw_material_id'] ?? 0),
+                        'quantity_per_unit' => (float) ($item['quantity_per_unit'] ?? 0),
+                        'scrap_percentage' => round((float) ($item['scrap_percentage'] ?? 0), 6),
+                    ];
+                })
+                ->sortBy('raw_material_id')
+                ->values()
+                ->all();
+
+            return $normalized;
+        };
+
+        return $normalize($currentBom) !== $normalize($incomingBom);
+    }
 
     // Delete Product - to be implemented with soft deletes and cascade to movements, images, BOM, etc.
     public function deleteProduct($productId)

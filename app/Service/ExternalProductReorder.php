@@ -109,6 +109,7 @@ class ExternalProductReorder
 					'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
 					'product_status' => \App\Enums\ProductStatusEnum::COMPLETED->value,
 					'quantity' => $validated['quantity'],
+					'remaining_quantity' => $validated['quantity'],
 					'is_sold' => false,
 					'movement_date' => $validated['movement_date'],
 					'note' => $validated['note'] ?? null,
@@ -191,20 +192,13 @@ class ExternalProductReorder
 				'last_updated_by' => $this->getCurrentUserHelper->getUserId(),
 			]);
 
-			if ($movement->is_sold === true) {
-				$incomingQty = $request->input('quantity');
-				$currentQty = (float) $movement->quantity;
-
-				if ($incomingQty !== null && $incomingQty !== '' && (float) $incomingQty !== $currentQty) {
-					return ResponseHelper::error(
-						'Cannot update sold movement quantity',
-						422,
-						'The reordered product has been sold. Quantity cannot be updated to avoid data inconsistency.'
-					);
-				}
-
-				// Allow updating other fields, but force quantity to current sold quantity.
-				$request->merge(['quantity' => $currentQty]);
+			$hasAllocations = $movement->sourceAllocations()->exists();
+			if ($hasAllocations) {
+				return ResponseHelper::error(
+					'Cannot update allocated stock lot',
+					422,
+					'This stock lot has already been used in a sale. Quantity, price, movement date, and stock status cannot be changed. Use an adjustment or reorder movement instead.'
+				);
 			}
 
 			$lastMovement = ProductMovement::where('product_id', $product->id)
@@ -237,8 +231,15 @@ class ExternalProductReorder
 			$oldSnapshot = $this->auditLoggerService->snapshotModel($movement);
 
 			$movement = DB::transaction(function () use ($validated, $movement) {
+				$currentQty = (float) $movement->quantity;
+				$currentRemaining = (float) $movement->remaining_quantity;
+				$alreadyAllocated = max(0, round($currentQty - $currentRemaining, 4));
+				$nextQty = (float) $validated['quantity'];
+				$nextRemaining = max(0, round($nextQty - $alreadyAllocated, 4));
+
 				$movement->update([
-					'quantity' => $validated['quantity'],
+					'quantity' => $nextQty,
+					'remaining_quantity' => $nextRemaining,
 					'direction' => \App\Enums\StockDirectionEnum::IN->value,
 					'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
 					'movement_date' => $validated['movement_date'],
@@ -327,8 +328,8 @@ class ExternalProductReorder
 				return ResponseHelper::error('Movement not found or not a reorder movement', 404);
 			}
 
-			if ($movement->is_sold === true) {
-				return ResponseHelper::error('Cannot delete used stock movement', 401, 'The reordered product has been sold. Data cannot be deleted to avoid data inconsistency.');
+			if ($movement->sourceAllocations()->exists()) {
+				return ResponseHelper::error('Cannot delete used stock movement', 401, 'This stock lot has already been used in a sale and cannot be deleted.');
 			}
 
 			$oldSnapshot = $this->auditLoggerService->snapshotModel($movement);

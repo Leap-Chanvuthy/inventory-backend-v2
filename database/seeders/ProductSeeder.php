@@ -11,6 +11,7 @@ use App\Models\Product;
 use App\Models\ProductReorder;
 use App\Models\ReorderProductRawMaterial;
 use App\Models\ProductMovement;
+use App\Models\ProductMovementAllocation;
 use App\Models\ProductRawMaterial;
 use App\Models\RawMaterial;
 use App\Models\RMStockMovement;
@@ -148,6 +149,8 @@ class ProductSeeder extends Seeder
             $this->deductRawMaterialStock($bomItems, $product->id, $userId, $movementDate, $referenceToken);
         }
 
+        $this->seedLotAllocationScenarios($users);
+
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -203,6 +206,7 @@ class ProductSeeder extends Seeder
             'movement_type'                          => ProductStockMovementTypeEnum::EXTERNAL_PURCHASED->value,
             'product_status'                         => ProductStatusEnum::COMPLETED->value,
             'quantity'                               => $quantity,
+            'remaining_quantity'                     => $quantity,
             'is_sold'                                => false,
             'movement_date'                          => $movementDate,
             'note'                                   => $faker->optional(0.4)->sentence(),
@@ -261,6 +265,7 @@ class ProductSeeder extends Seeder
             'movement_type'                          => ProductStockMovementTypeEnum::INTERNAL_PRODUCED->value,
             'product_status'                         => $productStatus,
             'quantity'                               => $quantity,
+            'remaining_quantity'                     => $quantity,
             'is_sold'                                => false,
             'movement_date'                          => $movementDate,
             'note'                                   => $faker->optional(0.4)->sentence(),
@@ -481,5 +486,192 @@ class ProductSeeder extends Seeder
         }
 
         return (float) $faker->randomFloat(4, $min, $max);
+    }
+
+    private function seedLotAllocationScenarios($users): void
+    {
+        $userId = (int) ($users->first()->id ?? 1);
+
+        // Product A: FIFO with two priced lots and partial consumption from the first lot.
+        $productA = Product::factory()->external()->create([
+            'product_name' => 'Seed Product A (FIFO Lots)',
+            'sale_method' => 'FIFO',
+        ]);
+
+        $aLot1 = ProductMovement::create([
+            'product_id' => $productA->id,
+            'direction' => StockDirectionEnum::IN->value,
+            'movement_type' => ProductStockMovementTypeEnum::EXTERNAL_PURCHASED->value,
+            'product_status' => ProductStatusEnum::COMPLETED->value,
+            'quantity' => 1000,
+            'remaining_quantity' => 990,
+            'is_sold' => true,
+            'movement_date' => now()->subDays(10)->toDateTimeString(),
+            'purchase_unit_price_in_usd' => 3.5,
+            'purchase_total_price_in_usd' => 3500,
+            'purchase_unit_price_in_riel' => 14350,
+            'purchase_total_price_in_riel' => 14350000,
+            'exchange_rate_from_usd_to_riel' => 4100,
+            'exchange_rate_from_riel_to_usd' => round(1 / 4100, 8),
+            'selling_unit_price_in_usd' => 5,
+            'selling_unit_price_in_riel' => 20500,
+            'selling_exchange_rate_from_usd_to_riel' => 4100,
+            'selling_exchange_rate_from_riel_to_usd' => round(1 / 4100, 8),
+            'created_by' => $userId,
+            'last_updated_by' => $userId,
+        ]);
+
+        ProductMovement::create([
+            'product_id' => $productA->id,
+            'direction' => StockDirectionEnum::IN->value,
+            'movement_type' => ProductStockMovementTypeEnum::RE_ORDER->value,
+            'product_status' => ProductStatusEnum::COMPLETED->value,
+            'quantity' => 100,
+            'remaining_quantity' => 100,
+            'is_sold' => false,
+            'movement_date' => now()->subDays(5)->toDateTimeString(),
+            'purchase_unit_price_in_usd' => 4.2,
+            'purchase_total_price_in_usd' => 420,
+            'purchase_unit_price_in_riel' => 17220,
+            'purchase_total_price_in_riel' => 1722000,
+            'exchange_rate_from_usd_to_riel' => 4100,
+            'exchange_rate_from_riel_to_usd' => round(1 / 4100, 8),
+            'selling_unit_price_in_usd' => 6,
+            'selling_unit_price_in_riel' => 24600,
+            'selling_exchange_rate_from_usd_to_riel' => 4100,
+            'selling_exchange_rate_from_riel_to_usd' => round(1 / 4100, 8),
+            'created_by' => $userId,
+            'last_updated_by' => $userId,
+        ]);
+
+        $aSale = ProductMovement::create([
+            'product_id' => $productA->id,
+            'direction' => StockDirectionEnum::OUT->value,
+            'movement_type' => ProductStockMovementTypeEnum::SALE_ORDER->value,
+            'product_status' => ProductStatusEnum::COMPLETED->value,
+            'quantity' => 10,
+            'remaining_quantity' => 0,
+            'is_sold' => true,
+            'movement_date' => now()->subDays(4)->toDateTimeString(),
+            'purchase_unit_price_in_usd' => 3.5,
+            'purchase_total_price_in_usd' => 35,
+            'purchase_unit_price_in_riel' => 14350,
+            'purchase_total_price_in_riel' => 143500,
+            'exchange_rate_from_usd_to_riel' => 4100,
+            'exchange_rate_from_riel_to_usd' => round(1 / 4100, 8),
+            'selling_unit_price_in_usd' => 5,
+            'selling_unit_price_in_riel' => 20500,
+            'selling_exchange_rate_from_usd_to_riel' => 4100,
+            'selling_exchange_rate_from_riel_to_usd' => round(1 / 4100, 8),
+            'created_by' => $userId,
+            'last_updated_by' => $userId,
+        ]);
+
+        ProductMovementAllocation::create([
+            'sale_movement_id' => $aSale->id,
+            'source_movement_id' => $aLot1->id,
+            'allocated_quantity' => 10,
+            'selling_unit_price_in_usd' => 5,
+            'selling_unit_price_in_riel' => 20500,
+            'cost_unit_price_in_usd' => 3.5,
+            'cost_unit_price_in_riel' => 14350,
+            'selling_exchange_rate_from_usd_to_riel' => 4100,
+            'selling_exchange_rate_from_riel_to_usd' => round(1 / 4100, 8),
+            'cost_exchange_rate_from_usd_to_riel' => 4100,
+            'cost_exchange_rate_from_riel_to_usd' => round(1 / 4100, 8),
+            'allocated_at' => now()->subDays(4)->toDateTimeString(),
+            'created_by' => $userId,
+        ]);
+
+        // Product B: LIFO with latest reorder lot partially consumed.
+        $productB = Product::factory()->internal()->create([
+            'product_name' => 'Seed Product B (LIFO Lots)',
+            'sale_method' => 'LIFO',
+        ]);
+
+        ProductMovement::create([
+            'product_id' => $productB->id,
+            'direction' => StockDirectionEnum::IN->value,
+            'movement_type' => ProductStockMovementTypeEnum::INTERNAL_PRODUCED->value,
+            'product_status' => ProductStatusEnum::COMPLETED->value,
+            'quantity' => 500,
+            'remaining_quantity' => 500,
+            'is_sold' => false,
+            'movement_date' => now()->subDays(8)->toDateTimeString(),
+            'purchase_unit_price_in_usd' => 0,
+            'purchase_total_price_in_usd' => 0,
+            'purchase_unit_price_in_riel' => 0,
+            'purchase_total_price_in_riel' => 0,
+            'exchange_rate_from_usd_to_riel' => 0,
+            'exchange_rate_from_riel_to_usd' => 0,
+            'selling_unit_price_in_usd' => 4,
+            'selling_unit_price_in_riel' => 16400,
+            'selling_exchange_rate_from_usd_to_riel' => 4100,
+            'selling_exchange_rate_from_riel_to_usd' => round(1 / 4100, 8),
+            'created_by' => $userId,
+            'last_updated_by' => $userId,
+        ]);
+
+        $bLot2 = ProductMovement::create([
+            'product_id' => $productB->id,
+            'direction' => StockDirectionEnum::IN->value,
+            'movement_type' => ProductStockMovementTypeEnum::RE_ORDER->value,
+            'product_status' => ProductStatusEnum::COMPLETED->value,
+            'quantity' => 50,
+            'remaining_quantity' => 40,
+            'is_sold' => true,
+            'movement_date' => now()->subDays(3)->toDateTimeString(),
+            'purchase_unit_price_in_usd' => 0,
+            'purchase_total_price_in_usd' => 0,
+            'purchase_unit_price_in_riel' => 0,
+            'purchase_total_price_in_riel' => 0,
+            'exchange_rate_from_usd_to_riel' => 0,
+            'exchange_rate_from_riel_to_usd' => 0,
+            'selling_unit_price_in_usd' => 4.5,
+            'selling_unit_price_in_riel' => 18450,
+            'selling_exchange_rate_from_usd_to_riel' => 4100,
+            'selling_exchange_rate_from_riel_to_usd' => round(1 / 4100, 8),
+            'created_by' => $userId,
+            'last_updated_by' => $userId,
+        ]);
+
+        $bSale = ProductMovement::create([
+            'product_id' => $productB->id,
+            'direction' => StockDirectionEnum::OUT->value,
+            'movement_type' => ProductStockMovementTypeEnum::SALE_ORDER->value,
+            'product_status' => ProductStatusEnum::COMPLETED->value,
+            'quantity' => 10,
+            'remaining_quantity' => 0,
+            'is_sold' => true,
+            'movement_date' => now()->subDays(2)->toDateTimeString(),
+            'purchase_unit_price_in_usd' => 0,
+            'purchase_total_price_in_usd' => 0,
+            'purchase_unit_price_in_riel' => 0,
+            'purchase_total_price_in_riel' => 0,
+            'exchange_rate_from_usd_to_riel' => 0,
+            'exchange_rate_from_riel_to_usd' => 0,
+            'selling_unit_price_in_usd' => 4.5,
+            'selling_unit_price_in_riel' => 18450,
+            'selling_exchange_rate_from_usd_to_riel' => 4100,
+            'selling_exchange_rate_from_riel_to_usd' => round(1 / 4100, 8),
+            'created_by' => $userId,
+            'last_updated_by' => $userId,
+        ]);
+
+        ProductMovementAllocation::create([
+            'sale_movement_id' => $bSale->id,
+            'source_movement_id' => $bLot2->id,
+            'allocated_quantity' => 10,
+            'selling_unit_price_in_usd' => 4.5,
+            'selling_unit_price_in_riel' => 18450,
+            'cost_unit_price_in_usd' => 0,
+            'cost_unit_price_in_riel' => 0,
+            'selling_exchange_rate_from_usd_to_riel' => 4100,
+            'selling_exchange_rate_from_riel_to_usd' => round(1 / 4100, 8),
+            'cost_exchange_rate_from_usd_to_riel' => 0,
+            'cost_exchange_rate_from_riel_to_usd' => 0,
+            'allocated_at' => now()->subDays(2)->toDateTimeString(),
+            'created_by' => $userId,
+        ]);
     }
 }

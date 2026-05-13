@@ -9,6 +9,19 @@ use Illuminate\Http\Request;
  *     name="Sale Orders",
  *     description="API Endpoints for managing sale orders. (Only Accessible for: ADMIN and CUSTOMER Users)"
  * )
+ *
+ * @OA\Schema(
+ *   schema="ProductMovementAllocation",
+ *   type="object",
+ *   @OA\Property(property="source_movement_id", type="integer", example=5),
+ *   @OA\Property(property="movement_type", type="string", example="RE_ORDER"),
+ *   @OA\Property(property="movement_date", type="string", format="date-time", nullable=true),
+ *   @OA\Property(property="allocated_quantity", type="number", format="float", example=10),
+ *   @OA\Property(property="selling_unit_price_in_usd", type="number", format="float", example=6),
+ *   @OA\Property(property="selling_unit_price_in_riel", type="number", format="float", example=24600),
+ *   @OA\Property(property="line_total_usd", type="number", format="float", example=60),
+ *   @OA\Property(property="line_total_riel", type="number", format="float", example=246000)
+ * )
  */
 interface SaleOrderAPIControllerInterface
 {
@@ -160,7 +173,31 @@ interface SaleOrderAPIControllerInterface
      *         @OA\JsonContent(
      *             @OA\Property(property="status", type="boolean", example=true),
      *             @OA\Property(property="message", type="string", example="Sale order created successfully"),
-     *             @OA\Property(property="data", type="object")
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="sale_order",
+     *                     type="object",
+     *                     @OA\Property(
+     *                         property="order_items",
+     *                         type="array",
+     *                         @OA\Items(
+     *                             type="object",
+     *                             @OA\Property(property="sale_movement_id", type="integer", nullable=true, example=300),
+     *                             @OA\Property(
+     *                                 property="allocation_summary",
+     *                                 type="object",
+     *                                 @OA\Property(property="sale_method", type="string", enum={"FIFO","LIFO"}, example="FIFO"),
+     *                                 @OA\Property(property="total_quantity", type="number", format="float", example=10),
+     *                                 @OA\Property(property="total_amount_usd", type="number", format="float", example=55),
+     *                                 @OA\Property(property="average_unit_price_usd", type="number", format="float", example=5.5),
+     *                                 @OA\Property(property="lots", type="array", @OA\Items(ref="#/components/schemas/ProductMovementAllocation"))
+     *                             )
+     *                         )
+     *                     )
+     *                 )
+     *             )
      *         )
      *     ),
      *     @OA\Response(
@@ -236,7 +273,7 @@ interface SaleOrderAPIControllerInterface
     *     tags={"Sale Orders"},
     *     security={{"Bearer":{}}},
     *     summary="Update sale order status",
-    *     description="Handles sale order status transition from DRAFT to COMPLETED path (excluding REFUNDED). Stock is deducted when status becomes COMPLETED, FIFO/LIFO is respected, consumed IN movements are flagged with is_sold=true, and payment_status can be updated in the same request.",
+    *     description="Handles sale order status transition from DRAFT to COMPLETED path (excluding REFUNDED). Stock is deducted when status becomes COMPLETED using FIFO/LIFO stock-lot allocation. Sale order items are linked to sale_movement_id and allocation_summary.",
     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer", example=1)),
     *     @OA\RequestBody(
     *         required=true,

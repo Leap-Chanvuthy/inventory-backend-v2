@@ -17,11 +17,17 @@ class ProductScrap
 {
 	protected GetCurrentUserHelper $getCurrentUserHelper;
 	protected AuditLoggerService $auditLoggerService;
+	protected ProductStockAllocationService $productStockAllocationService;
 
-	public function __construct(GetCurrentUserHelper $getCurrentUserHelper, AuditLoggerService $auditLoggerService)
+	public function __construct(
+		GetCurrentUserHelper $getCurrentUserHelper,
+		AuditLoggerService $auditLoggerService,
+		ProductStockAllocationService $productStockAllocationService
+	)
 	{
 		$this->getCurrentUserHelper = $getCurrentUserHelper;
 		$this->auditLoggerService = $auditLoggerService;
+		$this->productStockAllocationService = $productStockAllocationService;
 	}
 
 	public function createScrapMovement(Request $request, $productId)
@@ -47,13 +53,7 @@ class ProductScrap
 				'quantity'
 			);
 
-			$currentQtyInStock = 0;
-			$movements = ProductMovement::where('product_id', $product->id)->get();
-			foreach ($movements as $m) {
-				$qty = (float) ($m->quantity ?? 0);
-				$dir = is_object($m->direction) ? $m->direction->value : (string) $m->direction;
-				$currentQtyInStock += ($dir === 'OUT') ? (-$qty) : $qty;
-			}
+			$currentQtyInStock = $this->productStockAllocationService->getAvailableStock((int) $product->id);
 
 			if ($currentQtyInStock < (float) $validated['quantity']) {
 				return ResponseHelper::error('Insufficient product stock to scrap', 422, ['available_qty' => $currentQtyInStock]);
@@ -62,30 +62,19 @@ class ProductScrap
 			$currentUserId = $this->getCurrentUserHelper->getUserId();
 			$movementDate = $validated['movement_date'] ?? now()->toDateTimeString();
 
-			$movement = DB::transaction(function () use ($product, $validated, $currentUserId, $movementDate) {
-				return ProductMovement::create([
-					'product_id' => $product->id,
-					'direction' => \App\Enums\StockDirectionEnum::OUT->value,
+			$allocationResult = $this->productStockAllocationService->allocateProductForSale(
+				$product,
+				(float) $validated['quantity'],
+				$currentUserId,
+				$movementDate,
+				[
 					'movement_type' => \App\Enums\ProductStockMovementTypeEnum::SCRAP->value,
 					'product_status' => \App\Enums\ProductStatusEnum::COMPLETED->value,
-					'quantity' => $validated['quantity'],
-					'is_sold' => false,
-					'movement_date' => $movementDate,
 					'note' => $validated['note'] ?? null,
-					'created_by' => $currentUserId,
-					'last_updated_by' => $currentUserId,
-					'purchase_unit_price_in_usd' => 0,
-					'purchase_total_price_in_usd' => 0,
-					'exchange_rate_from_usd_to_riel' => 0,
-					'purchase_unit_price_in_riel' => 0,
-					'purchase_total_price_in_riel' => 0,
-					'exchange_rate_from_riel_to_usd' => 0,
-					'selling_unit_price_in_usd' => 0,
-					'selling_unit_price_in_riel' => 0,
-					'selling_exchange_rate_from_usd_to_riel' => 0,
-					'selling_exchange_rate_from_riel_to_usd' => 0,
-				]);
-			});
+				]
+			);
+
+			$movement = $allocationResult['sale_movement'];
 
 			$this->auditLoggerService->logChange(
 				'product.scrap.create',
@@ -138,17 +127,15 @@ class ProductScrap
 				'quantity'
 			);
 
-			if ($movement->is_sold === true) {
-				return ResponseHelper::error('Cannot update used stock movement', 401, 'The scrap movement has been sold/used. Data cannot be updated to avoid data inconsistency.');
+			if ($movement->saleAllocations()->exists()) {
+				return ResponseHelper::error(
+					'Cannot update allocated stock movement',
+					422,
+					'This scrap movement already consumed stock batches and cannot be edited. Create a new adjustment movement instead.'
+				);
 			}
 
-			$currentQtyInStock = 0;
-			$movements = ProductMovement::where('product_id', $product->id)->get();
-			foreach ($movements as $m) {
-				$qty = (float) ($m->quantity ?? 0);
-				$dir = is_object($m->direction) ? $m->direction->value : (string) $m->direction;
-				$currentQtyInStock += ($dir === 'OUT') ? (-$qty) : $qty;
-			}
+			$currentQtyInStock = $this->productStockAllocationService->getAvailableStock((int) $product->id);
 
 			$availableQty = $currentQtyInStock + (float) ($movement->quantity ?? 0);
 			if ($availableQty < (float) $validated['quantity']) {
@@ -163,6 +150,7 @@ class ProductScrap
 			$movement = DB::transaction(function () use ($movement, $validated, $currentUserId, $movementDate) {
 				$movement->update([
 					'quantity' => $validated['quantity'],
+					'remaining_quantity' => 0,
 					'direction' => \App\Enums\StockDirectionEnum::OUT->value,
 					'movement_type' => \App\Enums\ProductStockMovementTypeEnum::SCRAP->value,
 					'movement_date' => $movementDate,

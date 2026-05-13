@@ -21,7 +21,7 @@ class ProductQueryBuilder
         $latestSellingRiel = "(select pm.selling_unit_price_in_riel from product_movements pm where pm.product_id = products.id and pm.direction = 'IN' and (pm.selling_unit_price_in_usd > 0 or pm.selling_unit_price_in_riel > 0) order by pm.movement_date desc, pm.id desc limit 1)";
         $latestSellingUsdToRiel = "(select pm.selling_exchange_rate_from_usd_to_riel from product_movements pm where pm.product_id = products.id and pm.direction = 'IN' and (pm.selling_unit_price_in_usd > 0 or pm.selling_unit_price_in_riel > 0) order by pm.movement_date desc, pm.id desc limit 1)";
         $latestSellingRielToUsd = "(select pm.selling_exchange_rate_from_riel_to_usd from product_movements pm where pm.product_id = products.id and pm.direction = 'IN' and (pm.selling_unit_price_in_usd > 0 or pm.selling_unit_price_in_riel > 0) order by pm.movement_date desc, pm.id desc limit 1)";
-        $stockQtyExpression = "(COALESCE((SELECT SUM(quantity) FROM product_movements WHERE product_movements.product_id = products.id AND product_movements.direction = 'IN'),0)-COALESCE((SELECT SUM(quantity) FROM product_movements WHERE product_movements.product_id = products.id AND product_movements.direction = 'OUT'),0))";
+        $stockQtyExpression = "(COALESCE((SELECT SUM(remaining_quantity) FROM product_movements WHERE product_movements.product_id = products.id AND product_movements.direction = 'IN'),0))";
 
         $builder = QueryBuilderHelper::build(
             model: Product::class,
@@ -161,6 +161,117 @@ class ProductQueryBuilder
 
         return $builder
             ->where('product_movements.product_id', $productId)
+            ->paginate($perPage)
+            ->appends($request->query());
+    }
+
+    public function productStockLotBuilder(Request $request, int $productId)
+    {
+        $perPage = (int) $request->query('per_page', 10);
+        $perPage = max(1, min($perPage, 100));
+
+        $builder = QueryBuilderHelper::build(
+            model: ProductMovement::class,
+
+            joins: [
+                ['products', 'product_movements.product_id', '=', 'products.id'],
+                ['unit_of_measurements', 'products.base_uom_id', '=', 'unit_of_measurements.id'],
+                ['users as created_by_user', 'product_movements.created_by', '=', 'created_by_user.id'],
+                ['users as last_updated_by_user', 'product_movements.last_updated_by', '=', 'last_updated_by_user.id'],
+            ],
+
+            selects: [
+                'product_movements.*',
+                DB::raw('GREATEST(product_movements.quantity - product_movements.remaining_quantity, 0) as allocated_quantity'),
+                DB::raw("
+                    CASE
+                        WHEN product_movements.remaining_quantity <= 0 THEN 'CONSUMED'
+                        WHEN product_movements.remaining_quantity < product_movements.quantity THEN 'PARTIALLY_CONSUMED'
+                        ELSE 'AVAILABLE'
+                    END as lot_status
+                "),
+                'unit_of_measurements.name as uom_name',
+                'unit_of_measurements.symbol as uom_symbol',
+                'created_by_user.name as created_by_name',
+                'created_by_user.email as created_by_email',
+                'last_updated_by_user.name as last_updated_by_name',
+                'last_updated_by_user.email as last_updated_by_email',
+            ],
+
+            allowedFilters: [
+                AllowedFilter::exact('id'),
+                AllowedFilter::exact('product_id'),
+                AllowedFilter::exact('movement_type'),
+                AllowedFilter::exact('product_status'),
+
+                AllowedFilter::callback('search', function (Builder $query, $value) {
+                    $search = trim((string) $value);
+                    if ($search === '') {
+                        return;
+                    }
+
+                    $query->where(function (Builder $q) use ($search) {
+                        $q->where('product_movements.movement_type', 'LIKE', "%{$search}%")
+                            ->orWhere('product_movements.product_status', 'LIKE', "%{$search}%")
+                            ->orWhere('product_movements.note', 'LIKE', "%{$search}%")
+                            ->orWhere('created_by_user.name', 'LIKE', "%{$search}%")
+                            ->orWhere('last_updated_by_user.name', 'LIKE', "%{$search}%")
+                            ->orWhereRaw('CAST(product_movements.id AS CHAR) LIKE ?', ["%{$search}%"]);
+                    });
+                }),
+
+                AllowedFilter::callback('lot_status', function (Builder $query, $value) {
+                    $status = strtoupper(trim((string) $value));
+
+                    if ($status === 'CONSUMED') {
+                        $query->where('product_movements.remaining_quantity', '<=', 0);
+                        return;
+                    }
+
+                    if ($status === 'PARTIALLY_CONSUMED') {
+                        $query->where('product_movements.remaining_quantity', '>', 0)
+                            ->whereColumn('product_movements.remaining_quantity', '<', 'product_movements.quantity');
+                        return;
+                    }
+
+                    if ($status === 'AVAILABLE') {
+                        $query->whereColumn('product_movements.remaining_quantity', '>=', 'product_movements.quantity');
+                    }
+                }),
+
+                AllowedFilter::callback('has_remaining_stock', function (Builder $query, $value) {
+                    $normalized = strtolower((string) $value);
+                    if (in_array($normalized, ['1', 'true', 'yes'], true)) {
+                        $query->where('product_movements.remaining_quantity', '>', 0);
+                    }
+                    if (in_array($normalized, ['0', 'false', 'no'], true)) {
+                        $query->where('product_movements.remaining_quantity', '<=', 0);
+                    }
+                }),
+            ],
+
+            allowedSorts: [
+                'movement_date',
+                'created_at',
+                'updated_at',
+                'quantity',
+                'remaining_quantity',
+                'selling_unit_price_in_usd',
+                'selling_unit_price_in_riel',
+                'purchase_unit_price_in_usd',
+                'purchase_unit_price_in_riel',
+            ],
+
+            defaultSort: '-movement_date',
+
+            withRelations: [],
+
+            withCounts: [],
+        );
+
+        return $builder
+            ->where('product_movements.product_id', $productId)
+            ->where('product_movements.direction', 'IN')
             ->paginate($perPage)
             ->appends($request->query());
     }

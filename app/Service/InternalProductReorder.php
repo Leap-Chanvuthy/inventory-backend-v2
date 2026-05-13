@@ -148,6 +148,7 @@ class InternalProductReorder
 					'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
 					'product_status' => \App\Enums\ProductStatusEnum::COMPLETED->value,
 					'quantity' => $validated['quantity'],
+					'remaining_quantity' => $validated['quantity'],
 					'is_sold' => false,
 					'movement_date' => $movementDate,
 					'note' => $validated['note'] ?? null,
@@ -300,34 +301,14 @@ class InternalProductReorder
 				'last_updated_by' => $this->getCurrentUserHelper->getUserId(),
 			]);
 
-				$isSoldReorderMovement = ($movement->is_sold === true);
-				if ($isSoldReorderMovement) {
-					$incomingQty = $request->input('quantity');
-					$currentQty = (float) $movement->quantity;
-
-				if ($incomingQty !== null && $incomingQty !== '' && (float) $incomingQty !== $currentQty) {
-					return ResponseHelper::error(
-						'Cannot update sold movement quantity',
-						422,
-						'The reordered product has been sold. Quantity cannot be updated to avoid data inconsistency.'
-					);
-				}
-
-					if ($this->manufacturingService->isDifferentBom($bomItems, $lockedBom)) {
-						return ResponseHelper::error(
-							'Cannot update sold movement BOM',
-							422,
-							'The reordered product has been sold. BOM data cannot be updated to avoid inventory inconsistency.'
-						);
-					}
-
-					// Allow safe metadata/pricing updates only.
-					$bomItems = $this->manufacturingService->normalizeBomItems($lockedBom);
-					$request->merge([
-						'quantity' => $currentQty,
-						'raw_materials' => $bomItems,
-					]);
-				}
+			$isSoldReorderMovement = $movement->sourceAllocations()->exists();
+			if ($isSoldReorderMovement) {
+				return ResponseHelper::error(
+					'Cannot update allocated stock lot',
+					422,
+					'This stock lot has already been used in a sale. Quantity, price, movement date, and BOM cannot be changed. Use an adjustment or reorder movement instead.'
+				);
+			}
 
 			$lastMovement = ProductMovement::where('product_id', $product->id)
 				->orderBy('movement_date', 'desc')
@@ -416,6 +397,7 @@ class InternalProductReorder
 
 				$movement->update([
 					'quantity' => $validated['quantity'],
+					'remaining_quantity' => $validated['quantity'],
 					'direction' => \App\Enums\StockDirectionEnum::IN->value,
 					'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
 					'movement_date' => $validated['movement_date'],
@@ -530,8 +512,8 @@ class InternalProductReorder
 				return ResponseHelper::error('Movement not found or not a reorder movement', 404);
 			}
 
-			if ($movement->is_sold === true) {
-				return ResponseHelper::error('Cannot delete used stock movement', 401, 'The reordered product has been sold. Data cannot be deleted to avoid data inconsistency.');
+			if ($movement->sourceAllocations()->exists()) {
+				return ResponseHelper::error('Cannot delete used stock movement', 401, 'This stock lot has already been used in a sale and cannot be deleted.');
 			}
 
 			// Remove dependent reorder snapshot and any RM stock movements created for the reorder
