@@ -3127,6 +3127,170 @@
                 ]
             }
         },
+        "/api/v2/inventory-dashboard/summary": {
+            "get": {
+                "tags": [
+                    "Inventory Dashboard"
+                ],
+                "summary": "Inventory Dashboard Summary",
+                "description": "Returns KPI summary modules with trend metrics, time-series charts, top 10 tables, and unavailable metric reasons.",
+                "operationId": "b0e6a54b5cb7da15666bbd59a140599f",
+                "parameters": [
+                    {
+                        "name": "start_date",
+                        "in": "query",
+                        "description": "Filter start date (YYYY-MM-DD).",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-01-01"
+                        }
+                    },
+                    {
+                        "name": "end_date",
+                        "in": "query",
+                        "description": "Filter end date (YYYY-MM-DD). Must be >= start_date.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2026-12-31"
+                        }
+                    },
+                    {
+                        "name": "warehouse_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "supplier_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "customer_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Optional status filter mapped per module where applicable.",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Dashboard summary retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InventoryDashboardSummaryResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "This action is unauthorized."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error or invalid date range",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The end_date must be after or equal to start_date."
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "date_range": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "The end_date must be after or equal to start_date."
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
         "/api/products": {
             "get": {
                 "tags": [
@@ -14691,6 +14855,257 @@
                 },
                 "type": "object"
             },
+            "InventoryDashboardTrendMetric": {
+                "required": [
+                    "current",
+                    "previous",
+                    "change",
+                    "percentage_change",
+                    "percentage_change_display",
+                    "direction"
+                ],
+                "properties": {
+                    "current": {
+                        "type": "number",
+                        "example": 120
+                    },
+                    "previous": {
+                        "type": "number",
+                        "example": 100
+                    },
+                    "change": {
+                        "type": "number",
+                        "example": 20
+                    },
+                    "percentage_change": {
+                        "type": "number",
+                        "example": 20,
+                        "nullable": true
+                    },
+                    "percentage_change_display": {
+                        "type": "string",
+                        "example": "+20.00%",
+                        "nullable": true
+                    },
+                    "direction": {
+                        "type": "string",
+                        "enum": [
+                            "up",
+                            "down",
+                            "neutral"
+                        ],
+                        "example": "up"
+                    }
+                },
+                "type": "object"
+            },
+            "InventoryDashboardUnavailableMetric": {
+                "required": [
+                    "metric",
+                    "reason"
+                ],
+                "properties": {
+                    "metric": {
+                        "type": "string",
+                        "example": "top_10_suppliers_by_revenue"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "example": "Purchase order or supplier invoice table was not found."
+                    }
+                },
+                "type": "object"
+            },
+            "InventoryDashboardGlobalUnavailableMetric": {
+                "required": [
+                    "module",
+                    "metric",
+                    "reason"
+                ],
+                "properties": {
+                    "module": {
+                        "type": "string",
+                        "example": "suppliers"
+                    },
+                    "metric": {
+                        "type": "string",
+                        "example": "top_10_suppliers_by_revenue"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "example": "Purchase order or supplier invoice table was not found."
+                    }
+                },
+                "type": "object"
+            },
+            "InventoryDashboardChartPoint": {
+                "properties": {
+                    "date": {
+                        "type": "string",
+                        "example": "2026-02-01"
+                    },
+                    "label": {
+                        "type": "string",
+                        "example": "2026-02-01"
+                    },
+                    "value": {
+                        "type": "number",
+                        "example": 15
+                    }
+                },
+                "type": "object"
+            },
+            "InventoryDashboardKPIModule": {
+                "required": [
+                    "metrics",
+                    "charts",
+                    "tables",
+                    "unavailable_metrics"
+                ],
+                "properties": {
+                    "metrics": {
+                        "type": "object"
+                    },
+                    "charts": {
+                        "type": "object"
+                    },
+                    "tables": {
+                        "type": "object"
+                    },
+                    "unavailable_metrics": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/InventoryDashboardUnavailableMetric"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "InventoryDashboardSummaryResponse": {
+                "required": [
+                    "success",
+                    "message",
+                    "data"
+                ],
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "Inventory dashboard summary retrieved successfully."
+                    },
+                    "data": {
+                        "required": [
+                            "filters",
+                            "comparison_period",
+                            "summary",
+                            "unavailable_metrics"
+                        ],
+                        "properties": {
+                            "filters": {
+                                "properties": {
+                                    "start_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-02-01"
+                                    },
+                                    "end_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-02-28"
+                                    },
+                                    "warehouse_id": {
+                                        "type": "integer",
+                                        "example": 1,
+                                        "nullable": true
+                                    },
+                                    "supplier_id": {
+                                        "type": "integer",
+                                        "example": null,
+                                        "nullable": true
+                                    },
+                                    "customer_id": {
+                                        "type": "integer",
+                                        "example": null,
+                                        "nullable": true
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "COMPLETED",
+                                        "nullable": true
+                                    },
+                                    "user_id": {
+                                        "type": "integer",
+                                        "example": null,
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "comparison_period": {
+                                "properties": {
+                                    "previous_start_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-01-04"
+                                    },
+                                    "previous_end_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-01-31"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "summary": {
+                                "properties": {
+                                    "users": {
+                                        "$ref": "#/components/schemas/InventoryDashboardKPIModule"
+                                    },
+                                    "audit_logs": {
+                                        "$ref": "#/components/schemas/InventoryDashboardKPIModule"
+                                    },
+                                    "suppliers": {
+                                        "$ref": "#/components/schemas/InventoryDashboardKPIModule"
+                                    },
+                                    "raw_materials": {
+                                        "$ref": "#/components/schemas/InventoryDashboardKPIModule"
+                                    },
+                                    "products": {
+                                        "$ref": "#/components/schemas/InventoryDashboardKPIModule"
+                                    },
+                                    "warehouses": {
+                                        "$ref": "#/components/schemas/InventoryDashboardKPIModule"
+                                    },
+                                    "uoms": {
+                                        "$ref": "#/components/schemas/InventoryDashboardKPIModule"
+                                    },
+                                    "customers": {
+                                        "$ref": "#/components/schemas/InventoryDashboardKPIModule"
+                                    },
+                                    "categories": {
+                                        "$ref": "#/components/schemas/InventoryDashboardKPIModule"
+                                    },
+                                    "sale_orders": {
+                                        "$ref": "#/components/schemas/InventoryDashboardKPIModule"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "unavailable_metrics": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/InventoryDashboardGlobalUnavailableMetric"
+                                }
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
             "StockLot": {
                 "properties": {
                     "id": {
@@ -15654,6 +16069,10 @@
         {
             "name": "Authentication",
             "description": "API Endpoints for user authentication and password reset (Accessible for: All Users)"
+        },
+        {
+            "name": "Inventory Dashboard",
+            "description": "Inventory summary dashboard KPIs with period comparison, trend metrics, charts, and top tables."
         },
         {
             "name": "Products - Core",

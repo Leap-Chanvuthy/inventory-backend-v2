@@ -5,6 +5,7 @@ use App\Http\Controllers\API\AuthAPIController;
 use App\Http\Controllers\API\CompanyInfoAPIController;
 use App\Http\Controllers\API\CustomerAPIController;
 use App\Http\Controllers\API\CustomerCategoryAPIController;
+use App\Http\Controllers\API\InventoryDashboardAPIController;
 use App\Http\Controllers\API\ProductAPIController;
 use App\Http\Controllers\API\ProductCategoryAPIController;
 use App\Http\Controllers\API\RawMaterialAPIController;
@@ -42,6 +43,12 @@ Route::post('/login/2fa', [AuthAPIController::class, 'verifyTwoFactor']);
 Route::post('/send-reset-link', [AuthAPIController::class, 'sendResetLink']);
 Route::post('/reset-password', [AuthAPIController::class, 'resetPassword']);
 Route::post('/users/verify-email', [UserAPIController::class, 'verifyEmail']);
+
+Route::middleware(['auth:api', 'role:ADMIN'])
+    ->prefix('v2/inventory-dashboard')
+    ->group(function () {
+        Route::get('/summary', [InventoryDashboardAPIController::class, 'summary']);
+    });
 
 
 
