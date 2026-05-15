@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\ProductMovement;
 use App\Models\ProductMovementAllocation;
 use App\Models\SaleOrderItem;
+use App\Service\Support\StockLotDateService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -17,12 +18,26 @@ class ProductStockAllocationService
 {
     private const FLOAT_EPSILON = 0.000001;
 
-    public function getAvailableStock(int $productId): float
+    public function __construct(
+        protected StockLotDateService $stockLotDateService
+    ) {
+    }
+
+    public function getAvailableStock(int $productId, bool $excludeExpired = true): float
     {
-        return (float) ProductMovement::query()
+        $query = ProductMovement::query()
             ->where('product_id', $productId)
             ->where('direction', StockDirectionEnum::IN->value)
-            ->sum('remaining_quantity');
+            ->where('remaining_quantity', '>', 0);
+
+        if ($excludeExpired) {
+            $query->where(function ($q) {
+                $q->whereNull('expiry_date')
+                    ->orWhereDate('expiry_date', '>=', $this->stockLotDateService->today()->toDateString());
+            });
+        }
+
+        return (float) $query->sum('remaining_quantity');
     }
 
     public function validateSufficientStock(array $saleItems): array
@@ -38,7 +53,7 @@ class ProductStockAllocationService
             }
 
             $product = Product::query()->findOrFail($productId);
-            $availableQty = $this->getAvailableStock($productId);
+            $availableQty = $this->getAvailableStock($productId, true);
 
             if ($availableQty + self::FLOAT_EPSILON < $requiredQty) {
                 $shortfalls[] = [
@@ -205,11 +220,13 @@ class ProductStockAllocationService
                 'product_id' => (int) $product->id,
                 'quantity' => $quantity,
                 'remaining_quantity' => 0,
+                'source_movement_id' => null,
                 'product_status' => $saleContext['product_status'] ?? null,
                 'direction' => StockDirectionEnum::OUT->value,
                 'movement_type' => $saleContext['movement_type'] ?? ProductStockMovementTypeEnum::SALE_ORDER->value,
                 'is_sold' => true,
                 'movement_date' => $movementDateValue,
+                'expiry_date' => null,
                 'purchase_unit_price_in_usd' => $summary['average_cost_unit_price_in_usd'],
                 'purchase_total_price_in_usd' => $summary['total_cost_usd'],
                 'purchase_unit_price_in_riel' => $summary['average_cost_unit_price_in_riel'],
@@ -380,6 +397,10 @@ class ProductStockAllocationService
             ->where('product_id', $product->id)
             ->where('direction', StockDirectionEnum::IN->value)
             ->where('remaining_quantity', '>', 0)
+            ->where(function ($q) {
+                $q->whereNull('expiry_date')
+                    ->orWhereDate('expiry_date', '>=', $this->stockLotDateService->today()->toDateString());
+            })
             ->orderBy('movement_date', $direction)
             ->orderBy('id', $direction);
     }

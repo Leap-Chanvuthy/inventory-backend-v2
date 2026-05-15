@@ -99,7 +99,10 @@ Route::middleware(['auth:api', 'role:STOCK_CONTROLLER,VENDER'])->group(function 
         Route::get('/', [ProductAPIController::class, 'index']);
         Route::get('/{id}/movements', [ProductAPIController::class, 'movements']);
         Route::get('/{id}/stock-lots', [ProductAPIController::class, 'stockLots']);
+        Route::get('/{id}/scrap-eligible-stock-lots', [ProductAPIController::class, 'scrapEligibleStockLots']);
         Route::get('/{id}/pnl-detail', [ProductAPIController::class, 'pnlDetail']);
+        Route::get('/{id}/bom-summary', [ProductAPIController::class, 'bomSummary']);
+        Route::get('/{productId}/movements/{movementId}/bom-summary', [ProductAPIController::class, 'movementBomSummary']);
         Route::get('/trashed', [ProductAPIController::class, 'trashed']);
         Route::get('/{id}', [ProductAPIController::class, 'show']);
         Route::post('/{id}/sale-allocation-preview', [ProductAPIController::class, 'saleAllocationPreview']);
@@ -112,16 +115,22 @@ Route::middleware(['auth:api' , 'role:STOCK_CONTROLLER'])->group(function () {
 
     Route::prefix('raw-materials')->group(function () {
         Route::get('/' , [RawMaterialAPIController::class , 'index'] );
-        Route::get('/{rawMaterialId}/movements', [RawMaterialAPIController::class, 'indexMovement']);        Route::get('/deleted' , [RawMaterialAPIController::class , 'allDeleted']);
+        Route::get('/{rawMaterialId}/movements', [RawMaterialAPIController::class, 'indexMovement']);
+        Route::get('/{rawMaterialId}/stock-lots', [RawMaterialAPIController::class, 'stockLots']);
+        Route::get('/{rawMaterialId}/scrap-eligible-stock-lots', [RawMaterialAPIController::class, 'scrapEligibleStockLots']);
+        Route::post('/{rawMaterialId}/production-allocation-preview', [RawMaterialAPIController::class, 'productionAllocationPreview']);
+        Route::get('/deleted' , [RawMaterialAPIController::class , 'allDeleted']);
         Route::get('/{id}' , [RawMaterialAPIController::class , 'show'] );
         Route::post('/create' , [RawMaterialAPIController::class , 'store'] );
         Route::patch('/{id}', [RawMaterialAPIController::class, 'update']);
         Route::delete('/{id}', [RawMaterialAPIController::class, 'delete']);
         Route::patch('/{id}/recover', [RawMaterialAPIController::class, 'recover']);
+        Route::post('/{rawMaterialId}/images', [RawMaterialAPIController::class, 'uploadImages']);
         Route::delete('/{rawMaterialId}/images', [RawMaterialAPIController::class, 'deleteImages']);
         Route::post('/{rawMaterialId}/reorder', [RawMaterialAPIController::class, 'reorder']);
         Route::patch('/{rawMaterialId}/reorder/{movementId}', [RawMaterialAPIController::class, 'updateReorder']);
         Route::post('/{rawMaterialId}/adjustment-out', [RawMaterialAPIController::class, 'adjustmentOut']);
+        Route::post('/{rawMaterialId}/scraps', [RawMaterialAPIController::class, 'createScrap']);
         Route::post('/{rawMaterialId}/stock-movements', [RMStockMovementAPIController::class, 'store']);
 
     });
@@ -216,6 +225,13 @@ Route::middleware(['auth:api' , 'role:STOCK_CONTROLLER'])->group(function () {
         Route::patch('/{id}/update/external-purchase', [ProductAPIController::class, 'updateExternalPurchase']);
         Route::patch('/{id}/update/internal-manufacturing', [ProductAPIController::class, 'updateInternalManufacturing']);
         Route::post('/{id}/scrap', [ProductAPIController::class, 'createScrap']);
+        Route::post('/{id}/scraps', [ProductAPIController::class, 'createScraps']);
+        Route::get('/{id}/scrap-eligible-stock-lots', [ProductAPIController::class, 'scrapEligibleStockLots']);
+        Route::get('/{id}/bom-summary', [ProductAPIController::class, 'bomSummary']);
+        Route::get('/{productId}/movements/{movementId}/bom-summary', [ProductAPIController::class, 'movementBomSummary']);
+        Route::post('/{id}/images', [ProductAPIController::class, 'uploadImages']);
+        Route::delete('/{productId}/images/{imageId}', [ProductAPIController::class, 'deleteImage']);
+        Route::patch('/{productId}/images/{imageId}/primary', [ProductAPIController::class, 'setPrimaryImage']);
         Route::get('/{productId}/scrap/{movementId}', [ProductAPIController::class, 'getScrap']);
         Route::patch('/{productId}/scrap/{movementId}', [ProductAPIController::class, 'updateScrap']);
     });

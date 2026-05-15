@@ -14432,6 +14432,484 @@
                     }
                 ]
             }
+        },
+        "/api/products/{id}/scrap-eligible-stock-lots": {
+            "get": {
+                "tags": [
+                    "Products - Stock Lots"
+                ],
+                "summary": "Get product stock batches eligible for scrap",
+                "operationId": "4e7edacf40fbefafa47622a222b5da3c",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "include_disabled",
+                        "in": "query",
+                        "description": "Include disabled lots and reasons",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Eligible stock lots retrieved"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/products/{id}/scraps": {
+            "post": {
+                "tags": [
+                    "Products - Stock Lots"
+                ],
+                "summary": "Create product scrap from a selected stock batch",
+                "operationId": "b959f4fe065352060a9cc7d056b94093",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "source_movement_id",
+                                    "quantity"
+                                ],
+                                "properties": {
+                                    "source_movement_id": {
+                                        "type": "integer",
+                                        "example": 101
+                                    },
+                                    "quantity": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 5
+                                    },
+                                    "movement_date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "nullable": true
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "example": "Damaged packaging",
+                                        "nullable": true
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Manual scrap by QA",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Scrap created successfully"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/products/{id}/bom-summary": {
+            "get": {
+                "tags": [
+                    "Products - Stock Lots"
+                ],
+                "summary": "Get internal product BOM summary",
+                "operationId": "2be55f62886fc066768b1cdb44db3671",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "BOM summary retrieved"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/products/{productId}/movements/{movementId}/bom-summary": {
+            "get": {
+                "tags": [
+                    "Products - Stock Lots"
+                ],
+                "summary": "Get internal product BOM summary by production movement",
+                "operationId": "4693eddef756855c09b126519ddcdce9",
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "movementId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Movement BOM summary retrieved"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/products/{id}/images": {
+            "post": {
+                "tags": [
+                    "Products - Stock Lots"
+                ],
+                "summary": "Upload product images",
+                "operationId": "52961693ec30d92c37103307ef62bc6e",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "images"
+                                ],
+                                "properties": {
+                                    "images[]": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "binary"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Images uploaded"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/products/{productId}/images/{imageId}": {
+            "delete": {
+                "tags": [
+                    "Products - Stock Lots"
+                ],
+                "summary": "Delete a product image",
+                "operationId": "521f2a05e051abd413b0361fba049db5",
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "imageId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Image deleted"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/products/{productId}/images/{imageId}/primary": {
+            "patch": {
+                "tags": [
+                    "Products - Stock Lots"
+                ],
+                "summary": "Set a primary product image",
+                "operationId": "cad3ae2719f615369e97990615887048",
+                "parameters": [
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "imageId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Primary image updated"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/raw-materials/{rawMaterialId}/stock-lots": {
+            "get": {
+                "tags": [
+                    "Raw Materials - Stock Lots"
+                ],
+                "summary": "Get raw material stock batch hierarchy",
+                "operationId": "7c440e60db346bba1ee4f0bfbc3bec84",
+                "parameters": [
+                    {
+                        "name": "rawMaterialId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Stock lots retrieved"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/raw-materials/{rawMaterialId}/scrap-eligible-stock-lots": {
+            "get": {
+                "tags": [
+                    "Raw Materials - Stock Lots"
+                ],
+                "summary": "Get raw material stock batches eligible for scrap",
+                "operationId": "fad8eb4e293ecaffd3b78908161f1211",
+                "parameters": [
+                    {
+                        "name": "rawMaterialId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Eligible stock lots retrieved"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/raw-materials/{rawMaterialId}/production-allocation-preview": {
+            "post": {
+                "tags": [
+                    "Raw Materials - Stock Lots"
+                ],
+                "summary": "Preview raw material FIFO/LIFO allocation",
+                "operationId": "fabdd98f09a70eec018571ae469565f7",
+                "parameters": [
+                    {
+                        "name": "rawMaterialId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "quantity"
+                                ],
+                                "properties": {
+                                    "quantity": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 150
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Allocation preview generated"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
+        },
+        "/api/raw-materials/{rawMaterialId}/scraps": {
+            "post": {
+                "tags": [
+                    "Raw Materials - Stock Lots"
+                ],
+                "summary": "Create raw material scrap from a selected stock batch",
+                "operationId": "bd8941454076e389c964fefe9e05bfe7",
+                "parameters": [
+                    {
+                        "name": "rawMaterialId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "source_movement_id",
+                                    "quantity"
+                                ],
+                                "properties": {
+                                    "source_movement_id": {
+                                        "type": "integer",
+                                        "example": 701
+                                    },
+                                    "quantity": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 12
+                                    },
+                                    "movement_date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "nullable": true
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "example": "Damaged bag",
+                                        "nullable": true
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Scrap created successfully"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -16055,6 +16533,223 @@
                     }
                 },
                 "type": "object"
+            },
+            "ProductStockLotChild": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 501
+                    },
+                    "type": {
+                        "type": "string",
+                        "example": "SALE_ORDER"
+                    },
+                    "reference": {
+                        "type": "string",
+                        "example": "SO-0001",
+                        "nullable": true
+                    },
+                    "quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 100
+                    },
+                    "date": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "unit_price": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 6,
+                        "nullable": true
+                    },
+                    "total": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 600,
+                        "nullable": true
+                    },
+                    "reason": {
+                        "type": "string",
+                        "example": "Damaged packaging",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "ProductStockLotHierarchy": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 101
+                    },
+                    "batch_code": {
+                        "type": "string",
+                        "example": "PM-101"
+                    },
+                    "movement_type": {
+                        "type": "string",
+                        "example": "RE_ORDER"
+                    },
+                    "direction": {
+                        "type": "string",
+                        "example": "IN"
+                    },
+                    "movement_date": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "expiry_date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-12-31",
+                        "nullable": true
+                    },
+                    "is_expired": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "days_until_expiry": {
+                        "type": "integer",
+                        "example": 220,
+                        "nullable": true
+                    },
+                    "quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 1000
+                    },
+                    "remaining_quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 820
+                    },
+                    "sold_quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 150
+                    },
+                    "scrapped_quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 30
+                    },
+                    "adjusted_out_quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 0
+                    },
+                    "available_quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 820
+                    },
+                    "selling_unit_price_in_usd": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 6
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "PARTIALLY_USED"
+                    },
+                    "can_sale": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "can_scrap": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "disabled_reason": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "children": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ProductStockLotChild"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "RawMaterialStockLotHierarchy": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 701
+                    },
+                    "batch_code": {
+                        "type": "string",
+                        "example": "RM-701"
+                    },
+                    "movement_type": {
+                        "type": "string",
+                        "example": "PURCHASE"
+                    },
+                    "movement_date": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "expiry_date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-09-20",
+                        "nullable": true
+                    },
+                    "is_expired": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 500
+                    },
+                    "remaining_quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 120
+                    },
+                    "used_in_production_quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 340
+                    },
+                    "scrapped_quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 40
+                    },
+                    "available_quantity": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 120
+                    },
+                    "unit_cost_usd": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 0.3
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "PARTIALLY_USED"
+                    },
+                    "can_use_for_production": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "can_scrap": {
+                        "type": "boolean",
+                        "example": true
+                    }
+                },
+                "type": "object"
             }
         },
         "securitySchemes": {
@@ -16137,6 +16832,14 @@
         {
             "name": "Warehouses",
             "description": "API Endpoints for managing warehouses. (Only Accessible for: ADMIN and STOCK_CONTROLLER Users)"
+        },
+        {
+            "name": "Products - Stock Lots",
+            "description": "Product stock batch hierarchy, scrap, BOM and image APIs"
+        },
+        {
+            "name": "Raw Materials - Stock Lots",
+            "description": "Raw material stock batch hierarchy, allocation preview and scrap APIs"
         },
         {
             "name": "Audit Logs",

@@ -63,6 +63,16 @@ class ProductAPIController extends Controller
         return $this->productService->getProductPnLDetail((int) $id);
     }
 
+    public function bomSummary($id)
+    {
+        return $this->productService->getProductBomSummary((int) $id);
+    }
+
+    public function movementBomSummary($productId, $movementId)
+    {
+        return $this->productService->getProductBomSummary((int) $productId, (int) $movementId);
+    }
+
     public function storeExternalPurchase(Request $request)
     {
         return $this->productService->createExternalPurchasedProduct($request);
@@ -142,6 +152,11 @@ class ProductAPIController extends Controller
         return $this->productScrap->createScrapMovement($request, $id);
     }
 
+    public function createScraps(Request $request, $id)
+    {
+        return $this->productScrap->createScrapMovement($request, $id);
+    }
+
     public function updateScrap(Request $request, $productId, $movementId)
     {
         return $this->productScrap->updateScrapMovement($request, $productId, $movementId);
@@ -150,6 +165,26 @@ class ProductAPIController extends Controller
     public function getScrap($productId, $movementId)
     {
         return $this->productScrap->getScrapDetail((int)$productId, (int)$movementId);
+    }
+
+    public function scrapEligibleStockLots(Request $request, $id)
+    {
+        return $this->productService->getScrapEligibleStockLots($request, (int) $id);
+    }
+
+    public function uploadImages(Request $request, $id)
+    {
+        return $this->productService->uploadProductImages($request, (int) $id);
+    }
+
+    public function deleteImage($productId, $imageId)
+    {
+        return $this->productService->deleteProductImage((int) $productId, (int) $imageId);
+    }
+
+    public function setPrimaryImage($productId, $imageId)
+    {
+        return $this->productService->setPrimaryProductImage((int) $productId, (int) $imageId);
     }
 
 

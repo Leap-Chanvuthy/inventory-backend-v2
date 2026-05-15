@@ -3,117 +3,74 @@
 namespace App\Service;
 
 use App\Enums\RawMaterialStockMovementTypeEnum;
-use App\Enums\StockDirectionEnum;
-use App\Models\RawMaterial;
+use App\Models\RawMaterialMovementAllocation;
 use App\Models\RMStockMovement;
+use Illuminate\Support\Facades\DB;
 
 /**
- * Handles FIFO / LIFO raw material stock check and deduction
- * when creating an internally manufactured product.
+ * Backward-compatible façade for raw material deduction workflows.
+ * Internally delegates lot-level stock control to RawMaterialStockAllocationService.
  */
 class RawMaterialStockDeductionService
 {
-    // ─────────────────────────────────────────────────────────────────────────
-    // Public: validate that stock is sufficient for every BOM item.
-    // Returns an array of shortfall details; empty array = all stock OK.
-    // ─────────────────────────────────────────────────────────────────────────
+    public function __construct(
+        protected RawMaterialStockAllocationService $rawMaterialStockAllocationService
+    ) {
+    }
 
     public function validateSufficientStock(array $bomItems, ?string $asOfMovementDate = null): array
     {
-        $shortfalls = [];
-
-        foreach ($bomItems as $item) {
-            $rawMaterialId  = (int) $item['raw_material_id'];
-            $requiredQty    = (float) $item['quantity'];
-
-            $rawMaterial = RawMaterial::findOrFail($rawMaterialId);
-
-            // Availability is always calculated as net stock:
-            // SUM(IN direction qty) - SUM(OUT direction qty), without movement-date filtering.
-            $availableQty = $this->getAvailableStock($rawMaterialId);
-
-            if ($availableQty < $requiredQty) {
-                $shortfalls[] = [
-                    'raw_material_id'   => $rawMaterialId,
-                    'material_name'     => $rawMaterial->material_name,
-                    'material_sku_code' => $rawMaterial->material_sku_code,
-                    'required_qty'      => $requiredQty,
-                    'available_qty'     => $availableQty,
-                    'shortfall_qty'     => round($requiredQty - $availableQty, 4),
-                ];
-            }
-        }
-
-        return $shortfalls;
+        return $this->rawMaterialStockAllocationService->validateSufficientStock($bomItems);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Public: deduct stock for all BOM items (must run inside a DB transaction).
-    // Creates OUT movements for production receipt/scrap consumption and marks
-    // consumed IN batches with in_used = true (including partially consumed batches).
-    // ─────────────────────────────────────────────────────────────────────────
-
     public function deductStock(
-        array  $bomItems,
-        int    $productId,
-        int    $userId,
+        array $bomItems,
+        int $productId,
+        int $userId,
         string $movementDate,
         ?string $referenceToken = null,
-        ?string $movementType = null
+        ?string $movementType = null,
+        array $context = []
     ): void {
         $resolvedMovementType = $movementType ?: RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value;
 
         foreach ($bomItems as $item) {
-            $rawMaterialId = (int) $item['raw_material_id'];
-            $remaining     = (float) $item['quantity'];
+            $rawMaterialId = (int) ($item['raw_material_id'] ?? 0);
+            $quantity = (float) ($item['quantity'] ?? 0);
 
-            $rawMaterial = RawMaterial::findOrFail($rawMaterialId);
-
-            $inMovements = $this->getOrderedInMovements($rawMaterialId, $rawMaterial->production_method);
-
-            foreach ($inMovements as $batch) {
-                if ($remaining <= 0) {
-                    break;
-                }
-
-                $inMovement = $batch['movement'];
-                $batchAvailable = (float) $batch['available_quantity'];
-                if ($batchAvailable <= 0) {
-                    continue;
-                }
-                $consume        = min($batchAvailable, $remaining);
-
-                // Create OUT record for the consumed portion.
-                RMStockMovement::create([
-                    'raw_material_id'              => $rawMaterialId,
-                    'quantity'                     => $consume,
-                    'direction'                    => StockDirectionEnum::OUT->value,
-                    'movement_type'                => $resolvedMovementType,
-                    'in_used'                      => false,
-                    'movement_date'                => $movementDate,
-                    'unit_price_in_usd'            => $inMovement->unit_price_in_usd,
-                    'total_value_in_usd'           => round($inMovement->unit_price_in_usd * $consume, 4),
-                    'exchange_rate_from_usd_to_riel' => $inMovement->exchange_rate_from_usd_to_riel,
-                    'unit_price_in_riel'           => $inMovement->unit_price_in_riel,
-                    'total_value_in_riel'          => round($inMovement->unit_price_in_riel * $consume, 0),
-                    'exchange_rate_from_riel_to_usd' => $inMovement->exchange_rate_from_riel_to_usd,
-                    'created_by'                   => $userId,
-                    'last_updated_by'              => $userId,
-                    'note'                         => $this->buildConsumptionNote($productId, $referenceToken),
-                ]);
-
-                // Mark batch as used when any quantity is consumed.
-                if ($consume > 0) {
-                    $inMovement->update(['in_used' => true]);
-                }
-
-                $remaining -= $consume;
+            if ($rawMaterialId <= 0 || $quantity <= 0) {
+                continue;
             }
+
+            $noteParts = [];
+            if (!empty($context['note'])) {
+                $noteParts[] = (string) $context['note'];
+            } else {
+                $noteParts[] = "Consumed for product ID {$productId}";
+            }
+
+            if (!empty($referenceToken)) {
+                $noteParts[] = (string) $referenceToken;
+            }
+
+            $this->rawMaterialStockAllocationService->allocateForConsumption(
+                $rawMaterialId,
+                $quantity,
+                $userId,
+                $movementDate,
+                $resolvedMovementType,
+                [
+                    'product_id' => $productId,
+                    'product_movement_id' => $context['product_movement_id'] ?? null,
+                    'note' => implode(' | ', array_filter($noteParts)),
+                ]
+            );
         }
     }
 
     /**
      * Delete reorder-created OUT movements by token and return affected raw material IDs.
+     * Also deletes related allocation rows for cleanup consistency.
      */
     public function deleteReorderConsumptionMovementsByToken(string $referenceToken, ?array $movementTypes = null): array
     {
@@ -124,7 +81,8 @@ class RawMaterialStockDeductionService
             RawMaterialStockMovementTypeEnum::PRODUCTION_SCRAP->value,
         ];
 
-        $movements = RMStockMovement::where('direction', StockDirectionEnum::OUT->value)
+        $movements = RMStockMovement::query()
+            ->where('direction', 'OUT')
             ->whereIn('movement_type', $movementTypes)
             ->where('note', 'like', '%' . $referenceToken . '%')
             ->get(['id', 'raw_material_id']);
@@ -134,130 +92,74 @@ class RawMaterialStockDeductionService
         }
 
         $rawMaterialIds = $movements->pluck('raw_material_id')->unique()->values()->all();
+        $movementIds = $movements->pluck('id')->map(fn ($id) => (int) $id)->all();
 
-        RMStockMovement::whereIn('id', $movements->pluck('id')->all())->delete();
+        DB::transaction(function () use ($movementIds) {
+            $allocations = RawMaterialMovementAllocation::query()
+                ->whereIn('consumer_movement_id', $movementIds)
+                ->lockForUpdate()
+                ->get();
+
+            $restoreBySource = [];
+            foreach ($allocations as $allocation) {
+                $sourceId = (int) $allocation->source_movement_id;
+                $restoreBySource[$sourceId] = round(
+                    (float) ($restoreBySource[$sourceId] ?? 0) + (float) $allocation->allocated_quantity,
+                    4
+                );
+            }
+
+            foreach ($restoreBySource as $sourceId => $restoreQty) {
+                $sourceMovement = RMStockMovement::query()
+                    ->whereKey($sourceId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$sourceMovement) {
+                    continue;
+                }
+
+                $restored = round((float) $sourceMovement->remaining_quantity + $restoreQty, 4);
+                $sourceMovement->update([
+                    'remaining_quantity' => min((float) $sourceMovement->quantity, $restored),
+                ]);
+            }
+
+            RawMaterialMovementAllocation::query()
+                ->whereIn('consumer_movement_id', $movementIds)
+                ->delete();
+
+            RMStockMovement::query()
+                ->whereIn('id', $movementIds)
+                ->delete();
+        });
 
         return $rawMaterialIds;
     }
 
-    /**
-     * Recalculate in_used flags after movement replacement to keep stock state consistent.
-     */
     public function rebuildInUsedFlags(array $rawMaterialIds): void
     {
-        foreach (array_unique(array_map('intval', $rawMaterialIds)) as $rawMaterialId) {
-            if ($rawMaterialId <= 0) {
-                continue;
-            }
+        $ids = array_values(array_unique(array_map('intval', $rawMaterialIds)));
+        if (empty($ids)) {
+            return;
+        }
 
-            // Reset all IN rows first, then mark used rows again.
-            RMStockMovement::where('raw_material_id', $rawMaterialId)
-                ->where('direction', StockDirectionEnum::IN->value)
-                ->update(['in_used' => false]);
+        foreach ($ids as $rawMaterialId) {
+            $inMovements = RMStockMovement::query()
+                ->where('raw_material_id', $rawMaterialId)
+                ->where('direction', 'IN')
+                ->get(['id', 'remaining_quantity']);
 
-            $remainingOut = (float) RMStockMovement::where('raw_material_id', $rawMaterialId)
-                ->where('direction', StockDirectionEnum::OUT->value)
-                ->sum('quantity');
-
-            if ($remainingOut <= 0) {
-                continue;
-            }
-
-            $rawMaterial = RawMaterial::find($rawMaterialId);
-            $methodValue = is_object($rawMaterial->production_method) ? $rawMaterial->production_method->value : (string) $rawMaterial->production_method;
-            $order = strtoupper($methodValue) === 'LIFO' ? 'desc' : 'asc';
-
-            $inRows = RMStockMovement::where('raw_material_id', $rawMaterialId)
-                ->where('direction', StockDirectionEnum::IN->value)
-                ->orderBy('movement_date', $order)
-                ->orderBy('id', $order)
-                ->get(['id', 'quantity']);
-
-            foreach ($inRows as $inRow) {
-                if ($remainingOut <= 0) {
-                    break;
-                }
-
-                $inQty = (float) $inRow->quantity;
-                $consume = min($inQty, $remainingOut);
-                if ($consume > 0) {
-                    RMStockMovement::where('id', $inRow->id)->update(['in_used' => true]);
-                    $remainingOut -= $consume;
-                }
+            foreach ($inMovements as $movement) {
+                $movement->update([
+                    'in_used' => (float) $movement->remaining_quantity < (float) $movement->quantity,
+                ]);
             }
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Private helpers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Sum available (not fully consumed) IN stock for a raw material.
-     */
     public function getAvailableStock(int $rawMaterialId, ?string $asOfMovementDate = null): float
     {
-        // Compute net available stock as total IN minus total OUT.
-        // Movement date is intentionally ignored to keep availability
-        // consistent across detail/list/manufacturing flows.
-        $totalInQuery = RMStockMovement::where('raw_material_id', $rawMaterialId)
-            ->where('direction', StockDirectionEnum::IN->value);
-        $totalIn = $totalInQuery->sum('quantity');
-
-        $totalOutQuery = RMStockMovement::where('raw_material_id', $rawMaterialId)
-            ->where('direction', StockDirectionEnum::OUT->value);
-        $totalOut = $totalOutQuery->sum('quantity');
-
-        return max(0, (float) $totalIn - (float) $totalOut);
+        return $this->rawMaterialStockAllocationService->getAvailableStock($rawMaterialId, true);
     }
-
-    /**
-     * Return IN movements ordered by FIFO (oldest first) or LIFO (newest first),
-     * with reconstructed remaining quantity per batch based on current OUT totals.
-     */
-    private function getOrderedInMovements(int $rawMaterialId, mixed $productionMethod)
-    {
-        $methodValue = is_object($productionMethod) ? $productionMethod->value : (string) $productionMethod;
-
-        $order = strtoupper($methodValue) === 'LIFO' ? 'desc' : 'asc';
-
-        $inMovementsQuery = RMStockMovement::where('raw_material_id', $rawMaterialId)
-            ->where('direction', StockDirectionEnum::IN->value)
-            ->orderBy('movement_date', $order)
-            ->orderBy('id', $order);
-        $inMovements = $inMovementsQuery->get();
-
-        $remainingOutQuery = RMStockMovement::where('raw_material_id', $rawMaterialId)
-            ->where('direction', StockDirectionEnum::OUT->value);
-        $remainingOut = (float) $remainingOutQuery->sum('quantity');
-
-        $batches = [];
-        foreach ($inMovements as $inMovement) {
-            $inQty = (float) $inMovement->quantity;
-            $consumed = min($inQty, $remainingOut);
-            $available = $inQty - $consumed;
-            $remainingOut -= $consumed;
-
-            if ($available > 0) {
-                $batches[] = [
-                    'movement' => $inMovement,
-                    'available_quantity' => $available,
-                ];
-            }
-        }
-
-        return collect($batches);
-    }
-
-    private function buildConsumptionNote(int $productId, ?string $referenceToken = null): string
-    {
-        $note = "Consumed for product ID {$productId}";
-
-        if (!empty($referenceToken)) {
-            $note .= " | {$referenceToken}";
-        }
-
-        return $note;
-    }
-
 }

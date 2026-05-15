@@ -41,6 +41,17 @@ return new class extends Migration
                 ProductStockMovementTypeEnum::ADJUSTMENT_IN->value,
                 ProductStockMovementTypeEnum::ADJUSTMENT_OUT->value,
             ]);
+
+            $table->foreignId('source_movement_id')
+                ->nullable()
+                ->comment('Parent stock-IN movement used by stock-OUT actions such as SCRAP or ADJUSTMENT_OUT.')
+                ->constrained('product_movements')
+                ->restrictOnDelete()
+                ->cascadeOnUpdate();
+
+            $table->date('expiry_date')
+                ->nullable()
+                ->comment('Expiry date for stock-IN lots. Expired lots cannot be consumed by sale/scrap/adjustment out.');
             
             // purchasing price
             $table->decimal('purchase_unit_price_in_usd', 15, 4)->default(0);
@@ -66,8 +77,11 @@ return new class extends Migration
 
             $table->index(['product_id', 'direction', 'remaining_quantity']);
             $table->index(['product_id', 'direction', 'movement_date']);
+            $table->index(['product_id', 'direction', 'expiry_date']);
             $table->index(['product_id', 'movement_type']);
+            $table->index(['source_movement_id']);
             $table->index(['remaining_quantity']);
+            $table->index(['expiry_date']);
 
             $table->timestamps();
         });

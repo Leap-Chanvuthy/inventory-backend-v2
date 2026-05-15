@@ -88,6 +88,7 @@ class ProductValidation
             'selling_exchange_rate_from_riel_to_usd'     => 'nullable|numeric|min:0',
 
             'movement_date'                      => 'required|date',
+            'expiry_date'                        => 'nullable|date',
             'note'                               => 'nullable|string',
 
             // Raw materials are NOT allowed for external purchase flow
@@ -116,6 +117,7 @@ class ProductValidation
             'selling_exchange_rate_from_riel_to_usd'     => 'nullable|numeric|min:0',
 
             'movement_date'                              => 'required|date',
+            'expiry_date'                                => 'nullable|date',
             'note'                                       => 'nullable|string',
 
             // Bill of materials
@@ -190,7 +192,7 @@ class ProductValidation
     {
         return [
             'images'   => 'nullable|array|max:4',
-            'images.*' => 'image|mimes:jpeg,png,jpg|max:2048',
+            'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
         ];
     }
 

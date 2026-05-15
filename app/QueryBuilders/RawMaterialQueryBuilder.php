@@ -7,6 +7,7 @@ use App\Models\RawMaterial;
 use App\Models\RMStockMovement;
 use Illuminate\Http\Request;
 use Spatie\QueryBuilder\AllowedFilter;
+use Spatie\QueryBuilder\AllowedSort;
 use Illuminate\Database\Eloquent\Builder;
 
 class RawMaterialQueryBuilder {
@@ -17,16 +18,16 @@ class RawMaterialQueryBuilder {
         $perPage = max(1, min($perPage, 100));
         $stockQtyExpression = "(
             SELECT COALESCE(
-                SUM(
-                    CASE
-                        WHEN rm_stock_movements.direction = 'OUT' THEN -rm_stock_movements.quantity
-                        ELSE rm_stock_movements.quantity
-                    END
-                ),
+                SUM(rm_stock_movements.remaining_quantity),
                 0
             )
             FROM rm_stock_movements
             WHERE rm_stock_movements.raw_material_id = raw_materials.id
+              AND rm_stock_movements.direction = 'IN'
+              AND (
+                    rm_stock_movements.expiry_date IS NULL
+                    OR DATE(rm_stock_movements.expiry_date) >= CURDATE()
+              )
         )";
 
         $builder = QueryBuilderHelper::build(
@@ -160,13 +161,14 @@ class RawMaterialQueryBuilder {
             ],
 
             allowedSorts: [
-                'movement_date',
-                'created_at',
-                'updated_at',
-                'quantity',
+                AllowedSort::field('id', 'rm_stock_movements.id'),
+                AllowedSort::field('movement_date', 'rm_stock_movements.movement_date'),
+                AllowedSort::field('created_at', 'rm_stock_movements.created_at'),
+                AllowedSort::field('updated_at', 'rm_stock_movements.updated_at'),
+                AllowedSort::field('quantity', 'rm_stock_movements.quantity'),
             ],
 
-            defaultSort: '-movement_date',
+            defaultSort: '-created_at',
 
             withRelations: [
                 'created_by',

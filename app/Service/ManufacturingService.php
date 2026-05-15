@@ -91,7 +91,8 @@ class ManufacturingService
         int $productId,
         int $userId,
         string $movementDate,
-        ?string $referenceToken = null
+        ?string $referenceToken = null,
+        ?int $productMovementId = null
     ): void {
         $productionReceiptItems = [];
         $scrapItems = [];
@@ -127,7 +128,8 @@ class ManufacturingService
                 $userId,
                 $movementDate,
                 $referenceToken,
-                RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value
+                RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value,
+                ['product_movement_id' => $productMovementId]
             );
         }
 
@@ -138,7 +140,8 @@ class ManufacturingService
                 $userId,
                 $movementDate,
                 $referenceToken,
-                RawMaterialStockMovementTypeEnum::PRODUCTION_SCRAP->value
+                RawMaterialStockMovementTypeEnum::PRODUCTION_SCRAP->value,
+                ['product_movement_id' => $productMovementId]
             );
         }
     }

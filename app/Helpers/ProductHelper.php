@@ -71,12 +71,17 @@ class ProductHelper
         }
 
         $files = array_slice($files, 0, 4);
+        $hasPrimary = ProductImage::query()
+            ->where('product_id', (int) $product->id)
+            ->where('is_primary', true)
+            ->exists();
 
-        foreach ($files as $file) {
+        foreach ($files as $index => $file) {
             $imageUrl = FileUploadHelper::uploadSingle($file, 'products', null);
             ProductImage::create([
                 'product_id' => $product->id,
                 'image'      => $imageUrl,
+                'is_primary' => !$hasPrimary && $index === 0,
             ]);
         }
     }

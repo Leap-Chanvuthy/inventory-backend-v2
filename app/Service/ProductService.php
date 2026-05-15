@@ -3,18 +3,24 @@
 namespace App\Service;
 
 use App\Helpers\CurrencyPricingHelper;
+use App\Helpers\FileUploadHelper;
 use App\Helpers\GetCurrentUserHelper;
 use App\Helpers\ResponseHelper;
 use App\Helpers\ProductHelper;
+use App\Service\Support\StockLotDateService;
 use App\Helpers\UomQuantityGuard;
 use App\Models\Product;
+use App\Models\ProductImage;
 use App\Models\ProductMovement;
+use App\Models\ProductReorder;
+use App\Models\RawMaterialMovementAllocation;
 use App\Models\RMStockMovement;
 use App\QueryBuilders\ProductQueryBuilder;
 use App\Validations\ProductValidation;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
@@ -29,6 +35,8 @@ class ProductService
     protected ProductHelper                   $productHelper;
     protected AuditLoggerService              $auditLoggerService;
     protected ProductStockAllocationService   $productStockAllocationService;
+    protected ProductStockLotService          $productStockLotService;
+    protected StockLotDateService             $stockLotDateService;
 
     public function __construct(
         ProductValidation                $productValidation,
@@ -39,7 +47,9 @@ class ProductService
         ProductPnLService                $productPnLService,
         ProductHelper                    $productHelper,
         AuditLoggerService               $auditLoggerService,
-        ProductStockAllocationService    $productStockAllocationService
+        ProductStockAllocationService    $productStockAllocationService,
+        ProductStockLotService           $productStockLotService,
+        StockLotDateService              $stockLotDateService
     ) {
         $this->productValidation       = $productValidation;
         $this->productQueryBuilder     = $productQueryBuilder;
@@ -50,6 +60,8 @@ class ProductService
         $this->productHelper          = $productHelper;
         $this->auditLoggerService      = $auditLoggerService;
         $this->productStockAllocationService = $productStockAllocationService;
+        $this->productStockLotService  = $productStockLotService;
+        $this->stockLotDateService     = $stockLotDateService;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -78,8 +90,19 @@ class ProductService
     public function getAllProductStockLots(Request $request, $productId)
     {
         try {
-            Product::findOrFail($productId);
-            return $this->productQueryBuilder->productStockLotBuilder($request, (int) $productId);
+            $product = Product::query()->findOrFail($productId);
+            $includeChildren = filter_var($request->query('include_children', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+            $includeDisabled = filter_var($request->query('include_disabled', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+
+            $stockLots = $this->productStockLotService->getHierarchy($product, $includeChildren !== false);
+            if ($includeDisabled === false) {
+                $stockLots = array_values(array_filter($stockLots, fn (array $lot) => (bool) ($lot['can_sale'] ?? false)));
+            }
+
+            return ResponseHelper::success([
+                'stock_lot_summary' => $this->productStockLotService->getStockLotSummary($product),
+                'stock_lots' => $stockLots,
+            ], 'Product stock lots retrieved successfully');
         } catch (Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
         }
@@ -125,8 +148,17 @@ class ProductService
                 ->selectRaw('COALESCE(SUM(CASE WHEN direction = "IN" THEN quantity ELSE -quantity END), 0) as current_qty')
                 ->value('current_qty');
 
-            // Determine stock status (simple): OUT_OF_STOCK or IN_STOCK
-            $productStockStatus = $currentQtyInStock <= 0 ? 'OUT_OF_STOCK' : 'IN_STOCK';
+            $stockLots = $this->productStockLotService->getHierarchy($product, true);
+            $stockLotSummary = $this->productStockLotService->getStockLotSummary($product);
+
+            // Determine stock status from lot summary.
+            if ((float) ($stockLotSummary['available_quantity'] ?? 0) > 0) {
+                $productStockStatus = 'IN_STOCK';
+            } elseif ((float) ($stockLotSummary['expired_quantity'] ?? 0) > 0) {
+                $productStockStatus = 'EXPIRED';
+            } else {
+                $productStockStatus = 'OUT_OF_STOCK';
+            }
 
             // Enrich BOM raw materials with live stock availability for update/reorder UI.
             $rawMaterialIds = $product->productRawMaterials
@@ -194,10 +226,12 @@ class ProductService
                 'initial_movement' => $initialMovement,
                 'pricing_reference_lot' => $this->mapStockLot($pricingReferenceLot),
                 'current_qty_in_stock' => $currentQtyInStock,
-                'available_qty_in_stock' => $currentQtyInStock,
+                'available_qty_in_stock' => (float) ($stockLotSummary['available_quantity'] ?? 0),
                 'ledger_qty_in_stock' => $ledgerQtyInStock,
                 'product_stock_status' => $productStockStatus,
                 'total_count_by_movement_type' => $totalCountByMovementType,
+                'stock_lot_summary' => $stockLotSummary,
+                'stock_lots' => $stockLots,
             ]);
         } catch (Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
@@ -234,6 +268,21 @@ class ProductService
         }
     }
 
+    public function getScrapEligibleStockLots(Request $request, int $productId)
+    {
+        try {
+            $product = Product::query()->findOrFail($productId);
+            $includeDisabled = filter_var($request->query('include_disabled', false), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+
+            return ResponseHelper::success([
+                'stock_lot_summary' => $this->productStockLotService->getStockLotSummary($product),
+                'stock_lots' => $this->productStockLotService->getScrapEligibleLots($product, $includeDisabled === true),
+            ], 'Scrap eligible stock batches retrieved successfully');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
     public function getProductPnLDetail(int $productId)
     {
         try {
@@ -243,6 +292,290 @@ class ProductService
                 return ResponseHelper::error((string) ($detail['error'] ?? 'Unable to build detailed P&L'), 500);
             }
             return ResponseHelper::success($detail, 'Product detailed P&L retrieved successfully');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    public function getProductBomSummary(int $productId, ?int $movementId = null)
+    {
+        try {
+            $product = Product::query()->with([
+                'productRawMaterials.rawMaterial.uom',
+            ])->findOrFail($productId);
+
+            $productType = $product->product_type instanceof \BackedEnum
+                ? $product->product_type->value
+                : (string) $product->product_type;
+
+            if ($productType !== \App\Enums\ProductTypeEnum::INTERNAL_PRODUCED->value) {
+                return ResponseHelper::error('BOM summary is available only for internally produced products.', 422);
+            }
+
+            $movementQuery = ProductMovement::query()
+                ->where('product_id', (int) $product->id)
+                ->where('direction', \App\Enums\StockDirectionEnum::IN->value);
+
+            if ($movementId !== null) {
+                $movementQuery->whereKey($movementId);
+            } else {
+                $movementQuery->whereIn('movement_type', [
+                    \App\Enums\ProductStockMovementTypeEnum::INTERNAL_PRODUCED->value,
+                    \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
+                ])->orderBy('movement_date', 'desc')->orderBy('id', 'desc');
+            }
+
+            /** @var ProductMovement|null $movement */
+            $movement = $movementQuery->first();
+            $producedQty = round((float) ($movement->quantity ?? 0), 4);
+
+            $reorderSnapshot = null;
+            if ($movement) {
+                $reorderSnapshot = ProductReorder::query()
+                    ->with(['bomItems.rawMaterial.uom'])
+                    ->where('product_id', (int) $product->id)
+                    ->where('product_movement_id', (int) $movement->id)
+                    ->first();
+            }
+
+            $bomItems = collect();
+            if ($reorderSnapshot) {
+                $bomItems = $reorderSnapshot->bomItems;
+            } else {
+                $bomItems = $product->productRawMaterials;
+            }
+
+            $allocations = collect();
+            if ($movement) {
+                $allocations = RawMaterialMovementAllocation::query()
+                    ->with([
+                        'sourceMovement:id,raw_material_id',
+                        'consumerMovement:id,movement_type,movement_date',
+                    ])
+                    ->where('product_id', (int) $product->id)
+                    ->where('product_movement_id', (int) $movement->id)
+                    ->get();
+            }
+
+            $materials = [];
+            $totalBomCost = 0.0;
+            $totalScrapCost = 0.0;
+
+            foreach ($bomItems as $item) {
+                $rawMaterial = $item->rawMaterial;
+                if (!$rawMaterial) {
+                    continue;
+                }
+
+                $perUnitQty = round((float) ($item->quantity_per_unit ?? $item->quantity ?? 0), 4);
+                $plannedTotalQty = round($perUnitQty * $producedQty, 4);
+
+                $materialAllocations = $allocations->filter(function (RawMaterialMovementAllocation $allocation) use ($rawMaterial) {
+                    return (int) ($allocation->sourceMovement?->raw_material_id ?? 0) === (int) $rawMaterial->id;
+                });
+
+                $actualConsumedQty = 0.0;
+                $scrapQty = 0.0;
+                $materialSpendUsd = 0.0;
+                $materialScrapCostUsd = 0.0;
+                $lotRows = [];
+
+                foreach ($materialAllocations as $allocation) {
+                    $movementType = $allocation->consumerMovement?->movement_type instanceof \BackedEnum
+                        ? $allocation->consumerMovement?->movement_type?->value
+                        : (string) ($allocation->consumerMovement?->movement_type ?? '');
+
+                    $allocatedQty = round((float) ($allocation->allocated_quantity ?? 0), 4);
+                    $lineCostUsd = round((float) ($allocation->line_cost_usd ?? 0), 4);
+
+                    $isScrap = in_array($movementType, [
+                        \App\Enums\RawMaterialStockMovementTypeEnum::PRODUCTION_SCRAP->value,
+                        \App\Enums\RawMaterialStockMovementTypeEnum::SCRAP->value,
+                    ], true);
+
+                    if ($isScrap) {
+                        $scrapQty += $allocatedQty;
+                        $materialScrapCostUsd += $lineCostUsd;
+                    } else {
+                        $actualConsumedQty += $allocatedQty;
+                    }
+
+                    $materialSpendUsd += $lineCostUsd;
+
+                    $lotRows[] = [
+                        'source_movement_id' => (int) $allocation->source_movement_id,
+                        'allocated_quantity' => $allocatedQty,
+                        'unit_cost_usd' => round((float) ($allocation->unit_cost_usd ?? 0), 4),
+                        'line_cost_usd' => $lineCostUsd,
+                    ];
+                }
+
+                $totalUsedQty = $actualConsumedQty + $scrapQty;
+                $scrapPercentage = $totalUsedQty > 0 ? round(($scrapQty / $totalUsedQty) * 100, 4) : 0;
+                $unitCostUsd = $totalUsedQty > 0 ? round($materialSpendUsd / $totalUsedQty, 4) : 0;
+                $productionMethod = $rawMaterial->production_method instanceof \BackedEnum
+                    ? $rawMaterial->production_method->value
+                    : (string) ($rawMaterial->production_method ?? 'FIFO');
+
+                $materials[] = [
+                    'raw_material_id' => (int) $rawMaterial->id,
+                    'raw_material_name' => (string) $rawMaterial->material_name,
+                    'uom_name' => $rawMaterial->uom?->name,
+                    'required_qty_per_unit' => $perUnitQty,
+                    'planned_total_qty' => $plannedTotalQty,
+                    'actual_consumed_qty' => round($actualConsumedQty, 4),
+                    'scrap_qty' => round($scrapQty, 4),
+                    'scrap_percentage' => $scrapPercentage,
+                    'unit_cost_usd' => $unitCostUsd,
+                    'total_spend_usd' => round($materialSpendUsd, 4),
+                    'production_method' => strtoupper($productionMethod),
+                    'stock_lots_used' => $lotRows,
+                ];
+
+                $totalBomCost += $materialSpendUsd;
+                $totalScrapCost += $materialScrapCostUsd;
+            }
+
+            $averageCost = $producedQty > 0 ? round($totalBomCost / $producedQty, 4) : 0;
+
+            return ResponseHelper::success([
+                'product_id' => (int) $product->id,
+                'product_name' => (string) $product->product_name,
+                'product_movement_id' => $movement ? (int) $movement->id : null,
+                'produced_quantity' => $producedQty,
+                'total_bom_cost_usd' => round($totalBomCost, 4),
+                'average_bom_cost_per_unit_usd' => $averageCost,
+                'total_scrap_cost_usd' => round($totalScrapCost, 4),
+                'materials' => $materials,
+            ], 'Product BOM summary retrieved successfully');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    public function uploadProductImages(Request $request, int $productId)
+    {
+        try {
+            $product = Product::query()->findOrFail($productId);
+
+            $validator = Validator::make($request->all(), [
+                'images' => 'required|array|min:1',
+                'images.*' => 'required|image|mimes:jpeg,png,jpg,webp|max:5120',
+            ]);
+
+            if ($validator->fails()) {
+                return ResponseHelper::validation($validator->errors()->toArray(), 'Validation Error');
+            }
+
+            $files = $request->file('images', []);
+            $existingCount = ProductImage::query()
+                ->where('product_id', (int) $product->id)
+                ->count();
+
+            if (($existingCount + count($files)) > 8) {
+                return ResponseHelper::validation([
+                    'images' => ['A product can have at most 8 images.'],
+                ], 'Validation Error');
+            }
+
+            $hasPrimary = ProductImage::query()
+                ->where('product_id', (int) $product->id)
+                ->where('is_primary', true)
+                ->exists();
+
+            $createdRows = [];
+            foreach ($files as $index => $file) {
+                $url = FileUploadHelper::uploadSingle($file, 'products', null);
+                $createdRows[] = ProductImage::query()->create([
+                    'product_id' => (int) $product->id,
+                    'image' => $url,
+                    'is_primary' => !$hasPrimary && $index === 0,
+                ]);
+            }
+
+            return ResponseHelper::success([
+                'uploaded_images' => collect($createdRows)->map(fn (ProductImage $row) => [
+                    'id' => (int) $row->id,
+                    'image' => $row->image,
+                    'is_primary' => (bool) $row->is_primary,
+                ])->values()->all(),
+                'images' => ProductImage::query()
+                    ->where('product_id', (int) $product->id)
+                    ->orderByDesc('is_primary')
+                    ->orderBy('id')
+                    ->get(['id', 'image', 'is_primary']),
+            ], 'Product images uploaded successfully', 201);
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    public function deleteProductImage(int $productId, int $imageId)
+    {
+        try {
+            $product = Product::query()->findOrFail($productId);
+
+            $image = ProductImage::query()
+                ->where('product_id', (int) $product->id)
+                ->whereKey($imageId)
+                ->firstOrFail();
+
+            $wasPrimary = (bool) $image->is_primary;
+            $imagePath = ltrim(parse_url((string) $image->image, PHP_URL_PATH) ?? '', '/');
+            if ($imagePath !== '' && Storage::disk('r2')->exists($imagePath)) {
+                Storage::disk('r2')->delete($imagePath);
+            }
+
+            $image->delete();
+
+            if ($wasPrimary) {
+                $nextImage = ProductImage::query()
+                    ->where('product_id', (int) $product->id)
+                    ->orderBy('id')
+                    ->first();
+
+                if ($nextImage) {
+                    $nextImage->update(['is_primary' => true]);
+                }
+            }
+
+            return ResponseHelper::success([
+                'images' => ProductImage::query()
+                    ->where('product_id', (int) $product->id)
+                    ->orderByDesc('is_primary')
+                    ->orderBy('id')
+                    ->get(['id', 'image', 'is_primary']),
+            ], 'Product image deleted successfully');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    public function setPrimaryProductImage(int $productId, int $imageId)
+    {
+        try {
+            $product = Product::query()->findOrFail($productId);
+
+            $image = ProductImage::query()
+                ->where('product_id', (int) $product->id)
+                ->whereKey($imageId)
+                ->firstOrFail();
+
+            DB::transaction(function () use ($product, $image) {
+                ProductImage::query()
+                    ->where('product_id', (int) $product->id)
+                    ->update(['is_primary' => false]);
+
+                $image->update(['is_primary' => true]);
+            });
+
+            return ResponseHelper::success([
+                'images' => ProductImage::query()
+                    ->where('product_id', (int) $product->id)
+                    ->orderByDesc('is_primary')
+                    ->orderBy('id')
+                    ->get(['id', 'image', 'is_primary']),
+            ], 'Primary product image updated successfully');
         } catch (Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
         }
@@ -261,6 +594,10 @@ class ProductService
 
         $availableLot = (clone $baseQuery)
             ->where('remaining_quantity', '>', 0)
+            ->where(function ($q) {
+                $q->whereNull('expiry_date')
+                    ->orWhereDate('expiry_date', '>=', $this->stockLotDateService->today()->toDateString());
+            })
             ->orderBy('movement_date', $orderDirection)
             ->orderBy('id', $orderDirection)
             ->first();
@@ -298,6 +635,7 @@ class ProductService
             'selling_unit_price_in_riel' => (float) ($lot->selling_unit_price_in_riel ?? 0),
             'purchase_unit_price_in_usd' => (float) ($lot->purchase_unit_price_in_usd ?? 0),
             'purchase_unit_price_in_riel' => (float) ($lot->purchase_unit_price_in_riel ?? 0),
+            'expiry_date' => $lot->expiry_date?->toDateString(),
             'movement_date' => optional($lot->movement_date)->toDateTimeString(),
         ];
     }
@@ -511,6 +849,10 @@ class ProductService
                 'direction' => \App\Enums\StockDirectionEnum::IN->value,
                 'movement_type' => \App\Enums\ProductStockMovementTypeEnum::EXTERNAL_PURCHASED->value,
                 'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
+                'expiry_date' => $request->input(
+                    'expiry_date',
+                    isset($movement) ? optional($movement->expiry_date)?->toDateString() : null
+                ),
                 'product_status' => $request->input(
                     'product_status',
                     is_object($movement->product_status) ? $movement->product_status->value : (string) $movement->product_status
@@ -634,6 +976,7 @@ class ProductService
                     'direction' => \App\Enums\StockDirectionEnum::IN->value,
                     'movement_type' => \App\Enums\ProductStockMovementTypeEnum::EXTERNAL_PURCHASED->value,
                     'movement_date' => $validated['movement_date'],
+                    'expiry_date' => $validated['expiry_date'] ?? null,
                     'note' => $validated['note'] ?? null,
 
                     // Purchase pricing (derived by CurrencyPricingHelper)
@@ -772,7 +1115,8 @@ class ProductService
                     $product->id,
                     $userId,
                     $movementDate,
-                    $referenceToken
+                    $referenceToken,
+                    (int) $movement->id
                 );
 
                 // 6) Upload and store product images
@@ -985,6 +1329,10 @@ class ProductService
                 'direction' => \App\Enums\StockDirectionEnum::IN->value,
                 'movement_type' => \App\Enums\ProductStockMovementTypeEnum::INTERNAL_PRODUCED->value,
                 'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
+                'expiry_date' => $request->input(
+                    'expiry_date',
+                    isset($movement) ? optional($movement->expiry_date)?->toDateString() : null
+                ),
             ]);
 
             // Purchase side remains zero for internal manufacturing
@@ -1147,7 +1495,8 @@ class ProductService
                         $product->id,
                         (int) $validated['last_updated_by'],
                         $validated['movement_date'],
-                        $referenceToken
+                        $referenceToken,
+                        (int) $movement->id
                     );
                 }
 
@@ -1158,6 +1507,7 @@ class ProductService
                     'direction' => \App\Enums\StockDirectionEnum::IN->value,
                     'movement_type' => \App\Enums\ProductStockMovementTypeEnum::INTERNAL_PRODUCED->value,
                     'movement_date' => $validated['movement_date'],
+                    'expiry_date' => $validated['expiry_date'] ?? null,
                     'note' => $validated['note'] ?? null,
 
                     // Purchase pricing remains zero

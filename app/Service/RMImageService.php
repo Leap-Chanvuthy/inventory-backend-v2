@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Helpers\ImageDeleteHelper;
+use App\Helpers\FileUploadHelper;
 use App\Helpers\ResponseHelper;
 use App\Models\RMImage;
 use App\Models\RawMaterial;
@@ -16,6 +17,65 @@ class RMImageService
     public function __construct(
         protected AuditLoggerService $auditLoggerService
     ) {
+    }
+
+    /**
+     * Upload raw material images from detail page.
+     * Expected payload: multipart/form-data with images[].
+     */
+    public function uploadRawMaterialImages(int $rawMaterialId, Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'images' => 'required|array|min:1|max:4',
+                'images.*' => 'required|image|mimes:jpeg,png,jpg,webp|max:5120',
+            ]);
+
+            if ($validator->fails()) {
+                return ResponseHelper::validation($validator->errors()->toArray(), 'Validation Error');
+            }
+
+            $rawMaterial = RawMaterial::find($rawMaterialId);
+            if (!$rawMaterial) {
+                return ResponseHelper::error('Raw Material not found', 404);
+            }
+
+            $existingCount = RMImage::query()
+                ->where('raw_material_id', $rawMaterialId)
+                ->count();
+
+            $files = $request->file('images', []);
+            if (($existingCount + count($files)) > 8) {
+                return ResponseHelper::validation([
+                    'images' => ['A raw material can have at most 8 images.'],
+                ], 'Validation Error');
+            }
+
+            $createdRows = DB::transaction(function () use ($rawMaterialId, $files) {
+                $rows = [];
+                foreach ($files as $file) {
+                    $url = FileUploadHelper::uploadSingle($file, 'raw-materials', null);
+                    $rows[] = RMImage::query()->create([
+                        'raw_material_id' => $rawMaterialId,
+                        'image' => $url,
+                    ]);
+                }
+                return $rows;
+            });
+
+            return ResponseHelper::success([
+                'uploaded_images' => collect($createdRows)->map(fn ($row) => [
+                    'id' => (int) $row->id,
+                    'image' => $row->image,
+                ])->values()->all(),
+                'images' => RMImage::query()
+                    ->where('raw_material_id', $rawMaterialId)
+                    ->orderBy('id')
+                    ->get(['id', 'image']),
+            ], 'Raw material images uploaded successfully', 201);
+        } catch (Exception $e) {
+            return ResponseHelper::error('Failed uploading raw material image(s)', 500, $e->getMessage());
+        }
     }
 
     /**

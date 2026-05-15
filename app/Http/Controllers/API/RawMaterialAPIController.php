@@ -33,6 +33,21 @@ class RawMaterialAPIController extends Controller implements RawMaterialAPIContr
         return $this -> rawMaterialService -> getAllRawMaterialMovements($request , $rawMaterialId);
     }
 
+    public function stockLots(Request $request, int $rawMaterialId)
+    {
+        return $this->rawMaterialService->getRawMaterialStockLots($request, $rawMaterialId);
+    }
+
+    public function scrapEligibleStockLots(Request $request, int $rawMaterialId)
+    {
+        return $this->rawMaterialService->getRawMaterialScrapEligibleStockLots($request, $rawMaterialId);
+    }
+
+    public function productionAllocationPreview(Request $request, int $rawMaterialId)
+    {
+        return $this->rawMaterialService->previewProductionAllocation($request, $rawMaterialId);
+    }
+
     public function show($id)
     {
         return $this->rawMaterialService->getRawMaterialById($id);
@@ -73,6 +88,11 @@ class RawMaterialAPIController extends Controller implements RawMaterialAPIContr
         return $this->rawMaterialService->adjustmentOut($request, $rawMaterialId);
     }
 
+    public function createScrap(Request $request, int $rawMaterialId)
+    {
+        return $this->rawMaterialService->createScrapMovement($request, $rawMaterialId);
+    }
+
     public function update(Request $request, int $id)
     {
         return $this->rawMaterialService->updateRawMaterial($id, $request);
@@ -81,6 +101,11 @@ class RawMaterialAPIController extends Controller implements RawMaterialAPIContr
     public function deleteImages(Request $request, int $rawMaterialId)
     {
         return $this->rmImageService->deleteRawMaterialImages($rawMaterialId, $request);
+    }
+
+    public function uploadImages(Request $request, int $rawMaterialId)
+    {
+        return $this->rmImageService->uploadRawMaterialImages($rawMaterialId, $request);
     }
 
 }

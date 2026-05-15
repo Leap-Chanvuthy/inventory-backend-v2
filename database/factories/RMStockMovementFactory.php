@@ -109,7 +109,9 @@ class RMStockMovementFactory extends Factory
 
         return [
             'raw_material_id' => $rawMaterial->id,
+            'source_movement_id' => null,
             'quantity' => $quantity,
+            'remaining_quantity' => $direction === 'IN' ? $quantity : 0,
             'direction' => $direction,
             'movement_type' => $movementType,
             'unit_price_in_usd' => $unitUsd,
@@ -118,9 +120,11 @@ class RMStockMovementFactory extends Factory
             'unit_price_in_riel' => $unitRiel,
             'total_value_in_riel' => $totalRiel,
             'exchange_rate_from_riel_to_usd' => $rielToUsd,
-            'in_used' => $this->faker->randomElement([1,0]),
+            'in_used' => $direction === 'IN' ? false : false,
             'movement_date' => $this->faker->dateTimeBetween('-30 days', 'now'),
-            'expiry_date' => $this->faker->dateTimeBetween('+1 month', '+2 years')->format('Y-m-d'),
+            'expiry_date' => $direction === 'IN'
+                ? $this->faker->optional(0.8)->dateTimeBetween('+1 month', '+2 years')->format('Y-m-d')
+                : null,
             'created_by' => User::query()->inRandomOrder()->first()->id ?? User::factory()->create()->id,
             'last_updated_by' => User::query()->inRandomOrder()->first()->id ?? User::factory()->create()->id,
             'note' => $this->faker->optional()->sentence(),
