@@ -7084,10 +7084,10 @@
                     {
                         "name": "sort",
                         "in": "query",
-                        "description": "Sort fields (e.g. -movement_date, quantity)",
+                        "description": "Sort fields (e.g. -created_at, quantity). Default: -created_at",
                         "schema": {
                             "type": "string",
-                            "example": "-movement_date"
+                            "example": "-created_at"
                         }
                     }
                 ],

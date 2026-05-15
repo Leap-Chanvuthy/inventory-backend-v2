@@ -3,16 +3,15 @@
 
 namespace App\Service;
 
-use App\Enums\UserRoleEnum;
 use App\Helpers\FileUploadHelper;
 use App\Helpers\ResponseHelper;
+use App\Models\Role;
 use App\Models\User; 
 use App\Helpers\QueryBuilderHelper;
 use Spatie\QueryBuilder\AllowedFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rules\Enum;
 use App\Mail\VerifyIdentityMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -39,13 +38,17 @@ class UserService
         return QueryBuilderHelper::build(
             model: User::class,
 
-            joins: [],
+            joins: [
+                ['roles', 'users.role_id', '=', 'roles.id'],
+            ],
             selects: [
                 'users.id',
                 'users.name',
                 'users.phone_number',
                 'users.profile_picture',
-                'users.role',
+                'users.role_id',
+                'roles.key as role',
+                'roles.name as role_name',
                 'users.email',
                 'users.ip_address',
                 'users.device',
@@ -57,7 +60,10 @@ class UserService
 
             allowedFilters: [
                 AllowedFilter::exact('id'),
-                AllowedFilter::exact('role'),
+                AllowedFilter::exact('role_id'),
+                AllowedFilter::callback('role', function (Builder $query, $value) {
+                    $query->where('roles.key', strtoupper((string) $value));
+                }),
 
                 // Search by name / email / phone_number
                 AllowedFilter::callback('search', function (Builder $query, $value) {
@@ -75,7 +81,8 @@ class UserService
                 'name',
                 'email',
                 'phone_number',
-                'role'
+                'role',
+                'role_name',
             ],
 
             defaultSort: '-created_at'
@@ -89,7 +96,20 @@ class UserService
     public function getUserById($id)
     {
         try {
-            $user = User::find($id);
+            /** @var User|null $authUser */
+            $authUser = auth()->user();
+            if (!$authUser) {
+                return ResponseHelper::error('Unauthorized', 401, 'User must be authenticated.');
+            }
+
+            $targetId = (int) $id;
+            $canReadAll = $authUser->hasPermission('users.read_all');
+            $canReadOwn = $authUser->hasPermission('users.read_own');
+            if (!$canReadAll && !($canReadOwn && (int) $authUser->id === $targetId)) {
+                return ResponseHelper::error('Forbidden', 403, 'You do not have permission to view this user.');
+            }
+
+            $user = User::with('role:id,name,key,is_system')->find($id);
             if (!$user) {
                 return ResponseHelper::error("User not found", 404, null);
             }
@@ -121,8 +141,22 @@ class UserService
                 'email' => 'required|string|email|max:255|unique:users,email',
                 'password' => 'required|string|min:8|confirmed',
                 'email_verification_token' => 'nullable|string',
-                'role' => ['required', new Enum(UserRoleEnum::class)],
+                'role_id' => 'nullable|integer|exists:roles,id',
+                'role' => 'nullable|string|max:255',
             ]);
+
+            if (empty($validated['role_id']) && !empty($validated['role'])) {
+                $resolvedRole = Role::query()
+                    ->where('key', strtoupper((string) $validated['role']))
+                    ->first();
+                if ($resolvedRole) {
+                    $validated['role_id'] = (int) $resolvedRole->id;
+                }
+            }
+
+            if (empty($validated['role_id'])) {
+                return ResponseHelper::validation(['role_id' => ['The role field is required.']], 'Validation Error');
+            }
 
             // ⭐ Save raw password before hashing
             $rawPassword = $validated['password'];
@@ -145,7 +179,7 @@ class UserService
                 );
             }
 
-            $user = User::create($validated);
+            $user = User::create($validated)->load('role:id,name,key,is_system');
 
             $frontendUrl = env('APP_FRONTEND_URL') . '/login';
 
@@ -183,15 +217,42 @@ class UserService
     function updateUser(Request $request, $id)
     {
         try {
+            /** @var User|null $authUser */
+            $authUser = auth()->user();
+            if (!$authUser) {
+                return ResponseHelper::error('Unauthorized', 401, 'User must be authenticated.');
+            }
+
+            $targetId = (int) $id;
+            $canUpdateAll = $authUser->hasPermission('users.update_all');
+            $canUpdateOwn = $authUser->hasPermission('users.update_own');
+            if (!$canUpdateAll && !($canUpdateOwn && (int) $authUser->id === $targetId)) {
+                return ResponseHelper::error('Forbidden', 403, 'You do not have permission to update this user.');
+            }
+
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
                 'phone_number' => 'required|string|max:20|unique:users,phone_number,' . $id,
                 'profile_picture' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
                 'email' => 'required|string|email|max:255|unique:users,email,' . $id,
-                'role' => ['required', new Enum(UserRoleEnum::class)],
+                'role_id' => 'nullable|integer|exists:roles,id',
+                'role' => 'nullable|string|max:255',
             ]);
 
-            $user = User::findOrFail($id);
+            if (empty($validated['role_id']) && !empty($validated['role'])) {
+                $resolvedRole = Role::query()
+                    ->where('key', strtoupper((string) $validated['role']))
+                    ->first();
+                if ($resolvedRole) {
+                    $validated['role_id'] = (int) $resolvedRole->id;
+                }
+            }
+
+            if (empty($validated['role_id'])) {
+                return ResponseHelper::validation(['role_id' => ['The role field is required.']], 'Validation Error');
+            }
+
+            $user = User::with('role:id,name,key,is_system')->findOrFail($id);
             if (!$user) {
                 return ResponseHelper::error("User not found", 404, null);
             }
@@ -208,7 +269,7 @@ class UserService
             }
 
             $user->update($validated);
-            $user->refresh();
+            $user->refresh()->load('role:id,name,key,is_system');
 
             // Snapshot after update and record diff
             $newSnapshot = $this->auditLoggerService->snapshotModel($user);
@@ -313,19 +374,21 @@ class UserService
             $verifiedUsers = User::whereNotNull('email_verified_at')->count();
             $unverifiedUsers = $totalUsers - $verifiedUsers;
 
-            // Totals by role (ensure all roles exist in output, even if 0)
             $roleCountsRaw = User::query()
-                ->selectRaw('role, COUNT(*) as total')
-                ->groupBy('role')
-                ->pluck('total', 'role')
+                ->leftJoin('roles', 'users.role_id', '=', 'roles.id')
+                ->selectRaw('COALESCE(roles.key, "UNASSIGNED") as role_key, COUNT(users.id) as total')
+                ->groupBy('role_key')
+                ->pluck('total', 'role_key')
                 ->toArray();
 
-            $totalByRole = [];
-            foreach (UserRoleEnum::cases() as $roleCase) {
-                // DB value might be string or int depending on your enum backing; match both safely.
-                $key = (string) ($roleCase->value ?? $roleCase->name);
-                $totalByRole[$roleCase->name] = (int) ($roleCountsRaw[$key] ?? 0);
-            }
+            $totalByRole = Role::query()
+                ->pluck('key')
+                ->mapWithKeys(function ($roleKey) use ($roleCountsRaw) {
+                    return [$roleKey => (int) ($roleCountsRaw[$roleKey] ?? 0)];
+                })
+                ->toArray();
+
+            $totalByRole['UNASSIGNED'] = (int) ($roleCountsRaw['UNASSIGNED'] ?? 0);
 
             $statistics = [
                 'total_users' => $totalUsers,

@@ -3,7 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use App\Enums\UserRoleEnum;
 
 return new class extends Migration
 {
@@ -17,7 +16,7 @@ return new class extends Migration
             $table->string('name');
             $table -> string('phone_number' , 255) -> nullable();
             $table -> string('profile_picture') -> nullable();
-            $table -> string('role');
+            $table->unsignedBigInteger('role_id')->nullable()->index();
             $table->string('email')->unique();
             $table->string('email_verification_token')->nullable()->unique();
             $table->timestamp('email_verified_at')->nullable();

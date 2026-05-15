@@ -56,19 +56,21 @@ class UserKPI extends BaseKPI
             $this->addUnavailableMetric($payload, 'active_users', 'No user status/is_active column found.');
         }
 
-        if ($this->hasColumn($table, 'role')) {
+        if ($this->hasColumn($table, 'role_id') && $this->hasTable('roles')) {
             $currentRolesQuery = clone $baseQuery;
             $this->applyCurrentPeriod($currentRolesQuery, $filters, $table . '.created_at');
             $currentRoles = $currentRolesQuery
-                ->selectRaw($table . '.role as label, COUNT(*) as total')
-                ->groupBy($table . '.role')
+                ->leftJoin('roles', 'roles.id', '=', $table . '.role_id')
+                ->selectRaw('COALESCE(roles.key, "UNASSIGNED") as label, COUNT(*) as total')
+                ->groupBy('label')
                 ->get();
 
             $previousRolesQuery = clone $baseQuery;
             $this->applyPreviousPeriod($previousRolesQuery, $filters, $table . '.created_at');
             $previousRoles = $previousRolesQuery
-                ->selectRaw($table . '.role as label, COUNT(*) as total')
-                ->groupBy($table . '.role')
+                ->leftJoin('roles', 'roles.id', '=', $table . '.role_id')
+                ->selectRaw('COALESCE(roles.key, "UNASSIGNED") as label, COUNT(*) as total')
+                ->groupBy('label')
                 ->get()
                 ->keyBy('label');
 
@@ -80,6 +82,8 @@ class UserKPI extends BaseKPI
                     'trend' => $this->buildTrendMetric((int) $row->total, $previous),
                 ];
             })->values()->all();
+        } else {
+            $this->addUnavailableMetric($payload, 'users_by_role', 'roles table or users.role_id column was not found.');
         }
 
         $payload['charts']['users_trend_overtime'] = $this->buildTimeSeries(
