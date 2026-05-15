@@ -20,6 +20,10 @@ return new class extends Migration
 
             $table->decimal('quantity', 15, 4);
 
+            $table->decimal('remaining_quantity', 15, 4)
+                ->default(0)
+                ->comment('Remaining available quantity for stock-IN raw material lots. OUT movements should normally be 0.');
+
             $table->enum('direction', [StockDirectionEnum::IN -> value, StockDirectionEnum::OUT -> value]);
 
             $table->enum('movement_type', [
@@ -27,9 +31,18 @@ return new class extends Migration
                 RawMaterialStockMovementTypeEnum::RE_ORDER->value,
                 RawMaterialStockMovementTypeEnum::PRODUCTION_SCRAP->value,
                 RawMaterialStockMovementTypeEnum::PRODUCTION_RECEIPT->value,
+                RawMaterialStockMovementTypeEnum::MANUFACTURING->value,
+                RawMaterialStockMovementTypeEnum::SCRAP->value,
                 RawMaterialStockMovementTypeEnum::ADJUSTMENT_IN->value,
                 RawMaterialStockMovementTypeEnum::ADJUSTMENT_OUT->value,
             ]);
+
+            $table->foreignId('source_movement_id')
+                ->nullable()
+                ->comment('Parent stock-IN movement used by stock-OUT actions such as production consumption, scrap, or adjustment out.')
+                ->constrained('rm_stock_movements')
+                ->restrictOnDelete()
+                ->cascadeOnUpdate();
 
             $table->boolean('in_used')->default(false);
 
@@ -46,7 +59,16 @@ return new class extends Migration
             $table->timestamp('movement_date');
             $table->date('expiry_date')->nullable();
             $table->text('note')->nullable();
-            
+
+            // Use explicit short index names to avoid MySQL 64-char identifier limit.
+            $table->index(['raw_material_id', 'direction', 'remaining_quantity'], 'rm_sm_rm_dir_rem_idx');
+            $table->index(['raw_material_id', 'direction', 'movement_date'], 'rm_sm_rm_dir_mdate_idx');
+            $table->index(['raw_material_id', 'direction', 'expiry_date'], 'rm_sm_rm_dir_exp_idx');
+            $table->index(['raw_material_id', 'movement_type'], 'rm_sm_rm_mtype_idx');
+            $table->index(['source_movement_id'], 'rm_sm_src_mv_idx');
+            $table->index(['remaining_quantity'], 'rm_sm_rem_idx');
+            $table->index(['expiry_date'], 'rm_sm_exp_idx');
+
             $table->timestamps();
         });
     }

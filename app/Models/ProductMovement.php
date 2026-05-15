@@ -19,8 +19,10 @@ class ProductMovement extends Model
         'movement_type'                        => ProductStockMovementTypeEnum::class,
         'is_sold'                              => 'boolean',
         'movement_date'                        => 'datetime',
+        'expiry_date'                          => 'date',
         'quantity'                             => 'float',
         'remaining_quantity'                   => 'float',
+        'source_movement_id'                   => 'integer',
 
         // purchasing price
         'purchase_unit_price_in_usd'           => 'float',
@@ -45,6 +47,8 @@ class ProductMovement extends Model
         'movement_type',
         'is_sold',
         'remaining_quantity',
+        'source_movement_id',
+        'expiry_date',
         'movement_date',
         'note',
         'created_by',
@@ -92,6 +96,21 @@ class ProductMovement extends Model
     public function sourceAllocations()
     {
         return $this->hasMany(ProductMovementAllocation::class, 'source_movement_id');
+    }
+
+    public function sourceMovement()
+    {
+        return $this->belongsTo(self::class, 'source_movement_id');
+    }
+
+    public function childMovements()
+    {
+        return $this->hasMany(self::class, 'source_movement_id');
+    }
+
+    public function saleOrderItem()
+    {
+        return $this->hasOne(SaleOrderItem::class, 'sale_movement_id');
     }
 
     public function isStockIn(): bool

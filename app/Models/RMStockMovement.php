@@ -19,8 +19,10 @@ class RMStockMovement extends Model
     protected $casts = [
         'movement_type' => RawMaterialStockMovementTypeEnum::class,
         'raw_material_id' => 'integer',
+        'source_movement_id' => 'integer',
         'direction' => 'string',
         'quantity' => 'float',
+        'remaining_quantity' => 'float',
         'in_used' => 'boolean',
         'unit_price_in_usd' => 'float',
         'total_value_in_usd' => 'float',
@@ -37,7 +39,9 @@ class RMStockMovement extends Model
 
     protected $fillable = [
         'raw_material_id',
+        'source_movement_id',
         'quantity',
+        'remaining_quantity',
         'in_used',
         'direction',
         'movement_type',
@@ -65,6 +69,26 @@ class RMStockMovement extends Model
 
     public function last_updated_by(){
         return $this -> belongsTo(User::class , 'last_updated_by');
+    }
+
+    public function sourceMovement()
+    {
+        return $this->belongsTo(self::class, 'source_movement_id');
+    }
+
+    public function childMovements()
+    {
+        return $this->hasMany(self::class, 'source_movement_id');
+    }
+
+    public function consumerAllocations()
+    {
+        return $this->hasMany(RawMaterialMovementAllocation::class, 'consumer_movement_id');
+    }
+
+    public function sourceAllocations()
+    {
+        return $this->hasMany(RawMaterialMovementAllocation::class, 'source_movement_id');
     }
 
 }

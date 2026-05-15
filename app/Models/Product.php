@@ -117,7 +117,9 @@ class Product extends Model
 
     public function productImages()
     {
-        return $this->hasMany(ProductImage::class, 'product_id');
+        return $this->hasMany(ProductImage::class, 'product_id')
+            ->orderByDesc('is_primary')
+            ->orderBy('id');
     }
 
     public function productReorders()

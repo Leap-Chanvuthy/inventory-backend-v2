@@ -176,8 +176,8 @@ interface RawMaterialAPIControllerInterface
      *     @OA\Parameter(
      *         name="sort",
      *         in="query",
-     *         description="Sort fields (e.g. -movement_date, quantity)",
-     *         @OA\Schema(type="string", example="-movement_date")
+     *         description="Sort fields (e.g. -created_at, quantity). Default: -created_at",
+     *         @OA\Schema(type="string", example="-created_at")
      *     ),
      *
      *     @OA\Response(

@@ -14,7 +14,6 @@ use App\Models\RMStockMovement;
 use App\Models\RawMaterial;
 use App\QueryBuilders\RawMaterialQueryBuilder;
 use App\Validations\RMValidation;
-use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,13 +27,15 @@ class RawMaterialService
     protected RawMaterialQueryBuilder $rawMaterialQueryBuilder;
     protected AuditLoggerService $auditLoggerService;
     protected RawMaterialStockDeductionService $stockDeductionService;
+    protected RawMaterialStockAllocationService $rawMaterialStockAllocationService;
 
     public function __construct(
         RMValidation $rmValidation,
         RawMaterialQueryBuilder $rawMaterialQueryBuilder,
         GetCurrentUserHelper $getCurrentUserHelper,
         AuditLoggerService $auditLoggerService,
-        RawMaterialStockDeductionService $stockDeductionService
+        RawMaterialStockDeductionService $stockDeductionService,
+        RawMaterialStockAllocationService $rawMaterialStockAllocationService
         )
     {
         $this -> rmValidation = $rmValidation;
@@ -42,6 +43,7 @@ class RawMaterialService
         $this -> getCurrentUserHelper = $getCurrentUserHelper;
         $this -> auditLoggerService = $auditLoggerService;
         $this -> stockDeductionService = $stockDeductionService;
+        $this -> rawMaterialStockAllocationService = $rawMaterialStockAllocationService;
     }
 
     // Get all raw materials with filtering, sorting, and pagination
@@ -63,12 +65,15 @@ class RawMaterialService
                 'rm_category' => fn ($q) => $q->withTrashed(),
                 'supplier' => fn ($q) => $q->withTrashed(),
                 'warehouse' => fn ($q) => $q->withTrashed(),
-                'uom' => fn ($q) => $q->withTrashed(),
+                'uom' => fn ($q) => $q->withTrashed()->with([
+                    'category' => fn ($categoryQuery) => $categoryQuery->withTrashed()->with([
+                        'unitOfMeasurements' => fn ($unitQuery) => $unitQuery->withTrashed(),
+                    ]),
+                ]),
                 'rm_stock_movements.created_by',
                 'rm_stock_movements.last_updated_by',
                 'rm_images',
             ])->findOrFail($id);
-
 
             // Find total count of stock movement by type
             $totalCountByMovementType = RMStockMovement::where('raw_material_id', $rawMaterial -> id)
@@ -76,54 +81,30 @@ class RawMaterialService
             ->groupBy('movement_type')
             ->pluck('total', 'movement_type');
 
-            
-                        
-            // Unified stock calculation: SUM(IN direction qty) - SUM(OUT direction qty)
-            // without movement-date filtering, aligned with manufacturing validation.
             $currentQtyInStock = $this->stockDeductionService->getAvailableStock((int) $rawMaterial->id);
+            $stockLots = $this->rawMaterialStockAllocationService->getStockLotsHierarchy($rawMaterial, true);
+            $stockLotSummary = $this->rawMaterialStockAllocationService->getStockLotSummary($rawMaterial);
 
-            // Find stock status
-            $isExpired = false;
-            $rawMaterialStatus = '';
-            $effectiveExpiryDate = RMStockMovement::query()
-                ->where('raw_material_id', $rawMaterial->id)
-                ->where('movement_type', RawMaterialStockMovementTypeEnum::PURCHASE->value)
-                ->value('expiry_date');
-
-            if (!$effectiveExpiryDate) {
-                $effectiveExpiryDate = RMStockMovement::query()
-                    ->where('raw_material_id', $rawMaterial->id)
-                    ->whereNotNull('expiry_date')
-                    ->orderByDesc('movement_date')
-                    ->value('expiry_date');
-            }
-
-            if ($effectiveExpiryDate) {
-                $isExpired = Carbon::parse($effectiveExpiryDate)
-                    ->startOfDay()
-                    ->lte(now()->startOfDay());
-            }
-
-            if ($isExpired) {
+            if ((float) ($stockLotSummary['available_quantity'] ?? 0) > 0) {
+                $rawMaterialStatus = 'IN_STOCK';
+            } elseif ((float) ($stockLotSummary['expired_quantity'] ?? 0) > 0) {
                 $rawMaterialStatus = 'EXPIRED';
-            } elseif ($currentQtyInStock <= 0) {
-                $rawMaterialStatus = 'OUT_OF_STOCK';
-            } elseif ($currentQtyInStock <= (float) $rawMaterial->minimum_stock_level) {
+            } elseif ($currentQtyInStock <= (float) $rawMaterial->minimum_stock_level && $currentQtyInStock > 0) {
                 $rawMaterialStatus = 'LOW_STOCK';
             } else {
-                $rawMaterialStatus = 'IN_STOCK';
+                $rawMaterialStatus = 'OUT_OF_STOCK';
             }
 
-                
-            if (!$rawMaterial) {
-                return ResponseHelper::error('Raw Material not found', 404);
-            }
+            $uomHierarchyQuantities = $this->buildUomHierarchyQuantities($rawMaterial, (float) ($stockLotSummary['available_quantity'] ?? 0));
 
             return ResponseHelper::success([
                 'raw_material' => $rawMaterial,
                 'current_qty_in_stock' => $currentQtyInStock,
                 'raw_material_status' => $rawMaterialStatus,
                 'total_count_by_movement_type' => $totalCountByMovementType,
+                'stock_lot_summary' => $stockLotSummary,
+                'stock_lots' => $stockLots,
+                'uom_hierarchy_quantities' => $uomHierarchyQuantities,
             ],  'Raw Material retrieved successfully');
         } catch (Exception $e) {        
             return ResponseHelper::error($e->getMessage(), 500);
@@ -135,7 +116,78 @@ class RawMaterialService
     public function getAllRawMaterialMovements(Request $request, int $rawMaterialId)
     {
         try {
+            if (!$request->filled('sort')) {
+                $request->merge(['sort' => '-created_at']);
+            }
+
             return $this -> rawMaterialQueryBuilder -> rawMaterialMovementBuilder($request , $rawMaterialId);
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    public function getRawMaterialStockLots(Request $request, int $rawMaterialId)
+    {
+        try {
+            $rawMaterial = RawMaterial::query()->findOrFail($rawMaterialId);
+            $includeChildren = filter_var($request->query('include_children', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+            $includeDisabled = filter_var($request->query('include_disabled', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+
+            $stockLots = $this->rawMaterialStockAllocationService->getStockLotsHierarchy($rawMaterial, $includeChildren !== false);
+            if ($includeDisabled === false) {
+                $stockLots = array_values(array_filter($stockLots, fn (array $lot) => (bool) ($lot['can_use_for_production'] ?? false)));
+            }
+
+            return ResponseHelper::success([
+                'stock_lot_summary' => $this->rawMaterialStockAllocationService->getStockLotSummary($rawMaterial),
+                'stock_lots' => $stockLots,
+            ], 'Raw material stock lots retrieved successfully');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    public function getRawMaterialScrapEligibleStockLots(Request $request, int $rawMaterialId)
+    {
+        try {
+            $rawMaterial = RawMaterial::query()->findOrFail($rawMaterialId);
+            $includeDisabled = filter_var($request->query('include_disabled', false), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+
+            return ResponseHelper::success([
+                'stock_lot_summary' => $this->rawMaterialStockAllocationService->getStockLotSummary($rawMaterial),
+                'stock_lots' => $this->rawMaterialStockAllocationService->getScrapEligibleLots($rawMaterial, $includeDisabled === true),
+            ], 'Scrap eligible stock batches retrieved successfully');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    public function previewProductionAllocation(Request $request, int $rawMaterialId)
+    {
+        try {
+            $rawMaterial = RawMaterial::query()->findOrFail($rawMaterialId);
+
+            $validator = Validator::make($request->all(), [
+                'quantity' => 'required|numeric|min:0.0001',
+            ]);
+
+            if ($validator->fails()) {
+                return ResponseHelper::validation($validator->errors()->toArray(), 'Validation Error');
+            }
+
+            $validated = $validator->validate();
+            UomQuantityGuard::assertQuantityByUomId(
+                $validated['quantity'] ?? null,
+                (int) $rawMaterial->base_uom_id,
+                'quantity'
+            );
+
+            return ResponseHelper::success(
+                $this->rawMaterialStockAllocationService->previewAllocation($rawMaterial, (float) $validated['quantity']),
+                'Raw material production allocation preview generated successfully'
+            );
+        } catch (ValidationException $e) {
+            return ResponseHelper::validation($e->errors(), 'Validation Error');
         } catch (Exception $e) {
             return ResponseHelper::error($e->getMessage(), 500);
         }
@@ -255,7 +307,9 @@ class RawMaterialService
 
                 $movement = RMStockMovement::create([
                     'raw_material_id' => $rawMaterial->id,
+                    'source_movement_id' => null,
                     'quantity' => $stockMovementData['quantity'],
+                    'remaining_quantity' => $stockMovementData['quantity'],
                     'direction' => 'IN',
                     'movement_type' => 'PURCHASE',
                     'movement_date' => $stockMovementData['movement_date'],
@@ -511,6 +565,7 @@ class RawMaterialService
 
                 $purchaseMovement->update([
                     'quantity' => $purchaseData['quantity'],
+                    'remaining_quantity' => $purchaseData['quantity'],
                     'direction' => StockDirectionEnum::IN->value,
                     'movement_type' => RawMaterialStockMovementTypeEnum::PURCHASE->value,
                     'movement_date' => $purchaseData['movement_date'],
@@ -656,7 +711,9 @@ class RawMaterialService
             $movement = DB::transaction(function () use ($validated, $rawMaterial) {
                 return RMStockMovement::create([
                     'raw_material_id' => $rawMaterial->id,
+                    'source_movement_id' => null,
                     'quantity' => $validated['quantity'],
+                    'remaining_quantity' => $validated['quantity'],
                     'direction' => StockDirectionEnum::IN->value,
                     'movement_type' => RawMaterialStockMovementTypeEnum::RE_ORDER->value,
                     'movement_date' => $validated['movement_date'],
@@ -746,6 +803,7 @@ class RawMaterialService
             $movement = DB::transaction(function () use ($validated, $movement) {
                 $movement->update([
                     'quantity' => $validated['quantity'],
+                    'remaining_quantity' => $validated['quantity'],
                     'direction' => StockDirectionEnum::IN->value,
                     'movement_type' => RawMaterialStockMovementTypeEnum::RE_ORDER->value,
                     'movement_date' => $validated['movement_date'],
@@ -829,34 +887,16 @@ class RawMaterialService
                 'quantity'
             );
 
-            // Use the same net stock calculation used by manufacturing:
-            // SUM(IN direction qty) - SUM(OUT direction qty)
-            $currentQtyInStock = $this->stockDeductionService->getAvailableStock((int) $rawMaterial->id);
+            $result = $this->rawMaterialStockAllocationService->allocateForConsumption(
+                (int) $rawMaterial->id,
+                (float) $validated['quantity'],
+                (int) $validated['created_by'],
+                (string) $validated['movement_date'],
+                RawMaterialStockMovementTypeEnum::ADJUSTMENT_OUT->value,
+                ['note' => (string) $validated['note']]
+            );
 
-            if ($currentQtyInStock < $validated['quantity']) {
-                return ResponseHelper::error('Insuffiecient stock quantity', 401, [
-                    'quantity' => ['Stock deduction qty must not be greater than current stock quantity.']
-                ]);
-            }
-
-            $movement = DB::transaction(function () use ($validated, $rawMaterial) {
-                return RMStockMovement::create([
-                    'raw_material_id' => $rawMaterial->id,
-                    'quantity' => $validated['quantity'],
-                    'direction' => StockDirectionEnum::OUT->value,
-                    'movement_type' => RawMaterialStockMovementTypeEnum::ADJUSTMENT_OUT->value,
-                    'movement_date' => $validated['movement_date'],
-                    'unit_price_in_usd' => 0,
-                    'total_value_in_usd' => 0,
-                    'exchange_rate_from_usd_to_riel' => 0,
-                    'unit_price_in_riel' => 0,
-                    'total_value_in_riel' => 0,
-                    'exchange_rate_from_riel_to_usd' => 0,
-                    'created_by' => $validated['created_by'],
-                    'last_updated_by' => $validated['last_updated_by'],
-                    'note' => $validated['note'],
-                ]);
-            });
+            $movement = $result['consumer_movement'];
 
             $this->auditLoggerService->logChange(
                 'raw_material.adjustment_out.create',
@@ -876,6 +916,88 @@ class RawMaterialService
         }catch (Exception $e){
             return ResponseHelper::error($e -> getMessage() , 500);
         }
+    }
+
+    public function createScrapMovement(Request $request, int $rawMaterialId)
+    {
+        try {
+            $rawMaterial = RawMaterial::query()->findOrFail($rawMaterialId);
+
+            $validator = Validator::make($request->all(), [
+                'source_movement_id' => 'required|integer',
+                'quantity' => 'required|numeric|min:0.0001',
+                'movement_date' => 'nullable|date',
+                'reason' => 'nullable|string|max:255',
+                'note' => 'nullable|string',
+            ]);
+
+            if ($validator->fails()) {
+                return ResponseHelper::validation($validator->errors()->toArray(), 'Validation Error');
+            }
+
+            $validated = $validator->validate();
+            UomQuantityGuard::assertQuantityByUomId(
+                $validated['quantity'] ?? null,
+                (int) $rawMaterial->base_uom_id,
+                'quantity'
+            );
+
+            $currentUserId = (int) $this->getCurrentUserHelper->getUserId();
+            $result = $this->rawMaterialStockAllocationService->createScrapFromSource($rawMaterial, $validated, $currentUserId);
+
+            $this->auditLoggerService->logChange(
+                'raw_material.scrap.create',
+                RawMaterial::class,
+                (int) $rawMaterial->id,
+                [],
+                [
+                    'scrap_movement' => $this->auditLoggerService->snapshotModel($result['scrap_movement'] ?? null),
+                    'source_lot' => $this->auditLoggerService->snapshotModel($result['source_lot'] ?? null),
+                ],
+                $currentUserId,
+                ['context' => 'raw_material_service']
+            );
+
+            return ResponseHelper::success([
+                'scrap_movement' => $result['scrap_movement'] ?? null,
+                'source_lot' => $result['source_lot'] ?? null,
+                'stock_lot_summary' => $this->rawMaterialStockAllocationService->getStockLotSummary($rawMaterial),
+            ], 'Raw material scrapped successfully', 201);
+        } catch (ValidationException $e) {
+            return ResponseHelper::validation($e->errors(), 'Validation Error');
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    private function buildUomHierarchyQuantities(RawMaterial $rawMaterial, float $availableQuantity): array
+    {
+        $baseUom = $rawMaterial->baseUom;
+        if (!$baseUom || !$baseUom->category) {
+            return [];
+        }
+
+        $units = $baseUom->category->unitOfMeasurements
+            ->sortByDesc(function ($unit) {
+                return (float) ($unit->conversion_factor ?? 1);
+            })
+            ->values();
+
+        return $units->map(function ($unit) use ($availableQuantity, $baseUom) {
+            $conversionFactor = (float) ($unit->conversion_factor ?? 1);
+            $equivalentQty = $conversionFactor > 0
+                ? round($availableQuantity / $conversionFactor, 4)
+                : 0;
+
+            return [
+                'uom_id' => (int) $unit->id,
+                'uom_name' => (string) $unit->name,
+                'uom_symbol' => $unit->symbol,
+                'conversion_factor' => $conversionFactor,
+                'equivalent_quantity' => $equivalentQty,
+                'is_base_uom' => (int) $unit->id === (int) $baseUom->id,
+            ];
+        })->all();
     }
 
 

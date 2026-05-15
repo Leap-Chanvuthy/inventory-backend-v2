@@ -84,6 +84,7 @@ class InternalProductReorder
 				'direction' => \App\Enums\StockDirectionEnum::IN->value,
 				'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
 				'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
+				'expiry_date' => $request->input('expiry_date', null),
 			]);
 
 			$request->merge([
@@ -146,11 +147,13 @@ class InternalProductReorder
 					'product_id' => $product->id,
 					'direction' => \App\Enums\StockDirectionEnum::IN->value,
 					'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
+					'source_movement_id' => null,
 					'product_status' => \App\Enums\ProductStatusEnum::COMPLETED->value,
 					'quantity' => $validated['quantity'],
 					'remaining_quantity' => $validated['quantity'],
 					'is_sold' => false,
 					'movement_date' => $movementDate,
+					'expiry_date' => $validated['expiry_date'] ?? null,
 					'note' => $validated['note'] ?? null,
 					'created_by' => $validated['created_by'],
 					'last_updated_by' => $validated['last_updated_by'],
@@ -186,7 +189,8 @@ class InternalProductReorder
 					$product->id,
 					$userId,
 					$movementDate,
-					$referenceToken
+					$referenceToken,
+					(int) $movement->id
 				);
 
 				return [
@@ -285,6 +289,10 @@ class InternalProductReorder
 				'direction' => \App\Enums\StockDirectionEnum::IN->value,
 				'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
 				'movement_date' => $request->input('movement_date', now()->toDateTimeString()),
+				'expiry_date' => $request->input(
+					'expiry_date',
+					isset($movement) ? optional($movement->expiry_date)?->toDateString() : null
+				),
 			]);
 
 			$request->merge([
@@ -386,7 +394,8 @@ class InternalProductReorder
 							$product->id,
 							(int) $validated['last_updated_by'],
 							$validated['movement_date'],
-							$referenceToken
+							$referenceToken,
+							(int) $movement->id
 						);
 					} else {
 						$consumptionPlan = $this->manufacturingService->buildConsumptionPlan(
@@ -401,6 +410,7 @@ class InternalProductReorder
 					'direction' => \App\Enums\StockDirectionEnum::IN->value,
 					'movement_type' => \App\Enums\ProductStockMovementTypeEnum::RE_ORDER->value,
 					'movement_date' => $validated['movement_date'],
+					'expiry_date' => $validated['expiry_date'] ?? null,
 					'note' => $validated['note'] ?? null,
 					'purchase_unit_price_in_usd' => 0,
 					'purchase_total_price_in_usd' => 0,

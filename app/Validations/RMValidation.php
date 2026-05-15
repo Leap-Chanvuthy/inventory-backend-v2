@@ -103,6 +103,7 @@ class RMValidation {
     {
         return [
             'raw_material_id' => 'required|exists:raw_materials,id',
+            'source_movement_id' => 'nullable|integer|exists:rm_stock_movements,id',
             'quantity' => 'required|numeric|min:0',
             'direction' => 'required|in:IN,OUT',
             'movement_type' => (function () use ($request) {
@@ -121,7 +122,7 @@ class RMValidation {
             'last_updated_by' => 'required|exists:users,id',
             'note' => 'nullable|string',
             'movement_date' => 'required|date',
-            'expiry_date' => 'required|date',
+            'expiry_date' => 'nullable|date',
         ];
     }
 
@@ -130,9 +131,9 @@ class RMValidation {
         return [
             'raw_material_id' => 'nullable|exists:raw_materials,id',
             // Images are optional on create. If provided, validate type/size.
-            'image' => 'nullable|image|max:2048',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'images' => 'nullable|array|max:4',
-            'images.*' => 'image|max:2048',
+            'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
         ];
     }
 

@@ -34,6 +34,7 @@ class ProductMovementFactory extends Factory
             'product_status' => ProductStatusEnum::COMPLETED->value,
             'quantity' => $quantity,
             'remaining_quantity' => $remainingQuantity,
+            'source_movement_id' => null,
             'is_sold' => false,
             'direction' => $direction,
             'movement_type' => $direction === StockDirectionEnum::IN->value
@@ -60,6 +61,9 @@ class ProductMovementFactory extends Factory
             'selling_exchange_rate_from_usd_to_riel' => $rate,
             'selling_exchange_rate_from_riel_to_usd' => $inverseRate,
             'movement_date' => $this->faker->dateTimeBetween('-6 months', 'now')->format('Y-m-d H:i:s'),
+            'expiry_date' => $direction === StockDirectionEnum::IN->value
+                ? $this->faker->optional(0.7)->dateTimeBetween('-15 days', '+12 months')->format('Y-m-d')
+                : null,
             'note' => $this->faker->optional(0.3)->sentence(),
             'created_by' => User::query()->inRandomOrder()->value('id'),
             'last_updated_by' => User::query()->inRandomOrder()->value('id'),
