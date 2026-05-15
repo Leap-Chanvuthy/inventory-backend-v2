@@ -32,4 +32,9 @@ class AuthAPIController extends Controller
         return $this -> authService -> reset($request);
     }
 
+    public function me(Request $request)
+    {
+        return $this->authService->me($request);
+    }
+
 }

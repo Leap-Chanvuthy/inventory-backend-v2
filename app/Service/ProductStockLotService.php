@@ -7,6 +7,7 @@ use App\Enums\StockDirectionEnum;
 use App\Models\Product;
 use App\Models\ProductMovement;
 use App\Models\ProductMovementAllocation;
+use App\Models\RawMaterialMovementAllocation;
 use App\Service\Support\StockLotDateService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -356,9 +357,43 @@ class ProductStockLotService
 
     private function mapMovementChildren(Collection $movements): array
     {
-        return $movements->map(function (ProductMovement $movement) {
+        $movementIds = $movements
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->values()
+            ->all();
+
+        $rawMaterialsByMovement = [];
+        if (!empty($movementIds)) {
+            $allocationRows = RawMaterialMovementAllocation::query()
+                ->with(['sourceMovement:id,raw_material_id', 'sourceMovement.raw_material:id,material_name'])
+                ->whereIn('product_movement_id', $movementIds)
+                ->get();
+
+            foreach ($allocationRows as $allocation) {
+                $movementId = (int) ($allocation->product_movement_id ?? 0);
+                if ($movementId <= 0) {
+                    continue;
+                }
+
+                $rawMaterialId = (int) ($allocation->sourceMovement?->raw_material_id ?? 0);
+                if ($rawMaterialId <= 0) {
+                    continue;
+                }
+
+                $rawMaterialsByMovement[$movementId] ??= [];
+                $rawMaterialsByMovement[$movementId][$rawMaterialId] = [
+                    'raw_material_id' => $rawMaterialId,
+                    'raw_material_name' => $allocation->sourceMovement?->raw_material?->material_name,
+                ];
+            }
+        }
+
+        return $movements->map(function (ProductMovement $movement) use ($rawMaterialsByMovement) {
             $qty = (float) ($movement->quantity ?? 0);
             $unitPrice = (float) ($movement->selling_unit_price_in_usd ?? 0);
+            $relatedRawMaterials = array_values($rawMaterialsByMovement[(int) $movement->id] ?? []);
 
             return [
                 'id' => (int) $movement->id,
@@ -369,6 +404,7 @@ class ProductStockLotService
                 'unit_price' => $unitPrice,
                 'total' => round($qty * $unitPrice, 4),
                 'reason' => $movement->note,
+                'related_raw_materials' => $relatedRawMaterials,
             ];
         })->values()->all();
     }

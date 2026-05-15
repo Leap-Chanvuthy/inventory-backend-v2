@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Enums\UserRoleEnum;
+use App\Models\Role;
 use Illuminate\Console\Command;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
@@ -31,11 +31,17 @@ class CreateAdminUser extends Command
             return Command::FAILURE;
         }
 
+        $adminRole = Role::query()->where('key', 'ADMIN')->first();
+        if (!$adminRole) {
+            $this->error('❌ ADMIN role not found. Please run role seeders first.');
+            return Command::FAILURE;
+        }
+
         $user = User::create([
             'name' => 'Administrator',
             'email' => $email,
             'password' => Hash::make($password),
-            'role' => UserRoleEnum::ADMIN,
+            'role_id' => $adminRole->id,
             'email_verified_at' => now(),
         ]);
 
@@ -45,7 +51,7 @@ class CreateAdminUser extends Command
                 $user->id,
                 $user->name,
                 $user->email,
-                $user->role->value,
+                $user->role?->key,
                 $user->email_verified_at,
             ]
         ]);

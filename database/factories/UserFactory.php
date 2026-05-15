@@ -2,10 +2,9 @@
 
 namespace Database\Factories;
 
+use App\Models\Role;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
-use App\Enums\UserRoleEnum; // if you use enum for role
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
@@ -30,14 +29,16 @@ class UserFactory extends Factory
         $phoneNumber = '09' . $this->faker->numberBetween(10000000, 99999999);
         $randomId = rand(1, 30);
 
-        $roles = ['ADMIN', 'STOCK_CONTROLLER' , 'VENDER' ]; 
+        $roleId = Role::query()
+            ->inRandomOrder()
+            ->value('id');
 
 
         return [
             'name' => $name,
             'email' => $email,
             'phone_number' => $phoneNumber,
-            'role' => $this->faker->randomElement($roles),
+            'role_id' => $roleId,
             'password' => Hash::make('password123'), // default password
             'profile_picture' => "https://api.dicebear.com/9.x/adventurer/svg?seed={$randomId}",
             'email_verified_at' => now(),

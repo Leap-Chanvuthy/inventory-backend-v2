@@ -67,7 +67,7 @@ class AuthService
                 return $pendingResponse;
             }
 
-            $token = JWTAuth::claims(['role' => $user->role])->attempt($credentials);
+            $token = JWTAuth::claims(['role' => $user->role?->key])->attempt($credentials);
             if (!$token) {
                 return ResponseHelper::error('Invalid credentials', 401);
             }
@@ -84,7 +84,7 @@ class AuthService
             );
 
             return ResponseHelper::success([
-                'user' => $user,
+                'user' => $this->buildAuthUserPayload($user),
                 'authorisation' => [
                     'token' => $token,
                     'type' => 'Bearer',
@@ -129,10 +129,10 @@ class AuthService
             $this->twoFactorService->clearPendingLoginToken($pendingToken);
 
             // Issue normal JWT
-            $token = JWTAuth::claims(['role' => $user->role])->fromUser($user);
+            $token = JWTAuth::claims(['role' => $user->role?->key])->fromUser($user);
 
             return ResponseHelper::success([
-                'user' => $user,
+                'user' => $this->buildAuthUserPayload($user),
                 'authorisation' => [
                     'token' => $token,
                     'type' => 'Bearer',
@@ -140,6 +140,57 @@ class AuthService
             ], 'Login successful', 200);
         } catch (ValidationException $e) {
             return ResponseHelper::validation($e->errors(), 'Validation failed');
+        } catch (Exception $e) {
+            return ResponseHelper::error('Something went wrong', 500, ['error' => $e->getMessage()]);
+        }
+    }
+
+    private function buildAuthUserPayload(User $user): array
+    {
+        $freshUser = $user->fresh(['role.permissions']);
+        $permissions = $freshUser?->role?->permissions
+            ? $freshUser->role->permissions->pluck('key')->values()->all()
+            : [];
+
+        return [
+            'id' => $freshUser?->id,
+            'name' => $freshUser?->name,
+            'phone_number' => $freshUser?->phone_number,
+            'profile_picture' => $freshUser?->profile_picture,
+            'email' => $freshUser?->email,
+            'email_verified_at' => $freshUser?->email_verified_at,
+            'ip_address' => $freshUser?->ip_address,
+            'device' => $freshUser?->device,
+            'last_activity' => $freshUser?->last_activity,
+            'two_factor_enabled' => (bool) $freshUser?->two_factor_enabled,
+            'created_at' => $freshUser?->created_at,
+            'updated_at' => $freshUser?->updated_at,
+            'role' => $freshUser?->role
+                ? [
+                    'id' => $freshUser->role->id,
+                    'name' => $freshUser->role->name,
+                    'key' => $freshUser->role->key,
+                    'is_system' => (bool) $freshUser->role->is_system,
+                    'updated_at' => $freshUser->role->updated_at,
+                ]
+                : null,
+            'permissions' => $permissions,
+            'permissions_version' => $freshUser?->role?->updated_at?->timestamp,
+        ];
+    }
+
+    public function me(Request $request)
+    {
+        try {
+            /** @var User|null $user */
+            $user = auth()->user();
+            if (!$user) {
+                return ResponseHelper::error('Unauthorized', 401, 'User must be authenticated.');
+            }
+
+            return ResponseHelper::success([
+                'user' => $this->buildAuthUserPayload($user),
+            ], 'Current user retrieved successfully', 200);
         } catch (Exception $e) {
             return ResponseHelper::error('Something went wrong', 500, ['error' => $e->getMessage()]);
         }

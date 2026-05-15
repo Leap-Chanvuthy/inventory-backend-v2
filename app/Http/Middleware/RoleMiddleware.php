@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Enums\UserRoleEnum;
 use App\Helpers\ResponseHelper;
 use Closure;
 use Illuminate\Http\Request;
@@ -19,23 +18,20 @@ class RoleMiddleware
     {
         $user = auth()->user();
 
-        if (!$user){
+        if (!$user) {
             return ResponseHelper::error('Unauthorized', 401, 'User must be authenticated to access this resource.');
         }
 
-        if ($user -> role === UserRoleEnum::ADMIN){
+        $roleKey = strtoupper((string) ($user->role?->key ?? ''));
+        if ($roleKey === 'ADMIN') {
             return $next($request);
         }
 
-        // Convert allowed roles to Enum values
-        $allowedRoles = array_map(function ($role) {
-            return UserRoleEnum::from($role);
-        }, $roles);
-        if (!in_array($user->role, $allowedRoles)) {
+        $allowedRoles = array_map(fn ($role) => strtoupper((string) $role), $roles);
+        if (!in_array($roleKey, $allowedRoles, true)) {
             return ResponseHelper::error('Forbidden', 403, 'You do not have permission to access this resource.');
         }
 
         return $next($request);
-
     }
 }
