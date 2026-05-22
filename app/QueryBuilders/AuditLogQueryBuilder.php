@@ -22,7 +22,7 @@ class AuditLogQueryBuilder
             model: Audit::class,
 
             joins: [
-                // Enable searching/sorting by category name
+                ['users', 'audits.user_id', '=', 'users.id'],
             ],
 
             selects: [
@@ -61,12 +61,19 @@ class AuditLogQueryBuilder
                     $query->whereDate('audits.created_at', '<=', $value);
                 }),
 
-                // Search by event / auditable type / auditable id
+                // Search by event / auditable type / auditable id / user name / user email
                 AllowedFilter::callback('search', function (Builder $query, $value) {
+                    $value = trim((string) $value);
+                    if ($value === '') {
+                        return;
+                    }
+
                     $query->where(function ($q) use ($value) {
                         $q->where('audits.event', 'LIKE', "%{$value}%")
                           ->orWhere('audits.auditable_type', 'LIKE', "%{$value}%")
-                          ->orWhere('audits.auditable_id', 'LIKE', "%{$value}%");
+                          ->orWhereRaw('CAST(audits.auditable_id AS CHAR) LIKE ?', ["%{$value}%"])
+                          ->orWhere('users.name', 'LIKE', "%{$value}%")
+                          ->orWhere('users.email', 'LIKE', "%{$value}%");
                     });
                 }),
 
