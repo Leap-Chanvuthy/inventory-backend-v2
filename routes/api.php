@@ -100,8 +100,8 @@ Route::middleware(['auth:api'])->prefix('roles')->group(function () {
 Route::middleware(['auth:api'])->group(function () {
     Route::prefix('product-categories')->middleware('permission:product_categories.read_all,product_categories.read_own')->group(function () {
         Route::get('/', [ProductCategoryAPIController::class, 'index']);
-        Route::get('/{id}', [ProductCategoryAPIController::class, 'show']);
         Route::get('/trashed', [ProductCategoryAPIController::class, 'trashed']);
+        Route::get('/{id}', [ProductCategoryAPIController::class, 'show']);
     });
 
     Route::prefix('products')->middleware('permission:products.read_all,products.read_own')->group(function () {
