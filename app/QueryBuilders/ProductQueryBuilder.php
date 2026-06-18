@@ -22,6 +22,9 @@ class ProductQueryBuilder
         $latestSellingUsdToRiel = "(select pm.selling_exchange_rate_from_usd_to_riel from product_movements pm where pm.product_id = products.id and pm.direction = 'IN' and (pm.selling_unit_price_in_usd > 0 or pm.selling_unit_price_in_riel > 0) order by pm.movement_date desc, pm.id desc limit 1)";
         $latestSellingRielToUsd = "(select pm.selling_exchange_rate_from_riel_to_usd from product_movements pm where pm.product_id = products.id and pm.direction = 'IN' and (pm.selling_unit_price_in_usd > 0 or pm.selling_unit_price_in_riel > 0) order by pm.movement_date desc, pm.id desc limit 1)";
         $stockQtyExpression = "(COALESCE((SELECT SUM(remaining_quantity) FROM product_movements WHERE product_movements.product_id = products.id AND product_movements.direction = 'IN'),0))";
+        $today = now()->toDateString();
+        $expiredQtyExpression = "(COALESCE((SELECT SUM(pm.remaining_quantity) FROM product_movements pm WHERE pm.product_id = products.id AND pm.direction = 'IN' AND pm.remaining_quantity > 0 AND pm.expiry_date IS NOT NULL AND pm.expiry_date < '{$today}'),0))";
+        $nextExpiryExpression = "(SELECT MIN(pm.expiry_date) FROM product_movements pm WHERE pm.product_id = products.id AND pm.direction = 'IN' AND pm.remaining_quantity > 0 AND pm.expiry_date IS NOT NULL)";
 
         $builder = QueryBuilderHelper::build(
             model: Product::class,
@@ -44,6 +47,10 @@ class ProductQueryBuilder
                 DB::raw("{$latestSellingUsdToRiel} as latest_selling_exchange_rate_from_usd_to_riel"),
                 DB::raw("{$latestSellingRielToUsd} as latest_selling_exchange_rate_from_riel_to_usd"),
                 DB::raw("{$stockQtyExpression} as current_qty_in_stock"),
+                DB::raw("{$expiredQtyExpression} as expired_stock_quantity"),
+                DB::raw("CASE WHEN {$expiredQtyExpression} > 0 THEN 1 ELSE 0 END as has_expired_stock"),
+                DB::raw("{$nextExpiryExpression} as next_expiry_date"),
+                DB::raw("COALESCE({$nextExpiryExpression}, '9999-12-31') as next_expiry_sort_date"),
             ],
 
             allowedFilters: [
@@ -53,6 +60,20 @@ class ProductQueryBuilder
                 AllowedFilter::exact('warehouse_id'),
                 AllowedFilter::exact('base_uom_id'),
                 AllowedFilter::partial('product_type'),
+                AllowedFilter::callback('has_expired_stock', function (Builder $query, $value) use ($today) {
+                    $normalized = strtolower((string) $value);
+                    if (in_array($normalized, ['1', 'true', 'yes'], true)) {
+                        $query->whereExists(function ($subQuery) use ($today) {
+                            $subQuery->select(DB::raw(1))
+                                ->from('product_movements as expired_lots')
+                                ->whereColumn('expired_lots.product_id', 'products.id')
+                                ->where('expired_lots.direction', 'IN')
+                                ->where('expired_lots.remaining_quantity', '>', 0)
+                                ->whereNotNull('expired_lots.expiry_date')
+                                ->whereDate('expired_lots.expiry_date', '<', $today);
+                        });
+                    }
+                }),
 
                 AllowedFilter::callback('search', function (Builder $query, $value) {
                     $query->where(function ($q) use ($value) {
@@ -85,6 +106,10 @@ class ProductQueryBuilder
                 'warehouse_id',
                 'base_uom_id',
                 'current_qty_in_stock',
+                'expired_stock_quantity',
+                'has_expired_stock',
+                'next_expiry_date',
+                'next_expiry_sort_date',
             ],
 
             defaultSort: '-created_at',
