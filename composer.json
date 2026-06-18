@@ -15,6 +15,7 @@
         "laravel/tinker": "^2.8",
         "league/flysystem-aws-s3-v3": "^3.30",
         "maatwebsite/excel": "^3.1",
+        "mpdf/mpdf": "^8.3",
         "owen-it/laravel-auditing": "^13.7",
         "pragmarx/google2fa": "^8.0",
         "resend/resend-laravel": "^1.1",

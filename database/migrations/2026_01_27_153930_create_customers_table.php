@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('email_address', 50)->nullable();
             $table->string('phone_number', 50)->index();
             $table->string('social_media', 100)->nullable();
-            $table->string('customer_address', 255);
+            $table->string('customer_address', 255)->nullable();
             $table->string('google_map_link', 100)->nullable();
 
             $table->enum('customer_status', [

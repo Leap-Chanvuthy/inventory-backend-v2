@@ -2,566 +2,697 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ $invoice['title'] }} - {{ $invoice['number'] }}</title>
-    <style>
-        :root {
-            --primary: #1e40af;
-            --accent: #3b82f6;
-            --muted: #64748b;
-            --ink: #1e293b;
-            --bg-soft: #f8fafc;
-            --line: #dbe3ee;
-            --ok: #10b981;
-            --warn: #f59e0b;
-            --danger: #ef4444;
-            --hold: #7c3aed;
-        }
+    <title>{{ data_get($invoice ?? [], 'document_label', 'Invoice') }} - {{ data_get($invoice ?? [], 'number', '-') }}</title>
 
-        * { box-sizing: border-box; }
+    <style>
+        /*
+        |--------------------------------------------------------------------------
+        | mPDF-safe polished invoice template
+        |--------------------------------------------------------------------------
+        | This keeps the working table-only structure but improves the UI.
+        | Do not use flex, grid, float, border-radius, box-sizing, or @font-face here.
+        | Fonts are registered in SaleOrderInvoicePdfService.php.
+        */
+
+        @page {
+            margin: 10mm 10mm 12mm 10mm;
+        }
 
         body {
             margin: 0;
             padding: 0;
-            font-family: DejaVu Sans, sans-serif;
-            font-size: 12px;
-            color: var(--ink);
-            background: #fff;
-            line-height: 1.4;
+            font-family: siemreap;
+            font-size: 10.5px;
+            line-height: 1.35;
+            color: #111827;
+            background-color: #ffffff;
         }
 
-        @page {
-            size: A4;
-            margin: 12mm 10mm 12mm 10mm;
-        }
-
-        .page {
-            width: 100%;
-            position: relative;
-        }
-
-        .header-accent {
-            height: 7px;
-            border-radius: 10px;
-            background: linear-gradient(90deg, var(--primary), var(--accent));
-            margin-bottom: 10px;
-        }
-
-        .header {
+        table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 8px;
         }
 
-        .header td {
+        td,
+        th {
             vertical-align: top;
+            font-size: 10.5px;
         }
 
-        .company-logo {
-            width: 54px;
-            height: 54px;
-            border-radius: 12px;
-            background: #dbeafe;
-            color: #1d4ed8;
-            text-align: center;
-            font-size: 20px;
-            font-weight: 700;
-            line-height: 54px;
-            display: inline-block;
-            overflow: hidden;
-        }
-
-        .company-logo img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .title {
-            font-size: 26px;
-            font-weight: 800;
-            color: var(--primary);
-            letter-spacing: 0.4px;
-            margin: 0 0 3px 0;
-        }
-
-        .subtitle {
-            margin: 0;
-            color: var(--accent);
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 1.3px;
-            text-transform: uppercase;
-        }
-
-        .company-name {
-            margin: 4px 0 0 0;
-            color: var(--ink);
-            font-size: 14px;
-            font-weight: 700;
-        }
-
-        .website {
-            margin-top: 2px;
-            color: var(--muted);
-            font-size: 11px;
-        }
-
-        .invoice-number-card {
-            border: 1px solid #bfdbfe;
-            background: #eff6ff;
-            border-radius: 10px;
-            padding: 7px 9px;
+        .text-right {
             text-align: right;
-            width: 220px;
-            margin-left: auto;
         }
 
-        .invoice-label {
-            margin: 0;
-            font-size: 10px;
-            font-weight: 700;
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        .text-center {
+            text-align: center;
         }
 
-        .invoice-no {
-            margin: 3px 0 0 0;
+        .muted {
+            color: #6b7280;
+        }
+
+        .strong {
+            font-weight: bold;
+        }
+
+        .small {
+            font-size: 9px;
+        }
+
+        .tiny {
+            font-size: 8px;
+        }
+
+        .blue {
+            color: #2563eb;
+        }
+
+        .green {
+            color: #047857;
+        }
+
+        .orange {
+            color: #b45309;
+        }
+
+        .red {
+            color: #b91c1c;
+        }
+
+        .gray {
+            color: #374151;
+        }
+
+        .header-company-name {
             font-size: 16px;
-            font-weight: 800;
-            color: #1d4ed8;
+            font-weight: bold;
+            color: #111827;
+            line-height: 1.15;
         }
 
-        .invoice-generated {
-            margin: 4px 0 0 0;
+        .header-meta {
+            font-size: 9.5px;
+            color: #6b7280;
+            line-height: 1.35;
+        }
+
+        .invoice-title {
+            font-size: 30px;
+            font-weight: bold;
+            color: #111827;
+            line-height: 1;
+        }
+
+        .invoice-subtitle {
             font-size: 10px;
-            color: var(--muted);
+            color: #6b7280;
+            margin-top: 2px;
         }
 
-        .meta-grid {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 6px;
-            margin: 2px 0 8px 0;
+        .invoice-number {
+            font-size: 11px;
+            font-weight: bold;
+            color: #2563eb;
+            margin-top: 6px;
         }
 
-        .meta-card {
-            border: 1px solid var(--line);
-            border-radius: 10px;
-            background: var(--bg-soft);
-            padding: 7px;
+        .generated-at {
+            font-size: 8.5px;
+            color: #6b7280;
+            margin-top: 2px;
         }
 
-        .meta-label {
-            color: var(--muted);
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
+        .logo {
+            max-width: 150px;
+            max-height: 48px;
+            margin-bottom: 5px;
         }
 
-        .meta-value {
-            color: var(--ink);
-            font-size: 12px;
-            font-weight: 700;
-            margin-top: 4px;
+        .spacer-xs {
+            height: 6px;
         }
 
-        .badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 999px;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.4px;
-            text-transform: uppercase;
+        .spacer-sm {
+            height: 10px;
         }
 
-        .badge-draft { background: #fff7ed; color: #9a3412; }
-        .badge-processing { background: #eff6ff; color: #1e40af; }
-        .badge-on_hold { background: #f5f3ff; color: var(--hold); }
-        .badge-completed { background: #ecfdf5; color: #065f46; }
-        .badge-cancelled { background: #fef2f2; color: #991b1b; }
-        .badge-refunded { background: #fef3c7; color: #92400e; }
-        .badge-paid { background: #dcfce7; color: #166534; }
-        .badge-installment { background: #dbeafe; color: #1e40af; }
-        .badge-debt { background: #fee2e2; color: #991b1b; }
-
-        .party-grid {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 6px;
-            margin-bottom: 8px;
-        }
-
-        .party-card {
-            border: 1px solid var(--line);
-            border-radius: 12px;
-            padding: 8px;
-            background: #fff;
-            min-height: 128px;
+        .spacer-md {
+            height: 14px;
         }
 
         .section-title {
-            margin: 0 0 7px 0;
-            font-size: 11px;
-            font-weight: 800;
-            color: var(--primary);
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
+            font-size: 10.5px;
+            font-weight: bold;
+            color: #111827;
+            margin-bottom: 4px;
         }
 
-        .party-line {
-            margin: 2px 0;
-            font-size: 11px;
-            color: var(--ink);
+        .card {
+            border: 1px solid #e5e7eb;
+            background-color: #ffffff;
         }
 
-        .party-line .label {
-            color: var(--muted);
-            font-weight: 700;
-            margin-right: 4px;
+        .card-soft {
+            border: 1px solid #e5e7eb;
+            background-color: #f9fafb;
         }
 
-        .items-title {
-            margin: 8px 0 4px 0;
-            font-size: 12px;
-            font-weight: 800;
-            color: var(--ink);
-            text-transform: uppercase;
-            letter-spacing: 0.7px;
+        .card-blue {
+            border: 1px solid #dbeafe;
+            background-color: #f8fbff;
         }
 
-        table.items {
-            width: 100%;
-            border-collapse: collapse;
-            border: 1px solid var(--line);
-            border-radius: 10px;
-            overflow: hidden;
+        .card-padding {
+            padding: 9px;
         }
 
-        .items thead th {
-            background: #f1f5f9;
-            color: #475569;
+        .status-table {
+            border: 1px solid #e5e7eb;
+            background-color: #ffffff;
+        }
+
+        .status-table td {
+            width: 25%;
+            padding: 8px 9px;
+            border-right: 1px solid #e5e7eb;
+        }
+
+        .status-label {
+            font-size: 8px;
+            color: #6b7280;
+            line-height: 1.2;
+        }
+
+        .status-value {
             font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-            padding: 6px 6px;
-            border-bottom: 1px solid var(--line);
-            text-align: left;
+            font-weight: bold;
+            margin-top: 3px;
+            line-height: 1.2;
         }
 
-        .items tbody td {
-            font-size: 10px;
-            padding: 5px 6px;
-            border-bottom: 1px solid #edf2f7;
-            vertical-align: top;
+        .info-table td {
+            padding: 1.5px 0;
+            line-height: 1.3;
         }
 
-        .items tbody tr:nth-child(even) td {
-            background: #fbfdff;
-        }
-
-        .num {
-            text-align: right;
+        .info-label {
+            color: #6b7280;
+            width: 62px;
             white-space: nowrap;
         }
 
-        .stack-grid {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 6px;
-            margin-top: 6px;
+        .items-table {
+            border: 1px solid #e5e7eb;
         }
 
-        .panel {
-            border: 1px solid var(--line);
-            border-radius: 12px;
-            padding: 8px;
-            background: #fff;
-            vertical-align: top;
+        .items-table th {
+            padding: 7px 6px;
+            background-color: #f3f4f6;
+            color: #374151;
+            font-size: 9px;
+            font-weight: bold;
+            border-bottom: 1px solid #e5e7eb;
         }
 
-        .payment-box {
-            margin-bottom: 6px;
-            border: 1px dashed #bfdbfe;
-            border-radius: 10px;
-            padding: 6px;
-            background: #f8fbff;
+        .items-table td {
+            padding: 7px 6px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 9.5px;
+            line-height: 1.3;
         }
 
-        .khqr-wrap {
-            margin-top: 5px;
-            text-align: center;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            padding: 6px;
-            min-height: 110px;
-            background: #fff;
+        .product-name {
+            font-size: 10px;
+            font-weight: bold;
+            color: #111827;
         }
 
-        .khqr-wrap img {
-            max-width: 96px;
-            max-height: 96px;
+        .product-meta {
+            font-size: 8.5px;
+            color: #6b7280;
+            line-height: 1.25;
         }
 
-        .fallback {
-            color: var(--muted);
+        .summary-table td {
+            padding: 5px 0;
+            border-bottom: 1px dashed #e5e7eb;
             font-size: 10px;
         }
 
-        table.summary {
-            width: 100%;
-            border-collapse: collapse;
+        .summary-label {
+            color: #374151;
         }
 
-        .summary td {
-            padding: 3px 0;
-            font-size: 11px;
-            border-bottom: 1px dashed #e2e8f0;
-        }
-
-        .summary td:last-child {
+        .summary-value {
             text-align: right;
-            font-weight: 700;
+            font-weight: bold;
+            color: #111827;
+            white-space: nowrap;
         }
 
-        .summary .grand td {
-            padding-top: 7px;
-            border-top: 1px solid var(--line);
-            border-bottom: 0;
+        .summary-total-label {
+            padding-top: 9px;
+            border-top: 2px solid #111827;
             font-size: 13px;
-            color: var(--primary);
-            font-weight: 800;
+            font-weight: bold;
+            color: #111827;
         }
 
-        .note-box {
-            margin-top: 6px;
-            border: 1px solid #dbeafe;
-            background: #f8fbff;
-            border-radius: 10px;
-            padding: 7px;
+        .summary-total-value {
+            padding-top: 9px;
+            border-top: 2px solid #111827;
+            text-align: right;
+            font-size: 13px;
+            font-weight: bold;
+            color: #111827;
+            white-space: nowrap;
         }
 
-        .note-title {
-            margin: 0 0 4px 0;
+        .summary-khr {
             font-size: 10px;
-            font-weight: 800;
-            color: #1d4ed8;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
+            font-weight: bold;
+            text-align: right;
+            color: #374151;
+            padding-top: 3px;
+        }
+
+        .qr-box {
+            margin-top: 9px;
+            padding: 8px;
+            border: 1px dashed #d1d5db;
+            text-align: center;
+            min-height: 80px;
+        }
+
+        .qr {
+            max-width: 88px;
+            max-height: 88px;
         }
 
         .note-content {
-            margin: 0;
-            font-size: 11px;
-            color: var(--ink);
-        }
-
-        .signature-grid {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 16px 0;
-            margin-top: 10px;
-        }
-
-        .signature-box {
-            border-top: 1px solid #94a3b8;
-            padding-top: 6px;
-            text-align: center;
             font-size: 10px;
-            color: var(--muted);
-            width: 48%;
+            color: #111827;
+            line-height: 1.35;
+        }
+
+        .signature-line {
+            border-top: 1px solid #9ca3af;
+            text-align: center;
+            padding-top: 7px;
+            font-size: 10px;
+            color: #374151;
         }
 
         .footer {
-            margin-top: 8px;
-            border-top: 1px solid var(--line);
+            border-top: 1px solid #e5e7eb;
             padding-top: 8px;
-            font-size: 9px;
-            color: var(--muted);
-        }
-
-        .footer-right {
-            float: right;
-            font-weight: 700;
-            color: var(--primary);
-        }
-
-        .item-col {
-            text-align: left !important;
-            padding-left: 4px !important;
+            color: #6b7280;
+            font-size: 8.5px;
         }
     </style>
 </head>
+
 <body>
-    @php
-        $orderBadgeClass = 'badge-' . strtolower(str_replace(' ', '_', $meta['order_status']));
-        $paymentBadgeClass = 'badge-' . strtolower(str_replace(' ', '_', $meta['payment_status']));
-    @endphp
+@php
+    $safeText = static function ($value, string $fallback = '-') {
+        $text = trim((string) ($value ?? ''));
 
-    <div class="page">
-        <div class="header-accent"></div>
+        return $text !== '' ? $text : $fallback;
+    };
 
-        <table class="header">
-            <tr>
-                <td style="width: 65%;">
-                    <table style="border-collapse: collapse;">
-                        <tr>
-                            <!-- <td style="width: 62px;">
-                                <div class="company-logo">
-                                    @if(!empty($company['logo']))
-                                        <img src="{{ $company['logo'] }}" alt="Company Logo">
-                                    @else
-                                        {{ $company['initials'] }}
-                                    @endif
-                                </div>
-                            </td> -->
-                            <td>
-                                <h1 class="title">{{ strtoupper($invoice['document_label']) }}</h1>
-                                <p class="subtitle">{{ $invoice['title'] }}</p>
-                                <p class="company-name">{{ $company['name'] }}</p>
-                                <p class="website">{{ $company['website'] }}</p>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-                <td style="width: 35%;">
-                    <div class="invoice-number-card">
-                        <p class="invoice-label">Invoice Number</p>
-                        <p class="invoice-no">#{{ $invoice['number'] }}</p>
-                        <p class="invoice-generated">Generated: {{ $invoice['generated_at'] }}</p>
-                    </div>
-                </td>
-            </tr>
-        </table>
+    $displayStatus = static function ($value) use ($safeText) {
+        return str_replace('_', ' ', strtoupper($safeText($value)));
+    };
 
-        <table class="meta-grid">
-            <tr>
-                <td class="meta-card">
-                    <div class="meta-label">Order Status</div>
-                    <div class="meta-value">
-                        <span class="badge {{ $orderBadgeClass }}">{{ $meta['order_status'] }}</span>
-                    </div>
-                </td>
-                <td class="meta-card">
-                    <div class="meta-label">Payment Status</div>
-                    <div class="meta-value">
-                        <span class="badge {{ $paymentBadgeClass }}">{{ $meta['payment_status'] }}</span>
-                    </div>
-                </td>
-                <td class="meta-card">
-                    <div class="meta-label">Order Date</div>
-                    <div class="meta-value">{{ $meta['order_date'] }}</div>
-                </td>
-                <td class="meta-card">
-                    <div class="meta-label">Return Valid Until</div>
-                    <div class="meta-value">{{ $meta['return_valid_until'] }}</div>
-                </td>
-            </tr>
-        </table>
+    $statusColor = static function ($value): string {
+        $status = strtoupper(str_replace([' ', '-'], '_', trim((string) $value)));
 
-        <table class="party-grid">
-            <tr>
-                <td class="party-card" style="width:50%;">
-                    <h3 class="section-title">From</h3>
-                    <p class="party-line"><span class="label">Company:</span>{{ $company['name'] }}</p>
-                    <p class="party-line"><span class="label">Contact:</span>{{ $company['contact_person'] }}</p>
-                    <p class="party-line"><span class="label">Email:</span>{{ $company['email'] }}</p>
-                    <p class="party-line"><span class="label">Phone:</span>{{ $company['phone'] }}</p>
-                    <p class="party-line"><span class="label">VAT:</span>{{ $company['vat_number'] }}</p>
-                    <p class="party-line"><span class="label">Address:</span>{{ $company['address'] }}</p>
-                </td>
-                <td class="party-card" style="width:50%;">
-                    <h3 class="section-title">Bill To</h3>
-                    <p class="party-line"><span class="label">Customer:</span>{{ $bill_to['name'] }}</p>
-                    <p class="party-line"><span class="label">Customer Code:</span>{{ $bill_to['code'] }}</p>
-                    <p class="party-line"><span class="label">Email:</span>{{ $bill_to['email'] }}</p>
-                    <p class="party-line"><span class="label">Phone:</span>{{ $bill_to['phone'] }}</p>
-                    <p class="party-line"><span class="label">Category:</span>{{ $bill_to['category'] }}</p>
-                    <p class="party-line"><span class="label">Address:</span>{{ $bill_to['address'] }}</p>
-                </td>
-            </tr>
-        </table>
+        if (in_array($status, ['COMPLETED', 'PAID', 'ACTIVE', 'APPROVED'], true)) {
+            return 'green';
+        }
 
-        <h3 class="items-title">Order Items</h3>
-        <table class="items">
-            <thead>
+        if (in_array($status, ['PENDING', 'PARTIAL', 'PROCESSING', 'INSTALLMENT', 'DRAFT', 'ON_HOLD'], true)) {
+            return 'orange';
+        }
+
+        if (in_array($status, ['CANCELLED', 'FAILED', 'UNPAID', 'REFUNDED', 'DEBT'], true)) {
+            return 'red';
+        }
+
+        return 'gray';
+    };
+
+    $companyName = $safeText(data_get($company ?? [], 'name'), config('app.name', 'Inventory System'));
+    $companyLogo = data_get($company ?? [], 'logo_data_uri');
+    $companyAddress = $safeText(data_get($company ?? [], 'address'));
+    $companyPhone = $safeText(data_get($company ?? [], 'phone'));
+    $companyEmail = $safeText(data_get($company ?? [], 'email'));
+    $companyVat = $safeText(data_get($company ?? [], 'vat_number'));
+    $companyWebsite = $safeText(data_get($company ?? [], 'website'));
+    $companyContact = $safeText(data_get($company ?? [], 'contact_person'));
+
+    $invoiceLabel = $safeText(data_get($invoice ?? [], 'document_label'), 'INVOICE');
+    $invoiceTitle = $safeText(data_get($invoice ?? [], 'title'), 'Sales Invoice');
+    $invoiceNumber = $safeText(data_get($invoice ?? [], 'number'));
+    $generatedAt = $safeText(data_get($invoice ?? [], 'generated_at'));
+
+    $orderStatus = $displayStatus(data_get($meta ?? [], 'order_status'));
+    $paymentStatus = $displayStatus(data_get($meta ?? [], 'payment_status'));
+    $orderDate = $safeText(data_get($meta ?? [], 'order_date'));
+    $returnValidUntil = $safeText(data_get($meta ?? [], 'return_valid_until'));
+
+    $billToName = $safeText(data_get($bill_to ?? [], 'name'), 'Walk-in Customer');
+    $billToCode = $safeText(data_get($bill_to ?? [], 'code'));
+    $billToEmail = $safeText(data_get($bill_to ?? [], 'email'));
+    $billToPhone = $safeText(data_get($bill_to ?? [], 'phone'));
+    $billToCategory = $safeText(data_get($bill_to ?? [], 'category'));
+    $billToAddress = $safeText(data_get($bill_to ?? [], 'address'));
+
+    $paymentBankName = $safeText(data_get($payment ?? [], 'bank_name'), 'Not configured');
+    $paymentAccountHolder = $safeText(data_get($payment ?? [], 'account_holder'));
+    $paymentAccountNumber = $safeText(data_get($payment ?? [], 'account_number'));
+    $paymentLink = $safeText(data_get($payment ?? [], 'payment_link'));
+    $khqrImage = data_get($payment ?? [], 'khqr_data_uri');
+
+    $noteText = trim((string) ($note ?? ''));
+@endphp
+
+{{-- Header --}}
+<table>
+    <tr>
+        <td style="width: 58%;">
+            @if(! empty($companyLogo))
+                <img class="logo" src="{{ $companyLogo }}" alt="Logo">
+            @endif
+
+            <div class="header-company-name">{{ $companyName }}</div>
+            <div class="header-meta">{{ $companyAddress }}</div>
+
+            <div class="header-meta">
+                {{ $companyPhone }}
+                @if($companyEmail !== '-')
+                    | {{ $companyEmail }}
+                @endif
+            </div>
+
+            @if($companyWebsite !== '-')
+                <div class="header-meta">{{ $companyWebsite }}</div>
+            @endif
+
+            @if($companyVat !== '-')
+                <div class="header-meta">VAT: {{ $companyVat }}</div>
+            @endif
+        </td>
+
+        <td style="width: 42%;" class="text-right">
+            <div class="invoice-title">{{ strtoupper($invoiceLabel) }}</div>
+            <div class="invoice-subtitle">{{ $invoiceTitle }}</div>
+            <div class="invoice-number">#{{ $invoiceNumber }}</div>
+            <div class="generated-at">Generated: {{ $generatedAt }}</div>
+        </td>
+    </tr>
+</table>
+
+<div class="spacer-md"></div>
+
+{{-- Status --}}
+<table class="status-table">
+    <tr>
+        <td>
+            <div class="status-label">Order Status</div>
+            <div class="status-value {{ $statusColor($orderStatus) }}">{{ $orderStatus }}</div>
+        </td>
+
+        <td>
+            <div class="status-label">Payment Status</div>
+            <div class="status-value {{ $statusColor($paymentStatus) }}">{{ $paymentStatus }}</div>
+        </td>
+
+        <td>
+            <div class="status-label">Order Date</div>
+            <div class="status-value">{{ $orderDate }}</div>
+        </td>
+
+        <td style="border-right: 0;">
+            <div class="status-label">Return Valid Until</div>
+            <div class="status-value">{{ $returnValidUntil }}</div>
+        </td>
+    </tr>
+</table>
+
+<div class="spacer-md"></div>
+
+{{-- From / Bill To --}}
+<table>
+    <tr>
+        <td style="width: 50%; padding-right: 6px;">
+            <table class="card">
                 <tr>
-                    <th style="width: 5%;">#</th>
-                    <th style="width: 24%;">Product</th>
-                    <th style="width: 9%;" class="num">Qty</th>
-                    <th style="width: 12%;" class="num">Unit USD</th>
-                    <th style="width: 10%;" class="num">Total USD</th>
-                    <th style="width: 10%;" class="num">Total KHR</th>
+                    <td class="card-padding">
+                        <div class="section-title">From</div>
+
+                        <table class="info-table">
+                            <tr>
+                                <td class="info-label">Company:</td>
+                                <td class="strong">{{ $companyName }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Contact:</td>
+                                <td>{{ $companyContact }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Phone:</td>
+                                <td>{{ $companyPhone }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Email:</td>
+                                <td>{{ $companyEmail }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">VAT:</td>
+                                <td>{{ $companyVat }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Address:</td>
+                                <td>{{ $companyAddress }}</td>
+                            </tr>
+                        </table>
+                    </td>
                 </tr>
-            </thead>
-            <tbody>
-                @foreach($items as $item)
-                    <tr>
-                        <td>{{ $item['line_no'] }}</td>
-                        <td class="item-col">{{ $item['product_name'] }}</td>
-                        <td class="num">{{ $item['quantity'] }}</td>
-                        <td class="num">{{ $item['unit_price_usd'] }}</td>
-                        <td class="num">{{ $item['total_price_usd'] }}</td>
-                        <td class="num">{{ $item['total_price_riel'] }}</td>
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
+            </table>
+        </td>
 
-        <table class="stack-grid">
-            <tr>
-                <td class="panel" style="width: 50%;">
-                    <h3 class="section-title">Payment Method</h3>
-                    <div class="payment-box">
-                        <p class="party-line"><span class="label">Bank:</span>{{ $payment['bank_name'] }}</p>
-                        <p class="party-line"><span class="label">Account Holder:</span>{{ $payment['account_holder'] }}</p>
-                        <p class="party-line"><span class="label">Account Number:</span>{{ $payment['account_number'] }}</p>
-                        <p class="party-line"><span class="label">Payment Link:</span>{{ $payment['payment_link'] }}</p>
-                    </div>
-                    <h3 class="section-title" style="margin-top: 8px;">KHQR</h3>
-                    <div class="khqr-wrap">
-                        @if(!empty($payment['khqr_image']))
-                            <img src="{{ $payment['khqr_image'] }}" alt="KHQR">
-                        @else
-                            <p class="fallback">KHQR image is not configured.</p>
-                        @endif
-                    </div>
-                </td>
+        <td style="width: 50%; padding-left: 6px;">
+            <table class="card">
+                <tr>
+                    <td class="card-padding">
+                        <div class="section-title">Bill To</div>
 
-                <td class="panel" style="width: 50%;">
-                    <h3 class="section-title">Summary</h3>
-                    <table class="summary">
-                        <tr><td>Subtotal</td><td>{{ $summary['sub_total_usd'] }}</td></tr>
-                        <tr><td>Discount</td><td>{{ $summary['discount_amount_usd'] }}</td></tr>
-                        <tr><td>Tax ({{ $summary['tax_percentage'] }})</td><td>{{ $summary['tax_amount_usd'] }}</td></tr>
-                        <tr><td>Paid</td><td>{{ $summary['paid_amount_usd'] }}</td></tr>
-                        <tr><td>Refunded</td><td>{{ $summary['refunded_amount_usd'] }}</td></tr>
-                        <tr><td>Remaining</td><td>{{ $summary['remaining_balance_usd'] }}</td></tr>
-                        <tr class="grand"><td>Total Amount</td><td>{{ $summary['total_amount_usd'] }}</td></tr>
-                        <tr class="grand"><td></td><td>{{ $summary['total_amount_riel'] }}</td></tr>
-                    </table>
+                        <table class="info-table">
+                            <tr>
+                                <td class="info-label">Customer:</td>
+                                <td class="strong">{{ $billToName }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Code:</td>
+                                <td>{{ $billToCode }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Phone:</td>
+                                <td>{{ $billToPhone }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Email:</td>
+                                <td>{{ $billToEmail }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Category:</td>
+                                <td>{{ $billToCategory }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Address:</td>
+                                <td>{{ $billToAddress }}</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
 
-                    <div class="note-box">
-                        <h4 class="note-title">Note</h4>
-                        <p class="note-content">{{ $note }}</p>
-                    </div>
-                </td>
-            </tr>
-        </table>
+<div class="spacer-md"></div>
 
-        <table class="signature-grid">
-            <tr>
-                <td class="signature-box">Prepared By</td>
-                <td class="signature-box">Approved By</td>
-            </tr>
-        </table>
+{{-- Items --}}
+<div class="section-title">Order Items</div>
 
-        <div class="footer">
-            <span>{{ $footer['left'] }}</span>
-            <span class="footer-right">{{ $footer['right'] }}</span>
-        </div>
-    </div>
+<table class="items-table">
+    <tr>
+        <th style="width: 5%;" class="text-center">#</th>
+        <th style="width: 37%;">Product</th>
+        <th style="width: 9%;" class="text-right">Qty</th>
+        <th style="width: 14%;" class="text-right">Unit USD</th>
+        <th style="width: 16%;" class="text-right">Total USD</th>
+        <th style="width: 19%;" class="text-right">Total KHR</th>
+    </tr>
+
+    @forelse(($items ?? []) as $item)
+        @php
+            $itemSku = $safeText(data_get($item, 'sku'));
+            $itemNote = $safeText(data_get($item, 'note'));
+        @endphp
+
+        <tr>
+            <td class="text-center">
+                {{ data_get($item, 'line_no', $loop->iteration) }}
+            </td>
+
+            <td>
+                <div class="product-name">
+                    {{ $safeText(data_get($item, 'product_name'), 'Product') }}
+                </div>
+
+                @if($itemSku !== '-')
+                    <div class="product-meta">SKU: {{ $itemSku }}</div>
+                @endif
+
+                @if($itemNote !== '-')
+                    <div class="product-meta">Note: {{ $itemNote }}</div>
+                @endif
+            </td>
+
+            <td class="text-right">
+                {{ $safeText(data_get($item, 'quantity'), '0.00') }}
+            </td>
+
+            <td class="text-right">
+                {{ $safeText(data_get($item, 'unit_price_usd'), '$0.00') }}
+            </td>
+
+            <td class="text-right">
+                {{ $safeText(data_get($item, 'total_price_usd'), '$0.00') }}
+            </td>
+
+            <td class="text-right">
+                {{ $safeText(data_get($item, 'total_price_riel'), '៛ 0.00') }}
+            </td>
+        </tr>
+    @empty
+        <tr>
+            <td colspan="6" class="text-center muted">No order items found.</td>
+        </tr>
+    @endforelse
+</table>
+
+<div class="spacer-md"></div>
+
+{{-- Payment / Summary --}}
+<table>
+    <tr>
+        <td style="width: 50%; padding-right: 6px;">
+            <table class="card">
+                <tr>
+                    <td class="card-padding">
+                        <div class="section-title">Payment Method</div>
+
+                        <table class="info-table">
+                            <tr>
+                                <td class="info-label">Bank:</td>
+                                <td>{{ $paymentBankName }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Holder:</td>
+                                <td>{{ $paymentAccountHolder }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Account:</td>
+                                <td>{{ $paymentAccountNumber }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Link:</td>
+                                <td>{{ $paymentLink }}</td>
+                            </tr>
+                        </table>
+
+                        <div class="qr-box">
+                            @if(! empty($khqrImage))
+                                <img class="qr" src="{{ $khqrImage }}" alt="KHQR">
+                                <div class="tiny muted">Scan to pay</div>
+                            @else
+                                <span class="muted small">KHQR image is not configured.</span>
+                            @endif
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </td>
+
+        <td style="width: 50%; padding-left: 6px;">
+            <table class="card">
+                <tr>
+                    <td class="card-padding">
+                        <div class="section-title">Summary</div>
+
+                        <table class="summary-table">
+                            <tr>
+                                <td class="summary-label">Subtotal</td>
+                                <td class="summary-value">{{ $safeText(data_get($summary ?? [], 'sub_total_usd'), '$0.00') }}</td>
+                            </tr>
+
+                            <tr>
+                                <td class="summary-label">Discount</td>
+                                <td class="summary-value">{{ $safeText(data_get($summary ?? [], 'discount_amount_usd'), '$0.00') }}</td>
+                            </tr>
+
+                            <tr>
+                                <td class="summary-label">Tax ({{ $safeText(data_get($summary ?? [], 'tax_percentage'), '0.00%') }})</td>
+                                <td class="summary-value">{{ $safeText(data_get($summary ?? [], 'tax_amount_usd'), '$0.00') }}</td>
+                            </tr>
+
+                            <tr>
+                                <td class="summary-label">Paid</td>
+                                <td class="summary-value">{{ $safeText(data_get($summary ?? [], 'paid_amount_usd'), '$0.00') }}</td>
+                            </tr>
+
+                            <tr>
+                                <td class="summary-label">Refunded</td>
+                                <td class="summary-value">{{ $safeText(data_get($summary ?? [], 'refunded_amount_usd'), '$0.00') }}</td>
+                            </tr>
+
+                            <tr>
+                                <td class="summary-label">Remaining</td>
+                                <td class="summary-value">{{ $safeText(data_get($summary ?? [], 'remaining_balance_usd'), '$0.00') }}</td>
+                            </tr>
+
+                            <tr>
+                                <td class="summary-total-label">Total Amount</td>
+                                <td class="summary-total-value">{{ $safeText(data_get($summary ?? [], 'total_amount_usd'), '$0.00') }}</td>
+                            </tr>
+
+                            <tr>
+                                <td></td>
+                                <td class="summary-khr">{{ $safeText(data_get($summary ?? [], 'total_amount_riel'), '៛ 0.00') }}</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+@if($noteText !== '')
+    <div class="spacer-md"></div>
+
+    <table class="card-blue">
+        <tr>
+            <td class="card-padding">
+                <div class="section-title">Note</div>
+                <div class="note-content">{{ $noteText }}</div>
+            </td>
+        </tr>
+    </table>
+@endif
+
 </body>
 </html>

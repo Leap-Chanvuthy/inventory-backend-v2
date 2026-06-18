@@ -298,6 +298,9 @@ class SaleOrderService
             $saleOrder = SaleOrder::with([
                 'customer' => fn ($q) => $q->withTrashed()->with('customerCategory'),
                 'orderItems.product' => fn ($q) => $q->withTrashed(),
+                'orderItems.product.baseUom' => fn ($q) => $q->withTrashed()->with([
+                    'category' => fn ($q) => $q->withTrashed(),
+                ]),
                 'orderItems.saleMovement.saleAllocations.sourceMovement',
                 'refunds.items.saleOrderItem.product' => fn ($q) => $q->withTrashed(),
                 'refunds.processedBy',
@@ -1356,6 +1359,9 @@ class SaleOrderService
         try {
             $saleOrder = SaleOrder::with([
                 'orderItems.product' => fn ($q) => $q->withTrashed(),
+                'orderItems.product.baseUom' => fn ($q) => $q->withTrashed()->with([
+                    'category' => fn ($q) => $q->withTrashed(),
+                ]),
                 'orderItems.saleMovement.saleAllocations.sourceMovement',
                 'customer' => fn ($q) => $q->withTrashed()->with('customerCategory'),
             ])->findOrFail($id);
@@ -1639,6 +1645,9 @@ class SaleOrderService
                 return $saleOrder->fresh([
                     'customer.customerCategory',
                     'orderItems.product',
+                    'orderItems.product.baseUom' => fn ($q) => $q->withTrashed()->with([
+                        'category' => fn ($q) => $q->withTrashed(),
+                    ]),
                     'orderItems.saleMovement.saleAllocations.sourceMovement',
                     'refunds.items.saleOrderItem.product',
                     'refunds.processedBy',

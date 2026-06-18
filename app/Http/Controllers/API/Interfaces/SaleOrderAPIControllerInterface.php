@@ -367,7 +367,7 @@ interface SaleOrderAPIControllerInterface
      *                     required={"sale_order_item_id","quantity"},
      *                     @OA\Property(property="sale_order_item_id", type="integer", example=12),
      *                     @OA\Property(property="product_id", type="integer", example=10, description="Optional fallback matcher when sale_order_item_id is not provided."),
-     *                     @OA\Property(property="quantity", type="number", format="float", example=1),
+     *                     @OA\Property(property="quantity", type="number", format="float", example=1.2),
      *                     @OA\Property(property="process_return", type="boolean", example=true),
      *                     @OA\Property(property="process_refund", type="boolean", example=true),
      *                     @OA\Property(property="is_resellable", type="boolean", nullable=true, example=true),

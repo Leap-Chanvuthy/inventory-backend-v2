@@ -58,7 +58,7 @@ class CustomerValidation {
             'email_address' => 'nullable|email|max:50',
             'phone_number' => 'required|string|max:50',
             'social_media' => 'nullable|string|max:100',
-            'customer_address' => 'required|string|max:255',
+            'customer_address' => 'nullable|string|max:255',
             'google_map_link' => 'nullable|string|max:100',
             'customer_status' => [
                 'required',
@@ -88,7 +88,7 @@ class CustomerValidation {
             'email_address' => 'sometimes|nullable|email|max:50',
             'phone_number' => 'sometimes|required|string|max:50',
             'social_media' => 'sometimes|nullable|string|max:100',
-            'customer_address' => 'sometimes|required|string|max:255',
+            'customer_address' => 'sometimes|nullable|string|max:255',
             'google_map_link' => 'sometimes|nullable|string|max:100',
             'customer_status' => [
                 'sometimes',

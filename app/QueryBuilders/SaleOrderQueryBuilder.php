@@ -84,6 +84,9 @@ class SaleOrderQueryBuilder
             withRelations: [
                 'customer' => fn ($q) => $q->withTrashed()->with('customerCategory'),
                 'orderItems.product' => fn ($q) => $q->withTrashed(),
+                'orderItems.product.baseUom' => fn ($q) => $q->withTrashed()->with([
+                    'category' => fn ($q) => $q->withTrashed(),
+                ]),
                 'orderItems.saleMovement.saleAllocations.sourceMovement',
                 'refunds' => fn ($q) => $q->orderByDesc('processed_at'),
                 'installments' => fn ($q) => $q->orderBy('paid_at'),

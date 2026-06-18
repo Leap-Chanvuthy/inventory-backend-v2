@@ -20,9 +20,9 @@ return new class extends Migration
                 ->constrained('product_movements')
                 ->nullOnDelete()
                 ->cascadeOnUpdate();
-            $table->decimal('quantity', 15, 2)->default(0);
-            $table->decimal('returned_quantity', 15, 2)->default(0);
-            $table->decimal('refund_quantity', 15, 2)->nullable();
+            $table->decimal('quantity', 15, 4)->default(0);
+            $table->decimal('returned_quantity', 15, 4)->default(0);
+            $table->decimal('refund_quantity', 15, 4)->nullable();
             $table->decimal('unit_price_in_usd', 15, 2)->default(0);
             $table->decimal('unit_price_in_riel', 15, 2)->default(0);
             $table->decimal('total_price_in_usd', 15, 2)->default(0);
