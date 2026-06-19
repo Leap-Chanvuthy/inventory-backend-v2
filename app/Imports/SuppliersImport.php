@@ -21,6 +21,20 @@ class SuppliersImport implements ToModel, WithHeadingRow, WithValidation, SkipsO
 
     protected int $imported = 0;
 
+    public function prepareForValidation(array $row, int $index): array
+    {
+        foreach ($this->stringColumns() as $column) {
+            if (!array_key_exists($column, $row) || $row[$column] === null) {
+                continue;
+            }
+
+            $value = trim((string) $row[$column]);
+            $row[$column] = $value !== '' ? $value : null;
+        }
+
+        return $row;
+    }
+
     public function model(array $row)
     {
         // Only called for VALID rows
@@ -102,5 +116,29 @@ class SuppliersImport implements ToModel, WithHeadingRow, WithValidation, SkipsO
     public function getImportedCount(): int
     {
         return $this->imported;
+    }
+
+    private function stringColumns(): array
+    {
+        return [
+            'supplier_code',
+            'official_name',
+            'contact_person',
+            'phone',
+            'email',
+            'legal_business_name',
+            'tax_identification_number',
+            'business_registration_number',
+            'supplier_category',
+            'business_description',
+            'address_line1',
+            'address_line2',
+            'village',
+            'commune',
+            'district',
+            'city',
+            'province',
+            'postal_code',
+        ];
     }
 }
