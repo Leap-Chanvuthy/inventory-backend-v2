@@ -26,8 +26,12 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Mpdf\Config\ConfigVariables;
+use Mpdf\Config\FontVariables;
+use Mpdf\Mpdf;
 
 class SaleOrderService
 {
@@ -759,67 +763,139 @@ class SaleOrderService
 
     public function exportStatisticsReport(Request $request)
     {
+        try {
+            [$stats, $reportMeta] = $this->resolveStatisticsReportPayload($request);
+            $filename = 'sale-order-report-' . now()->format('Ymd-His') . '.pdf';
+            $pdfContent = $this->buildStatisticsReportPdf($stats, $reportMeta);
+
+            return response($pdfContent, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ]);
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    public function previewStatisticsReport(Request $request)
+    {
+        try {
+            [$stats, $reportMeta] = $this->resolveStatisticsReportPayload($request);
+
+            return view('pdf.sale-orders.statistics-report', [
+                'stats' => $stats,
+                'meta' => $reportMeta,
+            ]);
+        } catch (Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
+        }
+    }
+
+    private function resolveStatisticsReportPayload(Request $request): array
+    {
         $statsResponse = $this->statistics($request);
         $payload = $statsResponse->getData(true);
 
         if (!(bool) ($payload['status'] ?? false)) {
-            return ResponseHelper::error('Failed generating statistics report', 500);
+            throw new \RuntimeException('Failed generating statistics report');
         }
 
-        $stats = $payload['data'] ?? [];
-        $dateFromRaw = (string) $request->query('date_from', '');
-        $dateToRaw = (string) $request->query('date_to', '');
+        $stats = is_array($payload['data'] ?? null) ? $payload['data'] : [];
+
+        return [$stats, $this->buildStatisticsReportMeta($request, $stats)];
+    }
+
+    private function buildStatisticsReportMeta(Request $request, array $stats): array
+    {
+        $dateFromLabel = $this->formatReportDateLabel((string) $request->query('date_from', ''), 'All Time');
+        $dateToLabel = $this->formatReportDateLabel((string) $request->query('date_to', ''), 'Present');
         $customerId = $request->query('customer_id');
         $statusRaw = trim((string) $request->query('status', ''));
-
-        $dateFromLabel = 'All Time';
-        if ($dateFromRaw !== '') {
-            try {
-                $dateFromLabel = Carbon::parse($dateFromRaw)->format('M d, Y');
-            } catch (Exception) {
-                $dateFromLabel = $dateFromRaw;
-            }
-        }
-
-        $dateToLabel = 'Present';
-        if ($dateToRaw !== '') {
-            try {
-                $dateToLabel = Carbon::parse($dateToRaw)->format('M d, Y');
-            } catch (Exception) {
-                $dateToLabel = $dateToRaw;
-            }
-        }
-        $periodLabel = "{$dateFromLabel} - {$dateToLabel}";
-
         $customerLabel = 'All Registered Clients';
+
         if (!empty($customerId)) {
             $customerRecord = Customer::query()
                 ->select(['id', 'fullname'])
                 ->find((int) $customerId);
+
             if (!is_null($customerRecord)) {
                 $customerLabel = (string) $customerRecord->fullname;
             }
         }
 
-        $statusLabel = $statusRaw !== '' ? strtoupper($statusRaw) : 'ALL';
         $generatedAt = now();
 
-        $reportMeta = [
+        return [
             'report_id' => 'SR-' . $generatedAt->format('Ymd-His'),
             'generated_at' => $generatedAt->format('Y-m-d H:i'),
-            'period_label' => $periodLabel,
+            'period_label' => "{$dateFromLabel} - {$dateToLabel}",
             'customer_label' => $customerLabel,
-            'status_label' => $statusLabel,
-            'group_by' => strtoupper((string) ($stats['group_by'] ?? 'MONTH')),
+            'status_label' => $statusRaw !== '' ? strtoupper($statusRaw) : 'ALL',
+            'group_by' => strtoupper((string) ($stats['group_by'] ?? $request->query('group_by', 'month'))),
         ];
+    }
 
-        $filename = 'sale-order-report-' . now()->format('Ymd-His') . '.pdf';
-        $pdfContent = $this->buildStyledStatisticsPdf($stats, $reportMeta);
+    private function formatReportDateLabel(string $value, string $fallback): string
+    {
+        if (trim($value) === '') {
+            return $fallback;
+        }
 
-        return response($pdfContent, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        try {
+            return Carbon::parse($value)->format('M d, Y');
+        } catch (Exception) {
+            return $value;
+        }
+    }
+
+    private function buildStatisticsReportPdf(array $stats, array $meta): string
+    {
+        $tempDir = storage_path('app/mpdf');
+        $fontDir = public_path('fonts');
+        $fontRegular = $fontDir . DIRECTORY_SEPARATOR . 'KhmerOS_siemreap.ttf';
+
+        if (!File::exists($tempDir)) {
+            File::makeDirectory($tempDir, 0775, true);
+        }
+
+        if (!file_exists($fontRegular)) {
+            throw new \RuntimeException("Font not found: {$fontRegular}");
+        }
+
+        $defaultConfig = (new ConfigVariables())->getDefaults();
+        $fontDirs = $defaultConfig['fontDir'] ?? [];
+        $defaultFontConfig = (new FontVariables())->getDefaults();
+        $fontData = $defaultFontConfig['fontdata'] ?? [];
+
+        $mpdf = new Mpdf([
+            'mode' => 'utf-8',
+            'format' => 'A4-L',
+            'tempDir' => $tempDir,
+            'fontDir' => array_merge(is_array($fontDirs) ? $fontDirs : [], [$fontDir]),
+            'fontdata' => (is_array($fontData) ? $fontData : []) + [
+                'siemreap' => [
+                    'R' => 'KhmerOS_siemreap.ttf',
+                    'useOTL' => 0xFF,
+                    'useKashida' => 75,
+                ],
+            ],
+            'default_font' => 'siemreap',
         ]);
+
+        $mpdf->autoScriptToLang = true;
+        $mpdf->autoLangToFont = true;
+        $mpdf->SetTitle((string) ($meta['report_id'] ?? 'Sale Order Statistics Report'));
+        $mpdf->SetAuthor((string) config('app.name', 'Inventory System'));
+        $mpdf->SetCreator((string) config('app.name', 'Inventory System'));
+
+        $html = view('pdf.sale-orders.statistics-report', [
+            'stats' => $stats,
+            'meta' => $meta,
+        ])->render();
+
+        $mpdf->WriteHTML($html);
+
+        return $mpdf->Output('', 'S');
     }
 
     public function getStockAvailability(int $productId)
@@ -2245,297 +2321,6 @@ class SaleOrderService
             'year' => $date->format('Y'),
             default => $date->format('Y-m'),
         };
-    }
-
-    private function buildStyledStatisticsPdf(array $stats, array $meta): string
-    {
-        $pageWidth = 595.0;
-        $stream = [];
-
-        // Top accent bar.
-        $stream[] = $this->pdfFillRect(0, 834, $pageWidth, 8, [0.12, 0.25, 0.69]);
-
-        // Header.
-        $stream[] = $this->pdfText(40, 790, 'SALES PERFORMANCE', 26, [0.12, 0.25, 0.69], 'F2');
-        $stream[] = $this->pdfText(40, 772, 'OFFICIAL STATISTICS REPORT', 9, [0.23, 0.51, 0.96], 'F2');
-
-        $stream[] = $this->pdfText(40, 744, 'Period:', 10, [0.28, 0.32, 0.38], 'F2');
-        $stream[] = $this->pdfText(80, 744, (string) ($meta['period_label'] ?? 'All Time'), 10, [0.40, 0.45, 0.51]);
-        $stream[] = $this->pdfText(40, 728, 'Customer:', 10, [0.28, 0.32, 0.38], 'F2');
-        $stream[] = $this->pdfText(90, 728, (string) ($meta['customer_label'] ?? 'All Registered Clients'), 10, [0.40, 0.45, 0.51]);
-        $stream[] = $this->pdfText(40, 712, 'Status:', 10, [0.28, 0.32, 0.38], 'F2');
-        $stream[] = $this->pdfText(78, 712, (string) ($meta['status_label'] ?? 'ALL'), 10, [0.40, 0.45, 0.51]);
-        $stream[] = $this->pdfText(40, 696, 'Grouping:', 10, [0.28, 0.32, 0.38], 'F2');
-        $stream[] = $this->pdfText(90, 696, (string) ($meta['group_by'] ?? 'MONTH'), 10, [0.40, 0.45, 0.51]);
-
-        $stream[] = $this->pdfText(410, 744, 'Report ID: ' . (string) ($meta['report_id'] ?? '-'), 9, [0.58, 0.64, 0.71], 'F2');
-        $stream[] = $this->pdfText(410, 728, 'Generated: ' . (string) ($meta['generated_at'] ?? '-'), 9, [0.58, 0.64, 0.71], 'F2');
-
-        // Metric cards.
-        $cardY = 598.0;
-        $cardHeight = 86.0;
-        $cardWidth = 164.0;
-        $gap = 13.5;
-        $cardStartX = 40.0;
-
-        // Card 1 - Net revenue.
-        $stream[] = $this->pdfFillRect($cardStartX, $cardY, $cardWidth, $cardHeight, [0.97, 0.98, 0.99]);
-        $stream[] = $this->pdfFillRect($cardStartX, $cardY, 4, $cardHeight, [0.23, 0.51, 0.96]);
-        $stream[] = $this->pdfText($cardStartX + 10, $cardY + 68, 'TOTAL NET REVENUE', 8, [0.58, 0.64, 0.71], 'F2');
-        $stream[] = $this->pdfText($cardStartX + 10, $cardY + 44, '$' . number_format((float) ($stats['net_revenue_usd'] ?? 0), 2), 16, [0.12, 0.25, 0.69], 'F2');
-        $stream[] = $this->pdfText($cardStartX + 10, $cardY + 24, number_format((float) ($stats['net_revenue_riel'] ?? 0), 2) . ' RIEL', 8, [0.23, 0.51, 0.96], 'F2');
-
-        // Card 2 - Total orders.
-        $card2X = $cardStartX + $cardWidth + $gap;
-        $stream[] = $this->pdfFillRect($card2X, $cardY, $cardWidth, $cardHeight, [0.97, 0.98, 0.99]);
-        $stream[] = $this->pdfFillRect($card2X, $cardY, 4, $cardHeight, [0.06, 0.73, 0.51]);
-        $stream[] = $this->pdfText($card2X + 10, $cardY + 68, 'TOTAL ORDERS', 8, [0.58, 0.64, 0.71], 'F2');
-        $stream[] = $this->pdfText($card2X + 10, $cardY + 44, (string) ((int) ($stats['total_orders'] ?? 0)), 16, [0.20, 0.23, 0.27], 'F2');
-        $stream[] = $this->pdfText($card2X + 10, $cardY + 24, (string) ((int) ($stats['total_completed'] ?? 0)) . ' COMPLETED', 8, [0.06, 0.51, 0.30], 'F2');
-
-        // Card 3 - Average order value.
-        $card3X = $card2X + $cardWidth + $gap;
-        $stream[] = $this->pdfFillRect($card3X, $cardY, $cardWidth, $cardHeight, [0.97, 0.98, 0.99]);
-        $stream[] = $this->pdfFillRect($card3X, $cardY, 4, $cardHeight, [0.94, 0.27, 0.27]);
-        $stream[] = $this->pdfText($card3X + 10, $cardY + 68, 'AVG ORDER VALUE', 8, [0.58, 0.64, 0.71], 'F2');
-        $stream[] = $this->pdfText($card3X + 10, $cardY + 44, '$' . number_format((float) ($stats['average_order_value_usd'] ?? 0), 2), 16, [0.20, 0.23, 0.27], 'F2');
-        $stream[] = $this->pdfText($card3X + 10, $cardY + 24, 'PER COMPLETED ORDER', 8, [0.58, 0.64, 0.71], 'F2');
-
-        // Trend section title.
-        $stream[] = $this->pdfFillRect(40, 560, 5, 16, [0.12, 0.25, 0.69]);
-        $stream[] = $this->pdfText(52, 564, strtoupper((string) ($stats['group_by'] ?? 'MONTH')) . ' PERFORMANCE TREND', 11, [0.20, 0.23, 0.27], 'F2');
-
-        // Trend table.
-        $tableX = 40.0;
-        $tableY = 548.0;
-        $tableWidth = 515.0;
-        $headerHeight = 22.0;
-        $rowHeight = 20.0;
-        $trendRows = array_slice((array) ($stats['sales_trend'] ?? []), 0, 8);
-        if (count($trendRows) === 0) {
-            $trendRows = [['period' => '-', 'total_sales_usd' => 0, 'total_sales_riel' => 0]];
-        }
-
-        $stream[] = $this->pdfFillRect($tableX, $tableY - $headerHeight, $tableWidth, $headerHeight, [0.95, 0.96, 0.98]);
-        $stream[] = $this->pdfStrokeRect($tableX, $tableY - $headerHeight, $tableWidth, $headerHeight + (count($trendRows) * $rowHeight), [0.89, 0.91, 0.94], 0.8);
-
-        $stream[] = $this->pdfText($tableX + 10, $tableY - 15, 'REPORTING PERIOD', 8, [0.28, 0.32, 0.38], 'F2');
-        $stream[] = $this->pdfText($tableX + 210, $tableY - 15, 'REVENUE USD', 8, [0.28, 0.32, 0.38], 'F2');
-        $stream[] = $this->pdfText($tableX + 330, $tableY - 15, 'REVENUE RIEL', 8, [0.28, 0.32, 0.38], 'F2');
-        $stream[] = $this->pdfText($tableX + 460, $tableY - 15, 'STATUS', 8, [0.28, 0.32, 0.38], 'F2');
-
-        $maxTrendUsd = max(array_map(fn ($row) => (float) ($row['total_sales_usd'] ?? 0), $trendRows));
-        foreach ($trendRows as $index => $row) {
-            $rowTopY = $tableY - $headerHeight - ($index * $rowHeight);
-            $rowBottomY = $rowTopY - $rowHeight;
-
-            if (($index % 2) === 1) {
-                $stream[] = $this->pdfFillRect($tableX, $rowBottomY, $tableWidth, $rowHeight, [0.97, 0.98, 0.99]);
-            }
-
-            $period = (string) ($row['period'] ?? '-');
-            $usd = (float) ($row['total_sales_usd'] ?? 0);
-            $riel = (float) ($row['total_sales_riel'] ?? 0);
-
-            $status = 'STABLE';
-            $pillFill = [0.89, 0.91, 0.94];
-            $pillText = [0.28, 0.32, 0.38];
-            if ($maxTrendUsd > 0 && abs($usd - $maxTrendUsd) < self::FLOAT_EPSILON) {
-                $status = 'PEAK';
-                $pillFill = [0.86, 0.97, 0.89];
-                $pillText = [0.09, 0.40, 0.20];
-            } elseif ($maxTrendUsd > 0 && $usd >= ($maxTrendUsd * 0.70)) {
-                $status = 'HIGH';
-                $pillFill = [0.86, 0.97, 0.89];
-                $pillText = [0.09, 0.40, 0.20];
-            }
-
-            $stream[] = $this->pdfText($tableX + 10, $rowBottomY + 7, $period, 9, [0.20, 0.23, 0.27], 'F2');
-            $stream[] = $this->pdfText($tableX + 210, $rowBottomY + 7, '$' . number_format($usd, 2), 9, [0.20, 0.23, 0.27]);
-            $stream[] = $this->pdfText($tableX + 330, $rowBottomY + 7, number_format($riel, 2), 9, [0.39, 0.45, 0.52]);
-
-            $pillX = $tableX + 450;
-            $pillY = $rowBottomY + 4;
-            $stream[] = $this->pdfFillRect($pillX, $pillY, 52, 13, $pillFill);
-            $stream[] = $this->pdfText($pillX + 10, $pillY + 4, $status, 7, $pillText, 'F2');
-        }
-
-        // Two-column summary lists.
-        $listTopY = 330.0;
-        $leftX = 40.0;
-        $rightX = 305.0;
-
-        $stream[] = $this->pdfFillRect($leftX, $listTopY + 2, 5, 16, [0.06, 0.73, 0.51]);
-        $stream[] = $this->pdfText($leftX + 12, $listTopY + 6, 'TOP PRODUCTS', 11, [0.20, 0.23, 0.27], 'F2');
-        $stream[] = $this->pdfFillRect($rightX, $listTopY + 2, 5, 16, [0.98, 0.55, 0.20]);
-        $stream[] = $this->pdfText($rightX + 12, $listTopY + 6, 'TOP CUSTOMERS', 11, [0.20, 0.23, 0.27], 'F2');
-
-        $topProducts = array_slice((array) ($stats['top_products'] ?? []), 0, 5);
-        $topCustomers = array_slice((array) ($stats['top_customers'] ?? []), 0, 5);
-        if (count($topProducts) === 0) {
-            $topProducts = [['product_name' => 'No data', 'total_sales_usd' => 0]];
-        }
-        if (count($topCustomers) === 0) {
-            $topCustomers = [['customer_name' => 'No data', 'total_sales_usd' => 0]];
-        }
-
-        $leftRowY = $listTopY - 18;
-        foreach ($topProducts as $index => $item) {
-            if ($index >= 5) {
-                break;
-            }
-            $rowY = $leftRowY - ($index * 24);
-            $stream[] = $this->pdfFillRect($leftX, $rowY, 245, 20, [0.97, 0.98, 0.99]);
-            $stream[] = $this->pdfStrokeRect($leftX, $rowY, 245, 20, [0.89, 0.91, 0.94], 0.5);
-            $stream[] = $this->pdfText($leftX + 8, $rowY + 7, (string) ($item['product_name'] ?? 'Unknown Product'), 8, [0.28, 0.32, 0.38], 'F2');
-            $stream[] = $this->pdfText($leftX + 172, $rowY + 7, '$' . number_format((float) ($item['total_sales_usd'] ?? 0), 2), 8, [0.12, 0.25, 0.69], 'F2');
-        }
-
-        $rightRowY = $listTopY - 18;
-        foreach ($topCustomers as $index => $item) {
-            if ($index >= 5) {
-                break;
-            }
-            $rowY = $rightRowY - ($index * 24);
-            $stream[] = $this->pdfStrokeRect($rightX, $rowY, 245, 20, [0.89, 0.91, 0.94], 0.5);
-            $stream[] = $this->pdfText($rightX + 8, $rowY + 7, (string) ($item['customer_name'] ?? 'Walk-in Customer'), 8, [0.28, 0.32, 0.38]);
-            $stream[] = $this->pdfText($rightX + 172, $rowY + 7, '$' . number_format((float) ($item['total_sales_usd'] ?? 0), 2), 8, [0.20, 0.23, 0.27], 'F2');
-        }
-
-        // Footer.
-        $stream[] = $this->pdfStrokeLine(40, 70, 555, 70, [0.89, 0.91, 0.94], 0.8);
-        $stream[] = $this->pdfText(40, 52, 'Confidential document. Internal use only.', 8, [0.58, 0.64, 0.71]);
-        $stream[] = $this->pdfText(40, 40, 'All figures are subject to final audit verification.', 8, [0.58, 0.64, 0.71]);
-        $stream[] = $this->pdfText(400, 46, 'WAREHOUSE MANAGEMENT SYSTEM', 8, [0.12, 0.25, 0.69], 'F2');
-
-        $content = implode("\n", $stream);
-        return $this->buildPdfDocument($content);
-    }
-
-    private function pdfText(
-        float $x,
-        float $y,
-        string $text,
-        float $size = 10,
-        array $rgb = [0, 0, 0],
-        string $font = 'F1'
-    ): string {
-        $safeText = $this->pdfEscapeText($text);
-        $r = $this->pdfColorComponent($rgb[0] ?? 0);
-        $g = $this->pdfColorComponent($rgb[1] ?? 0);
-        $b = $this->pdfColorComponent($rgb[2] ?? 0);
-
-        return sprintf(
-            "BT\n/%s %.2F Tf\n%.4F %.4F %.4F rg\n1 0 0 1 %.2F %.2F Tm\n(%s) Tj\nET",
-            $font,
-            $size,
-            $r,
-            $g,
-            $b,
-            $x,
-            $y,
-            $safeText
-        );
-    }
-
-    private function pdfFillRect(float $x, float $y, float $width, float $height, array $rgb): string
-    {
-        $r = $this->pdfColorComponent($rgb[0] ?? 0);
-        $g = $this->pdfColorComponent($rgb[1] ?? 0);
-        $b = $this->pdfColorComponent($rgb[2] ?? 0);
-
-        return sprintf("%.4F %.4F %.4F rg\n%.2F %.2F %.2F %.2F re\nf", $r, $g, $b, $x, $y, $width, $height);
-    }
-
-    private function pdfStrokeRect(
-        float $x,
-        float $y,
-        float $width,
-        float $height,
-        array $rgb,
-        float $lineWidth = 1.0
-    ): string {
-        $r = $this->pdfColorComponent($rgb[0] ?? 0);
-        $g = $this->pdfColorComponent($rgb[1] ?? 0);
-        $b = $this->pdfColorComponent($rgb[2] ?? 0);
-
-        return sprintf(
-            "%.3F w\n%.4F %.4F %.4F RG\n%.2F %.2F %.2F %.2F re\nS",
-            $lineWidth,
-            $r,
-            $g,
-            $b,
-            $x,
-            $y,
-            $width,
-            $height
-        );
-    }
-
-    private function pdfStrokeLine(
-        float $x1,
-        float $y1,
-        float $x2,
-        float $y2,
-        array $rgb,
-        float $lineWidth = 1.0
-    ): string {
-        $r = $this->pdfColorComponent($rgb[0] ?? 0);
-        $g = $this->pdfColorComponent($rgb[1] ?? 0);
-        $b = $this->pdfColorComponent($rgb[2] ?? 0);
-
-        return sprintf(
-            "%.3F w\n%.4F %.4F %.4F RG\n%.2F %.2F m\n%.2F %.2F l\nS",
-            $lineWidth,
-            $r,
-            $g,
-            $b,
-            $x1,
-            $y1,
-            $x2,
-            $y2
-        );
-    }
-
-    private function pdfColorComponent(mixed $value): float
-    {
-        return max(0, min(1, round((float) $value, 4)));
-    }
-
-    private function pdfEscapeText(string $text): string
-    {
-        $normalized = preg_replace('/[^\\x20-\\x7E]/', '?', $text) ?? '';
-        return str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $normalized);
-    }
-
-    private function buildPdfDocument(string $content): string
-    {
-        $objects = [];
-        $objects[] = "<< /Type /Catalog /Pages 2 0 R >>";
-        $objects[] = "<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
-        $objects[] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>";
-        $objects[] = "<< /Length " . strlen($content) . " >>\nstream\n{$content}\nendstream";
-        $objects[] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
-        $objects[] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>";
-
-        $pdf = "%PDF-1.4\n";
-        $offsets = [0];
-        foreach ($objects as $index => $object) {
-            $offsets[] = strlen($pdf);
-            $objectNumber = $index + 1;
-            $pdf .= "{$objectNumber} 0 obj\n{$object}\nendobj\n";
-        }
-
-        $xrefOffset = strlen($pdf);
-        $pdf .= "xref\n0 " . (count($objects) + 1) . "\n";
-        $pdf .= "0000000000 65535 f \n";
-        for ($i = 1; $i <= count($objects); $i++) {
-            $pdf .= str_pad((string) $offsets[$i], 10, '0', STR_PAD_LEFT) . " 00000 n \n";
-        }
-        $pdf .= "trailer\n<< /Size " . (count($objects) + 1) . " /Root 1 0 R >>\n";
-        $pdf .= "startxref\n{$xrefOffset}\n%%EOF";
-
-        return $pdf;
     }
 
     private function normalizeStatus(mixed $status): string

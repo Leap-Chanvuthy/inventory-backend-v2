@@ -31,6 +31,11 @@ class SaleOrderAPIController extends Controller implements SaleOrderAPIControlle
         return $this->saleOrderService->exportStatisticsReport($request);
     }
 
+    public function statisticsReportPreview(Request $request)
+    {
+        return $this->saleOrderService->previewStatisticsReport($request);
+    }
+
     public function saleOrderReport(int $id)
     {
         return $this->saleOrderService->exportSaleOrderReport($id);

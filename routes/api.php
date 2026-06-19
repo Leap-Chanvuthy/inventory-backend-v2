@@ -297,6 +297,7 @@ Route::middleware(['auth:api'])->group(function () {
     Route::prefix('sale-orders')->group(function () {
         Route::get('/', [SaleOrderAPIController::class, 'index'])->middleware('permission:sale_orders.read_all,sale_orders.read_own');
         Route::get('/statistics', [SaleOrderAPIController::class, 'statistics'])->middleware('permission:sale_orders.read_sale_dashboard');
+        Route::get('/statistics/report/preview', [SaleOrderAPIController::class, 'statisticsReportPreview'])->middleware('permission:sale_orders.read_sale_dashboard');
         Route::get('/statistics/report', [SaleOrderAPIController::class, 'statisticsReport'])->middleware('permission:sale_orders.read_sale_dashboard');
         Route::get('/{id}/report', [SaleOrderAPIController::class, 'saleOrderReport'])->middleware('permission:sale_orders.read_all,sale_orders.read_own');
         Route::get('/refund-records', [SaleOrderAPIController::class, 'refundRecords'])->middleware('permission:sale_orders.read_all,sale_orders.read_own');

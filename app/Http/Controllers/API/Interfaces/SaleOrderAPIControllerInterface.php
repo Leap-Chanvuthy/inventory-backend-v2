@@ -80,6 +80,24 @@ interface SaleOrderAPIControllerInterface
      * )
      */
     public function statisticsReport(Request $request);
+
+    /**
+     * @OA\Get(
+     *     path="/api/sale-orders/statistics/report/preview",
+     *     tags={"Sale Orders"},
+     *     security={{"Bearer":{}}},
+     *     summary="Preview sale order statistics report HTML",
+     *     @OA\Parameter(name="date_from", in="query", required=false, @OA\Schema(type="string", format="date", example="2026-04-01")),
+     *     @OA\Parameter(name="date_to", in="query", required=false, @OA\Schema(type="string", format="date", example="2026-04-30")),
+     *     @OA\Parameter(name="group_by", in="query", required=false, @OA\Schema(type="string", enum={"day","week","month","year"}, example="month")),
+     *     @OA\Parameter(name="customer_id", in="query", required=false, @OA\Schema(type="integer", example=12)),
+     *     @OA\Parameter(name="status", in="query", required=false, @OA\Schema(type="string", example="COMPLETED,PROCESSING")),
+     *     @OA\Response(response=200, description="HTML report preview generated successfully"),
+     *     @OA\Response(response=500, description="Failed generating sale order statistics report preview")
+     * )
+     */
+    public function statisticsReportPreview(Request $request);
+
     public function saleOrderReport(int $id);
 
     /**
