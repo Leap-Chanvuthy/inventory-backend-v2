@@ -871,6 +871,10 @@ class SaleOrderService
         $mpdf = new Mpdf([
             'mode' => 'utf-8',
             'format' => 'A4-L',
+            'margin_left' => 9,
+            'margin_right' => 9,
+            'margin_top' => 8,
+            'margin_bottom' => 8,
             'tempDir' => $tempDir,
             'fontDir' => array_merge(is_array($fontDirs) ? $fontDirs : [], [$fontDir]),
             'fontdata' => (is_array($fontData) ? $fontData : []) + [
