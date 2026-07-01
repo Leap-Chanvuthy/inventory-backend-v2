@@ -369,6 +369,7 @@ class SaleOrderService
 
             $query = SaleOrderRefund::with([
                 'saleOrder' => fn ($q) => $q->withTrashed()->with('customer'),
+                'items.saleOrderItem.product' => fn ($q) => $q->withTrashed(),
                 'processedBy',
             ])->orderByDesc('processed_at')->orderByDesc('id');
 

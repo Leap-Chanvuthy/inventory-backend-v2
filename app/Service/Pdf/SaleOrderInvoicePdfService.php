@@ -150,7 +150,7 @@ class SaleOrderInvoicePdfService
                 'title' => $documentLabel === 'QUOTATION INVOICE' ? 'Sales Quote' : 'Sales Invoice',
                 'document_label' => $documentLabel,
                 'number' => (string) $saleOrder->order_no,
-                'generated_at' => $this->formatDate((string) $saleOrder->created_at, 'M d, Y h:i A'),
+                'generated_at' => now()->timezone(config('app.timezone', 'UTC'))->format('M d, Y h:i A'),
             ],
             'company' => [
                 'name' => $companyName,
