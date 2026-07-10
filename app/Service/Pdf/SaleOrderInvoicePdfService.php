@@ -18,6 +18,9 @@ class SaleOrderInvoicePdfService
     public function download(SaleOrder $saleOrder): Response
     {
         $html = $this->render($saleOrder);
+        $orderStatus = $this->normalizeStatus($saleOrder->order_status);
+        $isQuotation = $orderStatus === SaleOrderStatusEnum::DRAFT->value;
+        $documentName = $isQuotation ? 'Sales Quotation' : 'Sales Invoice';
 
         $tempDir = storage_path('app/mpdf');
 
@@ -64,13 +67,20 @@ class SaleOrderInvoicePdfService
         $mpdf->autoScriptToLang = true;
         $mpdf->autoLangToFont = true;
 
-        $mpdf->SetTitle('Sale Order Invoice - ' . ((string) $saleOrder->order_no));
+        $mpdf->SetTitle($documentName . ' - ' . ((string) $saleOrder->order_no));
         $mpdf->SetAuthor(config('app.name', 'Inventory System'));
         $mpdf->SetCreator(config('app.name', 'Inventory System'));
 
         $mpdf->WriteHTML($html);
 
-        $filename = 'sale-order-' . ((string) $saleOrder->order_no) . '.pdf';
+        $safeOrderNumber = trim((string) preg_replace(
+            '/[^A-Za-z0-9_-]+/',
+            '-',
+            (string) $saleOrder->order_no
+        ), '-');
+        $filename = ($isQuotation ? 'sales-quotation-' : 'sales-invoice-')
+            . ($safeOrderNumber !== '' ? $safeOrderNumber : (string) $saleOrder->id)
+            . '.pdf';
 
         return response($mpdf->Output('', 'S'), 200)
             ->header('Content-Type', 'application/pdf')
@@ -150,7 +160,8 @@ class SaleOrderInvoicePdfService
                 'title' => $documentLabel === 'QUOTATION INVOICE' ? 'Sales Quote' : 'Sales Invoice',
                 'document_label' => $documentLabel,
                 'number' => (string) $saleOrder->order_no,
-                'generated_at' => now()->timezone(config('app.timezone', 'UTC'))->format('M d, Y h:i A'),
+                'generated_at' => Carbon::now(config('app.timezone', 'Asia/Phnom_Penh'))
+                    ->format('M d, Y h:i A'),
             ],
             'company' => [
                 'name' => $companyName,

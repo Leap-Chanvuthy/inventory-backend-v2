@@ -766,7 +766,9 @@ class SaleOrderService
     {
         try {
             [$stats, $reportMeta] = $this->resolveStatisticsReportPayload($request);
-            $filename = 'sale-order-report-' . now()->format('Ymd-His') . '.pdf';
+            $filename = 'sale-order-report-'
+                . Carbon::now(config('app.timezone', 'Asia/Phnom_Penh'))->format('Ymd-His')
+                . '.pdf';
             $pdfContent = $this->buildStatisticsReportPdf($stats, $reportMeta);
 
             return response($pdfContent, 200, [
@@ -824,7 +826,7 @@ class SaleOrderService
             }
         }
 
-        $generatedAt = now();
+        $generatedAt = Carbon::now(config('app.timezone', 'Asia/Phnom_Penh'));
 
         return [
             'report_id' => 'SR-' . $generatedAt->format('Ymd-His'),

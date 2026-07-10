@@ -317,26 +317,10 @@ class UserService
                 );
             }
 
-            // Snapshot before verification
-            $oldSnapshot = $this->auditLoggerService->snapshotModel($user);
-
             $user->update([
                 'email_verified_at' => now(),
                 // keep token, DO NOT set to null
             ]);
-            $user->refresh();
-
-            // Snapshot after and log diff
-            $newSnapshot = $this->auditLoggerService->snapshotModel($user);
-            $this->auditLoggerService->logDiff(
-                'user.verify_email',
-                User::class,
-                $user->id,
-                $oldSnapshot,
-                $newSnapshot,
-                null,
-                ['description' => "User email verified: {$user->email}"]
-            );
 
             return ResponseHelper::success(
                 null,
