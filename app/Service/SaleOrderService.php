@@ -972,7 +972,7 @@ class SaleOrderService
                 );
 
                 $saleOrder = SaleOrder::create([
-                    'order_no' => $this->generateOrderNo(),
+                    'order_no' => $this->generateOrderNo($orderDate),
                     'customer_id' => $validated['customer_id'] ?? null,
                     'order_date' => $validated['order_date'],
                     'return_window_days' => $returnWindowDays,
@@ -2374,23 +2374,22 @@ class SaleOrderService
         ]);
     }
 
-    private function generateOrderNo(): string
+    private function generateOrderNo(Carbon $orderDate): string
     {
-        $prefix = 'SO-' . now()->format('Ymd');
-        $lastOrder = SaleOrder::where('order_no', 'like', $prefix . '-%')
-            ->orderByDesc('id')
-            ->first();
+        $year = $orderDate->format('Y');
+        $lastSequence = SaleOrder::where('order_no', 'like', "INV-%-{$year}")
+            ->lockForUpdate()
+            ->pluck('order_no')
+            ->map(function (string $orderNo) use ($year) {
+                if (preg_match("/^INV-(\\d{5})-{$year}$/", $orderNo, $matches) !== 1) {
+                    return 0;
+                }
 
-        $next = 1;
-        if ($lastOrder && str_contains($lastOrder->order_no, '-')) {
-            $parts = explode('-', $lastOrder->order_no);
-            $tail = end($parts);
-            if (is_numeric($tail)) {
-                $next = (int) $tail + 1;
-            }
-        }
+                return (int) $matches[1];
+            })
+            ->max() ?? 0;
 
-        return sprintf('%s-%04d', $prefix, $next);
+        return sprintf('INV-%05d-%s', $lastSequence + 1, $year);
     }
 
     private function generateRefundNo(): string

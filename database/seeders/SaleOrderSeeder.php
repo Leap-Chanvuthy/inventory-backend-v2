@@ -27,10 +27,9 @@ class SaleOrderSeeder extends Seeder
 
         $faker = fake();
         $stockService = app(ProductStockDeductionService::class);
-        $batchToken = now()->format('YmdHis');
-
         $userIds = User::query()->pluck('id')->all();
         $customerIds = Customer::query()->pluck('id')->all();
+        $invoiceSequencesByYear = [];
 
         $created = 0;
         $attempts = 0;
@@ -53,14 +52,14 @@ class SaleOrderSeeder extends Seeder
             DB::transaction(function () use (
                 $faker,
                 $created,
-                $batchToken,
                 $customerId,
                 $orderDate,
                 $orderStatus,
                 $paymentStatus,
                 $userId,
                 $items,
-                $stockService
+                $stockService,
+                &$invoiceSequencesByYear
             ) {
                 $totals = $this->buildTotals($faker, $items);
                 $returnWindowDays = $faker->numberBetween(14, 45);
@@ -73,7 +72,7 @@ class SaleOrderSeeder extends Seeder
                 );
 
                 $saleOrder = SaleOrder::factory()->create([
-                    'order_no' => $this->generateSeedOrderNo($created + 1, $batchToken),
+                    'order_no' => $this->generateSeedOrderNo($orderDate, $invoiceSequencesByYear),
                     'customer_id' => $customerId,
                     'order_date' => $orderDate,
                     'return_window_days' => $returnWindowDays,
@@ -330,8 +329,25 @@ class SaleOrderSeeder extends Seeder
         return array_values($grouped);
     }
 
-    private function generateSeedOrderNo(int $sequence, string $batchToken): string
+    private function generateSeedOrderNo(string $orderDate, array &$invoiceSequencesByYear): string
     {
-        return sprintf('SO-SEEDED-%s-%04d', $batchToken, $sequence);
+        $year = Carbon::parse($orderDate)->format('Y');
+
+        if (!isset($invoiceSequencesByYear[$year])) {
+            $invoiceSequencesByYear[$year] = (int) (SaleOrder::where('order_no', 'like', "INV-%-{$year}")
+                ->pluck('order_no')
+                ->map(function (string $orderNo) use ($year) {
+                    if (preg_match("/^INV-(\\d{5})-{$year}$/", $orderNo, $matches) !== 1) {
+                        return 0;
+                    }
+
+                    return (int) $matches[1];
+                })
+                ->max() ?? 0);
+        }
+
+        $invoiceSequencesByYear[$year]++;
+
+        return sprintf('INV-%05d-%s', $invoiceSequencesByYear[$year], $year);
     }
 }
